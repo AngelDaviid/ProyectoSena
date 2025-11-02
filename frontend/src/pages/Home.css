@@ -1,0 +1,72 @@
+.home-container {
+    max-width: 1100px;
+    margin: 32px auto;
+    padding: 0 16px;
+    font-family: Inter, Roboto, Arial, sans-serif;
+    color: #0f172a;
+}
+
+.home-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 24px;
+}
+
+.home-header h1 {
+    margin: 0;
+    font-size: 1.6rem;
+}
+
+.home-actions .btn-logout {
+    background: #ef4444;
+    color: white;
+    border: none;
+    padding: 8px 12px;
+    border-radius: 6px;
+    cursor: pointer;
+}
+
+.home-main {
+    display: block;
+}
+
+.cards-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 16px;
+    margin-top: 18px;
+}
+
+.card {
+    background: #ffffff;
+    border: 1px solid #e6edf3;
+    padding: 16px;
+    border-radius: 8px;
+    box-shadow: 0 6px 20px rgba(2,6,23,0.04);
+}
+
+.welcome-card {
+    margin-bottom: 12px;
+}
+
+.card h3 {
+    margin-top: 0;
+    margin-bottom: 8px;
+}
+
+.btn {
+    display: inline-block;
+    background: #0ea5e9;
+    color: white;
+    padding: 8px 12px;
+    border-radius: 6px;
+    border: none;
+    cursor: pointer;
+}
+
+.home-footer {
+    margin-top: 28px;
+    text-align: center;
+    color: #667085;
+}
