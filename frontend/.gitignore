@@ -1,0 +1,34 @@
+# Node
+node_modules/
+**/node_modules/
+
+# Lockfiles
+package-lock.json
+yarn.lock
+
+# Env
+.env
+.env.local
+.env.*.local
+
+# Build output
+dist/
+build/
+out/
+
+# IDEs
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# TypeScript
+*.tsbuildinfo
