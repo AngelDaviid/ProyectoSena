@@ -1,0 +1,25 @@
+# Node / Nest
+../node_modules/
+dist/
+coverage/
+
+# Uploads & temporales
+uploads/
+.tmp/
+.env
+.env.*.local
+
+# OS / IDE
+.DS_Store
+.vscode/
+.idea/
+
+# Logs / lock files
+npm-debug.log*
+yarn-error.log*
+pnpm-lock.yaml
+package-lock.json
+
+# Optional: compiled files
+*.js
+*.js.map
