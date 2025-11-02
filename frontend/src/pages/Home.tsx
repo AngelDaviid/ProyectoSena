@@ -1,8 +1,11 @@
+import React from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useAuth } from "../hooks/useAuth.ts";
-import "./Home.css"
+import { useAuth } from '../hooks/useAuth';
+import PostList from '../components/PostList';
+import '../components/post.css';
+import './Home.css';
 
-const Home = () => {
+const Home: React.FC = () => {
     const { user, logout } = useAuth();
     const navigate = useNavigate();
 
@@ -11,55 +14,96 @@ const Home = () => {
         navigate('/login');
     };
 
+    const displayName =
+        user?.profile?.name || user?.profile?.lastName
+            ? `${user?.profile?.name ?? ''} ${user?.profile?.lastName ?? ''}`.trim()
+            : user?.email ?? 'Usuario';
+
     return (
-        <div className="home-container">
-            <header className="home-header">
-                <h1>Bienvenido{user?.name ? `, ${user.name}` : ''}!</h1>
-                <div className="home-actions">
-                    <button className="btn btn-logout" onClick={handleLogout}>
-                        Cerrar sesión
-                    </button>
+        <div className="home-container facebook-layout">
+            <header className="home-header fb-header">
+                <div className="fb-left">
+                    <h1 className="fb-logo" onClick={() => navigate('/')}>SenaBook</h1>
+                </div>
+
+                <div className="fb-center">
+                    <input
+                        aria-label="Buscar"
+                        className="fb-search"
+                        placeholder="Buscar en SenaBook"
+                        onKeyDown={(e) => {
+                            if (e.key === 'Enter') {
+                                // por ahora búsqueda local / futura
+                                // navigate('/search?q=' + encodeURIComponent((e.target as HTMLInputElement).value));
+                            }
+                        }}
+                    />
+                </div>
+
+                <div className="fb-right">
+                    <div className="fb-user">
+                        <div className="avatar">
+                            {user?.profile?.avatar ? (
+                                <img src={user.profile.avatar} alt={displayName} />
+                            ) : (
+                                <div className="avatar-placeholder">{displayName.charAt(0)}</div>
+                            )}
+                        </div>
+                        <span className="fb-username">{displayName}</span>
+                        <button className="btn btn-logout" onClick={handleLogout}>
+                            Cerrar sesión
+                        </button>
+                    </div>
                 </div>
             </header>
 
-            <main className="home-main">
-                <section className="card welcome-card">
-                    <h2>Inicio</h2>
-                    <p>
-                        Esta es la página principal de la aplicación. Aquí puedes ver accesos
-                        rápidos a las secciones principales y la información básica de tu cuenta.
-                    </p>
+            <main className="home-main fb-main">
+                <aside className="fb-sidebar left-sidebar">
+                    <div className="card profile-card">
+                        <div className="profile-top">
+                            <div className="avatar large">
+                                {user?.profile?.avatar ? (
+                                    <img src={user.profile.avatar} alt={displayName} />
+                                ) : (
+                                    <div className="avatar-placeholder large">{displayName.charAt(0)}</div>
+                                )}
+                            </div>
+                            <div className="profile-info">
+                                <strong>{displayName}</strong>
+                                <div className="profile-role">{user?.role ?? ''}</div>
+                            </div>
+                        </div>
+
+                        <nav className="profile-nav">
+                            <button className="btn" onClick={() => navigate('/profile')}>Ver perfil</button>
+                            <button className="btn" onClick={() => navigate('/friends')}>Amigos</button>
+                            <button className="btn" onClick={() => navigate('/groups')}>Grupos</button>
+                            <button className="btn" onClick={() => navigate('/marketplace')}>Marketplace</button>
+                        </nav>
+                    </div>
+                </aside>
+
+                <section className="fb-feed">
+                    {/* Aquí insertamos el feed: el componente PostList ya incluye el form para crear posts */}
+                    <PostList />
                 </section>
 
-                <section className="cards-grid">
-                    <article className="card">
-                        <h3>Mi perfil</h3>
-                        <p>Ver y editar la información de tu cuenta.</p>
-                        <button className="btn" onClick={() => navigate('/profile')}>
-                            Ir al perfil
-                        </button>
-                    </article>
+                <aside className="fb-sidebar right-sidebar">
+                    <div className="card suggestions-card">
+                        <h4>Sugerencias</h4>
+                        <p>Personas y grupos sugeridos — sección para mayor interacción.</p>
+                        <button className="btn" onClick={() => navigate('/suggestions')}>Ver sugerencias</button>
+                    </div>
 
-                    <article className="card">
-                        <h3>Registros</h3>
-                        <p>Gestiona registros, entradas o lo que necesites en tu proyecto.</p>
-                        <button className="btn" onClick={() => navigate('/register')}>
-                            Registrar
-                        </button>
-                    </article>
-
-                    <article className="card">
-                        <h3>Productos / Servicios</h3>
-                        <p>Accede a la lista principal de elementos de la app.</p>
-                        <button className="btn" onClick={() => navigate('/items')}>
-                            Ver lista
-                        </button>
-                    </article>
-                </section>
+                    <div className="card trending-card">
+                        <h4>Tendencias</h4>
+                        <p>Temas populares en SenaBook.</p>
+                    </div>
+                </aside>
             </main>
 
             <footer className="home-footer">
-                <small>Proyecto SENA · Frontend</small>
+                <small>Proyecto SENA · Frontend — SenaBook</small>
             </footer>
         </div>
     );
