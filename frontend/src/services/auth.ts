@@ -1,9 +1,5 @@
-import axios from 'axios';
+import api from './api';
 import type { AuthResponse, User } from '../types/type';
-
-const api = axios.create({
-    baseURL: import.meta.env.VITE_API_URL || 'http://localhost:3001',
-});
 
 export function setAuthToken(token: string | null) {
     if (token) {
@@ -49,5 +45,3 @@ export async function getProfile(): Promise<User> {
     const res = await api.get<User>('/auth/profile');
     return res.data;
 }
-
-export default api;

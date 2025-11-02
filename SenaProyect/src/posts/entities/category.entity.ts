@@ -1,20 +1,20 @@
-import {Column, CreateDateColumn, Entity, ManyToOne, PrimaryGeneratedColumn, UpdateDateColumn} from "typeorm";
-import {Post} from "./post.entity";
+import { Column, CreateDateColumn, Entity, ManyToMany, PrimaryGeneratedColumn, UpdateDateColumn } from 'typeorm';
+import { Post } from './post.entity';
 
 @Entity({
-  name: 'categories'
+  name: 'categories',
 })
 export class Category {
   @PrimaryGeneratedColumn()
   id: number;
 
-  @Column({type: "varchar", length: 255, unique: true})
+  @Column({ type: 'varchar', length: 255, unique: true })
   name: string;
 
-  @Column({ type:"varchar", length: 800, nullable: true})
+  @Column({ type: 'varchar', length: 800, nullable: true })
   description: string;
 
-  @Column({type: "varchar", length: 800, nullable: true, name: 'cover_image'})
+  @Column({ type: 'varchar', length: 800, nullable: true, name: 'cover_image' })
   coverImage: string;
 
   @CreateDateColumn({
@@ -29,6 +29,6 @@ export class Category {
   })
   updatedAt: Date;
 
-  @ManyToOne(() => Post)
-  posts: Post[]
+  @ManyToMany(() => Post, (post) => post.categories)
+  posts: Post[];
 }

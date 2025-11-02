@@ -30,7 +30,10 @@ async function bootstrap() {
     jsonDocumentUrl: 'swagger/json',
   });
 
-  app.use(helmet());
+  app.use(helmet({
+    crossOriginResourcePolicy: { policy: 'cross-origin' },
+  }));
+
   app.enableCors({
     origin: process.env.FRONTEND_URL || '*',
   });

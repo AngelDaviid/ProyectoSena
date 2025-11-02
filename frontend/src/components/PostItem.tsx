@@ -21,9 +21,20 @@ const PostItem: React.FC<Props> = ({ post, onUpdated, onDeleted }) => {
         post.user?.email ||
         'Usuario';
 
+    // Usar la misma variable que services/api.ts
+    const API_BASE = import.meta.env.SENA_API_URL || 'http://localhost:3001';
+
     const imageSrc = post.imageUrl
-        ? post.imageUrl.startsWith('/') ? `${window.location.origin}${post.imageUrl}` : post.imageUrl
+        ? post.imageUrl.startsWith('/')
+            ? `${API_BASE}${post.imageUrl}`
+            : post.imageUrl
         : null;
+
+    // DEBUG: ver en consola la URL que intenta cargar
+    if (imageSrc) {
+        // eslint-disable-next-line no-console
+        console.log('Post imageSrc ->', imageSrc);
+    }
 
     const isOwner = !!(user && post.user && user.id === post.user.id);
 
@@ -62,38 +73,20 @@ const PostItem: React.FC<Props> = ({ post, onUpdated, onDeleted }) => {
                         <div className="post-date">{post.createdAt ? new Date(post.createdAt).toLocaleString() : ''}</div>
                     </div>
                 </div>
-
-                {isOwner && !editing && (
-                    <div>
+                {isOwner && (
+                    <div className="post-actions">
                         <button onClick={() => setEditing(true)}>Editar</button>
-                        <button onClick={handleDeleted} disabled={deleting} style={{ marginLeft: 8 }}>
-                            {deleting ? 'Eliminando...' : 'Eliminar'}
-                        </button>
+                        <button onClick={handleDeleted} disabled={deleting}>{deleting ? 'Eliminando...' : 'Eliminar'}</button>
                     </div>
                 )}
             </div>
 
-            {!editing ? (
-                <>
-                    <h4 className="post-title">{post.title}</h4>
-                    {imageSrc && (
-                        <div className="post-image">
-                            <img src={imageSrc} alt={post.title} />
-                        </div>
-                    )}
-                    {post.summary && <p className="post-summary">{post.summary}</p>}
-                    {post.content && <p className="post-content">{post.content}</p>}
-                    {post.categories && post.categories.length > 0 && (
-                        <div className="post-categories">
-                            {post.categories.map((c) => (
-                                <span key={c.id} className="category-pill">{c.name}</span>
-                            ))}
-                        </div>
-                    )}
-                </>
-            ) : (
-                <EditPostForm post={post} onCancel={() => setEditing(false)} onSaved={handleSaved} />
-            )}
+            <div className="post-body">
+                <h2>{post.title}</h2>
+                {imageSrc && <img src={imageSrc} alt={post.title} className="post-image" />}
+                {post.summary && <p>{post.summary}</p>}
+                {editing && <EditPostForm post={post} onSaved={handleSaved} onCancel={() => setEditing(false)} />}
+            </div>
         </article>
     );
 };

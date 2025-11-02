@@ -1,25 +1,24 @@
-import {Injectable, NotFoundException, BadRequestException} from '@nestjs/common';
-import {InjectRepository} from '@nestjs/typeorm';
-import {Repository} from 'typeorm';
-import {Post} from '../entities/post.entity';
-import {CreatePostDto} from '../dto/create-post.dto';
-import {UpdatePostDto} from '../dto/update-post.dto';
+import { Injectable, NotFoundException, BadRequestException, ForbiddenException } from '@nestjs/common';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository } from 'typeorm';
+import { Post } from '../entities/post.entity';
+import { CreatePostDto } from '../dto/create-post.dto';
+import { UpdatePostDto } from '../dto/update-post.dto';
 
 @Injectable()
 export class PostsService {
   constructor(
     @InjectRepository(Post)
-    private postsRepository: Repository<Post>
-  ) {
-  }
+    private postsRepository: Repository<Post>,
+  ) {}
 
   async create(createPostDto: CreatePostDto, userId: number, imageUrl?: string) {
     try {
       const newPost = await this.postsRepository.save({
         ...createPostDto,
-        user: {id: userId},
-        categories: createPostDto.categoryIds?.map((id) => ({id})),
-        imageUrl: createPostDto.imageUrl,
+        user: { id: userId },
+        categories: createPostDto.categoryIds?.map((id) => ({ id })),
+        imageUrl: imageUrl,
       });
       return this.findOne(newPost.id);
     } catch (error) {
@@ -29,34 +28,51 @@ export class PostsService {
 
   async findAll() {
     const posts = await this.postsRepository.find({
-      relations: ['user.profile', 'categories']
+      relations: ['user.profile', 'categories'],
     });
-    return posts
+    return posts;
   }
 
   async findOne(id: number) {
-    const post = await this.postsRepository.findOne({where: {id}, relations: ['user.profile', 'categories']});
+    const post = await this.postsRepository.findOne({ where: { id }, relations: ['user.profile', 'categories'] });
     if (!post) {
       throw new NotFoundException(`Post con id ${id} no encontrado`);
     }
     return post;
   }
 
-  async update(id: number, updatePostDto: UpdatePostDto) {
+  async update(id: number, updatePostDto: UpdatePostDto, userId?: number) {
     try {
       const post = await this.findOne(id);
+
+      if (userId && post.user && post.user.id !== userId) {
+        throw new ForbiddenException('No tienes permisos para actualizar este post');
+      }
+
+      if ((updatePostDto as any).categoryIds) {
+        (updatePostDto as any).categories = (updatePostDto as any).categoryIds.map((id: number) => ({ id }));
+        delete (updatePostDto as any).categoryIds;
+      }
+
       const updatedPost = this.postsRepository.merge(post, updatePostDto);
       return await this.postsRepository.save(updatedPost);
-    } catch {
+    } catch (err) {
+      if (err instanceof ForbiddenException) throw err;
       throw new BadRequestException('Error al actualizar el post');
     }
   }
 
-  async remove(id: number) {
+
+  async remove(id: number, userId?: number) {
     try {
+      const post = await this.findOne(id);
+      if (userId && post.user && post.user.id !== userId) {
+        throw new ForbiddenException('No tienes permisos para eliminar este post');
+      }
       await this.postsRepository.delete(id);
-      return {message: 'Post eliminado correctamente.'};
-    } catch {
+      return { message: 'Post eliminado correctamente.' };
+    } catch (err) {
+      if (err instanceof ForbiddenException) throw err;
       throw new BadRequestException('Error al eliminar el post');
     }
   }
@@ -65,7 +81,7 @@ export class PostsService {
     const posts = await this.postsRepository.find({
       where: { categories: { id } },
       relations: ['user.profile'],
-    })
-    return posts
+    });
+    return posts;
   }
 }
