@@ -78,7 +78,6 @@ const Home: React.FC = () => {
                             <button className="btn" onClick={() => navigate('/profile')}>Ver perfil</button>
                             <button className="btn" onClick={() => navigate('/friends')}>Amigos</button>
                             <button className="btn" onClick={() => navigate('/groups')}>Grupos</button>
-                            <button className="btn" onClick={() => navigate('/marketplace')}>Marketplace</button>
                         </nav>
                     </div>
                 </aside>
