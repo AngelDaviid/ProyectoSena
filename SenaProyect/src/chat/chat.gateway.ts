@@ -12,10 +12,9 @@ import { MessagesService } from "./services/message.service";
 
 @WebSocketGateway({
   cors: {
-    origin: '*',
-    methods: ['GET', 'POST'],
+    origin: 'http://localhost:5173',
+    credentials: true,
   },
-  transports: ['websocket', 'polling'],
 })
 export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
   @WebSocketServer()
