@@ -15,11 +15,11 @@ export interface SimpleUser {
 
 export interface Message {
     id: number;
-    text?: string;
+    text: string;
     imageUrl?: string | null;
     createdAt?: string;
-    sender?: SimpleUser;
-    conversation?: { id: number };
+    senderId?: number;
+    conversationId?: number;
 }
 
 export interface Conversation {

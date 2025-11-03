@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useRef } from 'react';
 import { useAuth } from '../hooks/useAuth';
 import { connectSocket, disconnectSocket, getSocket } from '../services/socket';
 import { getConversations, getMessages } from '../services/chat';
@@ -10,8 +10,10 @@ const ChatPage: React.FC = () => {
     const { user } = useAuth();
     const [conversations, setConversations] = useState<Conversation[]>([]);
     const [activeConversation, setActiveConversation] = useState<Conversation | null>(null);
-    const [messages, setMessages] = useState<Message[]>([]);
+    const [messages, setMessages] = useState<Array<Message & { sending?: boolean; tempId?: string }>>([]);
+    const socketRef = useRef<any>(null);
 
+    // === Cargar conversaciones ===
     const loadConversations = useCallback(async () => {
         try {
             const data = await getConversations();
@@ -21,17 +23,30 @@ const ChatPage: React.FC = () => {
         }
     }, []);
 
+    // === Conectar socket y escuchar nuevos mensajes ===
     useEffect(() => {
         loadConversations();
         const s = connectSocket();
+        socketRef.current = s;
 
         const handleNewMessage = (msg: Message) => {
-            // si el mensaje pertenece a la conversación activa, agregarlo
-            if (activeConversation && msg.conversation?.id === activeConversation.id) {
-                setMessages((prev) => [...prev, msg]);
+            if (activeConversation && msg.conversationId === activeConversation.id) {
+                setMessages((prev) => {
+                    // Buscar y reemplazar un mensaje temporal si coincide texto + remitente
+                    const tempIdx = prev.findIndex(
+                        (m) =>
+                            m.sending &&
+                            m.senderId === msg.senderId &&
+                            String(m.text || '').trim() === String(msg.text || '').trim()
+                    );
+                    if (tempIdx !== -1) {
+                        const copy = [...prev];
+                        copy.splice(tempIdx, 1);
+                        return [...copy, msg];
+                    }
+                    return [...prev, msg];
+                });
             }
-            // además podrías actualizar conversaciones (último mensaje) recargando
-            // loadConversations();
         };
 
         s.on('newMessage', handleNewMessage);
@@ -39,14 +54,20 @@ const ChatPage: React.FC = () => {
         return () => {
             s.off('newMessage', handleNewMessage);
             disconnectSocket();
+            socketRef.current = null;
         };
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [loadConversations, activeConversation?.id]);
+    }, [loadConversations, activeConversation?.id, user?.id]);
 
+    // === Abrir conversación ===
     const openConversation = async (conv: Conversation) => {
         setActiveConversation(conv);
         try {
             const msgs = await getMessages(conv.id);
+            msgs.sort(
+                (a, b) =>
+                    new Date(a.createdAt || 0).getTime() -
+                    new Date(b.createdAt || 0).getTime()
+            );
             setMessages(msgs);
         } catch (err) {
             console.error('Error al cargar mensajes', err);
@@ -57,29 +78,69 @@ const ChatPage: React.FC = () => {
         s.emit('joinConversation', { conversationId: String(conv.id) });
     };
 
-    const handleSend = (text: string, imageUrl?: string) => {
+    // === Enviar mensaje (corregido) ===
+    const handleSend = (text: string, imageUrl?: string | File | undefined): void => {
         if (!activeConversation || !user) return;
         const s = getSocket();
+
+        // Si el usuario envía una imagen (File), crear una URL temporal para mostrarla
+        const image =
+            imageUrl instanceof File ? URL.createObjectURL(imageUrl) : imageUrl ?? null;
+
         s.emit('sendMessage', {
             conversationId: String(activeConversation.id),
             senderId: String(user.id),
             text,
-            imageUrl,
+            imageUrl: image,
         });
-        // optimista: agregar localmente (opcional)
+
         setMessages((prev) => [
             ...prev,
             {
                 id: Date.now(),
                 text,
-                imageUrl,
+                imageUrl: image,
                 createdAt: new Date().toISOString(),
-                sender: { id: user.id, profile: user.profile, email: user.email },
-                conversation: { id: activeConversation.id },
-            } as Message,
+                senderId: user.id,
+                conversationId: activeConversation.id,
+                sending: true,
+                tempId: `temp-${Date.now()}`,
+            } as Message & { sending?: boolean; tempId?: string },
         ]);
     };
 
+    // === Cargar mensajes antiguos ===
+    const handleLoadMore = async (): Promise<number> => {
+        if (!activeConversation) return 0;
+        try {
+            const all = await getMessages(activeConversation.id);
+            all.sort(
+                (a, b) =>
+                    new Date(a.createdAt || 0).getTime() -
+                    new Date(b.createdAt || 0).getTime()
+            );
+
+            if (messages.length === 0) {
+                setMessages(all);
+                return all.length;
+            }
+
+            const earliest = messages[0];
+            const earliestTime = new Date(earliest.createdAt || 0).getTime();
+            const older = all.filter(
+                (m) => new Date(m.createdAt || 0).getTime() < earliestTime
+            );
+            if (older.length === 0) return 0;
+
+            setMessages((prev) => [...older, ...prev]);
+            return older.length;
+        } catch (err) {
+            console.error('Error cargando mensajes antiguos', err);
+            return 0;
+        }
+    };
+
+    // === Render ===
     return (
         <div className="flex h-full min-h-screen">
             <ChatSidebar
@@ -94,6 +155,7 @@ const ChatPage: React.FC = () => {
                         messages={messages}
                         onSend={handleSend}
                         currentUserId={user?.id}
+                        onLoadMore={handleLoadMore}
                     />
                 ) : (
                     <div className="flex items-center justify-center h-full text-gray-500">
