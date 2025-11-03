@@ -1,4 +1,4 @@
-import { Controller, Post, UseGuards, Req, Body } from '@nestjs/common';
+import { Controller, Post, UseGuards, Req, Body, Get } from '@nestjs/common';
 import type { Request } from 'express';
 import { AuthGuard } from '@nestjs/passport';
 import { AuthService } from '../service/auth.service';
@@ -40,5 +40,18 @@ export class AuthController {
       user: safeUser,
       access_token,
     };
+  }
+
+  @UseGuards(AuthGuard('jwt'))
+  @Get('profile')
+  async profile(@Req() req: Request) {
+    const jwtUser = req.user as any;
+    if (!jwtUser || !jwtUser.id) return null;
+
+    const user = await this.usersService.findByIdForAuth(jwtUser.id);
+    if (!user) return null;
+
+    const { password, ...safeUser } = user as any;
+    return safeUser;
   }
 }

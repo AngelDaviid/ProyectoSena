@@ -89,7 +89,7 @@ const EditPostForm: React.FC<Props> = ({ post, onCancel, onSaved }) => {
                 fd.append("title", title);
                 if (content) fd.append("content", content);
                 if (summary) fd.append("summary", summary);
-                fd.append("imageUrl", file);
+                fd.append("image", file);
                 if (selectedIds.length > 0)
                     fd.append("categoryIds", JSON.stringify(selectedIds.map(Number)));
 

@@ -35,23 +35,29 @@ export async function updatePost(id: number, payload: Partial<Post> | FormData):
     const token = getAuthToken();
 
     if (payload instanceof FormData) {
-        const headers: Record<string, string> = {};
+        const headers: Record<string, string> = { 'Content-Type': 'multipart/form-data' };
         if (token) headers.Authorization = `Bearer ${token}`;
-        const res = await api.put<Post>(`/posts/${id}`, payload, { headers });
+
+        const res = await api.patch<Post>(`/posts/${id}`, payload, { headers });
         return res.data;
     }
 
     const allowed = ['title', 'content', 'summary', 'imageUrl', 'coverImage', 'categoryIds'];
     const body: any = {};
+
     for (const key of allowed) {
-        if ((payload as any)[key] !== undefined) body[key] = (payload as any)[key];
+        if (payload[key as keyof Post] !== undefined) {
+            body[key] = payload[key as keyof Post];
+        }
     }
 
-    const res = await api.put<Post>(`/posts/${id}`, body, {
-        headers: token ? { Authorization: `Bearer ${token}` } : undefined,
-    });
+    const headers: Record<string, string> = {};
+    if (token) headers.Authorization = `Bearer ${token}`;
+
+    const res = await api.put<Post>(`/posts/${id}`, body, { headers });
     return res.data;
 }
+
 
 export async function deletePost(id: number): Promise<{ message: string }> {
     const token = getAuthToken();

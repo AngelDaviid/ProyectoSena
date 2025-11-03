@@ -76,7 +76,7 @@ const NewPostForm: React.FC<Props> = ({onCreated}) => {
         fd.append('title', title);
         if (content) fd.append('content', content);
         if (summary) fd.append('summary', summary);
-        if (file) fd.append('imageUrl', file);
+        if (file) fd.append('image', file);
         if (selectedIds.length > 0) {
             fd.append('categoryIds', JSON.stringify(selectedIds.map(Number)));
         }
