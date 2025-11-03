@@ -54,8 +54,8 @@ export class PostsService {
         delete (updatePostDto as any).categoryIds;
       }
 
-      if ((updatePostDto as any).removeImage) {
-        (updatePostDto as any).imageUrl = undefined;
+      if (imageUrl !== undefined) {
+        (updatePostDto as any).imageUrl = imageUrl;
       }
 
       const updatedPost = this.postsRepository.merge(post, updatePostDto);
@@ -65,6 +65,7 @@ export class PostsService {
       throw new BadRequestException('Error al actualizar el post');
     }
   }
+
 
 
   async remove(id: number, userId?: number) {

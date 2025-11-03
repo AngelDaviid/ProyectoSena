@@ -86,19 +86,6 @@ const Home: React.FC = () => {
                     {/* Aquí insertamos el feed: el componente PostList ya incluye el form para crear posts */}
                     <PostList />
                 </section>
-
-                <aside className="fb-sidebar right-sidebar">
-                    <div className="card suggestions-card">
-                        <h4>Sugerencias</h4>
-                        <p>Personas y grupos sugeridos — sección para mayor interacción.</p>
-                        <button className="btn" onClick={() => navigate('/suggestions')}>Ver sugerencias</button>
-                    </div>
-
-                    <div className="card trending-card">
-                        <h4>Tendencias</h4>
-                        <p>Temas populares en SenaBook.</p>
-                    </div>
-                </aside>
             </main>
 
             <footer className="home-footer">

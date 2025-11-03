@@ -187,14 +187,14 @@ const EditPostForm: React.FC<Props> = ({ post, onCancel, onSaved }) => {
                 {/* Imagen */}
                 <div className="flex items-center gap-4">
                     <label
-                        htmlFor="image-upload"
+                        htmlFor={`image-upload-edit-${post.id}`}
                         className="flex items-center gap-2 text-blue-600 hover:text-blue-700 cursor-pointer transition"
                     >
                         <ImageIcon className="w-5 h-5" />
                         <span className="text-sm font-medium">Cambiar imagen</span>
                     </label>
                     <input
-                        id="image-upload"
+                        id={`image-upload-edit-${post.id}`}
                         type="file"
                         accept="image/*"
                         onChange={handleFileChange}

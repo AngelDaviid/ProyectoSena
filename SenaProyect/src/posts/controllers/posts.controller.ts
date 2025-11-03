@@ -119,17 +119,17 @@ export class PostsController {
       }
     }
 
-    let imageUrl: string | undefined;
+    let imageUrl: string | undefined = updatePostDto.imageUrl;
     if (file) {
       imageUrl = `/uploads/${file.filename}`;
     } else if (updatePostDto.removeImage === 'true' || updatePostDto.removeImage === true) {
       imageUrl = undefined;
-    } else if (updatePostDto.imageUrl) {
-      imageUrl = updatePostDto.imageUrl;
     }
 
-    return this.postsService.update(id, { ...updatePostDto, imageUrl }, userId);
+    const updated = await this.postsService.update(id, { ...updatePostDto, imageUrl }, userId);
+    return updated;
   }
+
 
 
   @ApiOperation({ summary: 'Delete a post by ID' })

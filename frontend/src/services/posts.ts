@@ -36,8 +36,8 @@ export async function updatePost(id: number, payload: Partial<Post> | FormData):
         return res.data;
     }
 
-    const allowed = ['title', 'content', 'summary', 'imageUrl', 'coverImage', 'categoryIds'];
-    const body: any = {};
+    const allowed = ['title', 'content', 'summary', 'categoryIds', 'isDraft', 'removeImage'];
+    const body: Record<string, any> = {};
 
     for (const key of allowed) {
         if (payload[key as keyof Post] !== undefined) {
