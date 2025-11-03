@@ -41,7 +41,7 @@ export class PostsService {
     return post;
   }
 
-  async update(id: number, updatePostDto: UpdatePostDto, userId?: number, imageUrl?: string) {
+  async update(id: number, updatePostDto: UpdatePostDto, userId?: number, imageUrl?: string | null) {
     try {
       const post = await this.findOne(id);
 
@@ -49,17 +49,18 @@ export class PostsService {
         throw new ForbiddenException('No tienes permisos para actualizar este post');
       }
 
-      if ((updatePostDto as any).categoryIds) {
-        (updatePostDto as any).categories = (updatePostDto as any).categoryIds.map((id: number) => ({ id }));
+      if ((updatePostDto as any).categoryIds !== undefined) {
+        const newCategories = (updatePostDto as any).categoryIds.map((id: number) => ({ id }));
+        post.categories = newCategories;
         delete (updatePostDto as any).categoryIds;
       }
 
       if (imageUrl !== undefined) {
-        (updatePostDto as any).imageUrl = imageUrl;
+        post.imageUrl = imageUrl as any;
       }
 
-      const updatedPost = this.postsRepository.merge(post, updatePostDto);
-      return await this.postsRepository.save(updatedPost);
+      this.postsRepository.merge(post, updatePostDto);
+      return await this.postsRepository.save(post);
     } catch (err) {
       if (err instanceof ForbiddenException) throw err;
       throw new BadRequestException('Error al actualizar el post');

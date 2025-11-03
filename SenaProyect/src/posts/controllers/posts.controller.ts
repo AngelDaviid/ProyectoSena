@@ -20,7 +20,6 @@ import { ApiOperation, ApiResponse } from '@nestjs/swagger';
 import type { Request } from 'express';
 import { PostsService } from '../services/posts.service';
 import { CreatePostDto } from '../dto/create-post.dto';
-import { UpdatePostDto } from '../dto/update-post.dto';
 import { Post as PostEntity } from '../entities/post.entity';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { diskStorage } from 'multer';
@@ -119,14 +118,19 @@ export class PostsController {
       }
     }
 
-    let imageUrl: string | undefined = updatePostDto.imageUrl;
+    // Determinar imageUrl a aplicar:
+    // - si sube archivo -> nueva ruta
+    // - si pidió removeImage -> null (para que el servicio establezca NULL en DB)
+    // - si trae imageUrl en payload -> usarlo
+    let imageUrl: string | null | undefined = updatePostDto.imageUrl ?? undefined;
     if (file) {
       imageUrl = `/uploads/${file.filename}`;
     } else if (updatePostDto.removeImage === 'true' || updatePostDto.removeImage === true) {
-      imageUrl = undefined;
+      imageUrl = null;
     }
 
-    const updated = await this.postsService.update(id, { ...updatePostDto, imageUrl }, userId);
+    // PASAMOS imageUrl como CUARTO argumento al servicio (para que lo aplique incluso si es null)
+    const updated = await this.postsService.update(id, updatePostDto, userId, imageUrl);
     return updated;
   }
 

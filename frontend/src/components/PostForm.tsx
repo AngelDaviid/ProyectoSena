@@ -1,15 +1,17 @@
-import React, {useEffect, useRef, useState} from 'react';
-import {useAuth} from "../hooks/useAuth.ts";
+import React, { useEffect, useRef, useState } from 'react';
+import { useAuth } from '../hooks/useAuth';
 import api from '../services/api';
-import type {Post, Category} from '../types/post.ts';
-import {Image as ImageIcon, X} from 'lucide-react';
+import type { Post, Category } from '../types/post';
+import { Image as ImageIcon, X } from 'lucide-react';
 
 type Props = {
     onCreated?: (p: Post) => void;
 };
 
-const NewPostForm: React.FC<Props> = ({onCreated}) => {
-    const {user, token} = useAuth();
+const API_BASE = import.meta.env.SENA_API_URL || 'http://localhost:3001';
+
+const NewPostForm: React.FC<Props> = ({ onCreated }) => {
+    const { user, token } = useAuth();
     const [title, setTitle] = useState('');
     const [content, setContent] = useState('');
     const [summary, setSummary] = useState('');
@@ -56,12 +58,12 @@ const NewPostForm: React.FC<Props> = ({onCreated}) => {
     };
 
     const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        const file = e.target.files?.[0] ?? null;
-        setFile(file);
-        if (file) {
+        const f = e.target.files?.[0] ?? null;
+        setFile(f);
+        if (f) {
             const reader = new FileReader();
             reader.onload = () => setPreview(reader.result as string);
-            reader.readAsDataURL(file);
+            reader.readAsDataURL(f);
         } else {
             setPreview(null);
         }
@@ -83,7 +85,7 @@ const NewPostForm: React.FC<Props> = ({onCreated}) => {
 
         try {
             setLoading(true);
-            const {createPost} = await import('../services/posts.ts');
+            const { createPost } = await import('../services/posts');
             const created = await createPost(fd);
             setTitle('');
             setContent('');
@@ -99,28 +101,24 @@ const NewPostForm: React.FC<Props> = ({onCreated}) => {
         }
     };
 
-    if (!token)
-        return <div className="text-center text-gray-500 p-4">Inicia sesión para publicar</div>;
+    if (!token) return <div className="text-center text-gray-500 p-4">Inicia sesión para publicar</div>;
 
-    const filtered = categories.filter((c) =>
-        c.name?.toLowerCase().includes(filter.trim().toLowerCase())
-    );
+    const filtered = categories.filter((c) => c.name?.toLowerCase().includes(filter.trim().toLowerCase()));
+
+    const avatarSrc =
+        user?.profile?.avatar && user.profile.avatar.startsWith('/')
+            ? `${API_BASE}${user.profile.avatar}`
+            : user?.profile?.avatar ?? null;
 
     return (
         <div className="bg-white rounded-3xl shadow-md border border-gray-200 p-5 mb-8 transition hover:shadow-lg">
             <form onSubmit={handleSubmit} className="flex flex-col space-y-4">
-                {/* Avatar y título */}
                 <div className="flex space-x-3">
                     <div className="w-12 h-12 rounded-full overflow-hidden bg-gray-300 flex-shrink-0">
-                        {user?.profile?.avatar ? (
-                            <img
-                                src={user.profile.avatar}
-                                alt={user.profile.name}
-                                className="w-full h-full object-cover"
-                            />
+                        {avatarSrc ? (
+                            <img src={avatarSrc} alt={user?.profile?.name ?? user?.email} className="w-full h-full object-cover" />
                         ) : (
-                            <div
-                                className="w-full h-full flex items-center justify-center text-white font-bold bg-gray-500">
+                            <div className="w-full h-full flex items-center justify-center text-white font-bold bg-gray-500">
                                 {user?.profile?.name?.[0] || 'U'}
                             </div>
                         )}
@@ -133,7 +131,6 @@ const NewPostForm: React.FC<Props> = ({onCreated}) => {
                     />
                 </div>
 
-                {/* Campos adicionales */}
                 <textarea
                     value={content}
                     onChange={(e) => setContent(e.target.value)}
@@ -150,25 +147,15 @@ const NewPostForm: React.FC<Props> = ({onCreated}) => {
                     rows={2}
                 />
 
-                {/* Imagen */}
                 <div className="flex items-center gap-4">
-                    <label
-                        htmlFor="image-upload"
-                        className="flex items-center gap-2 text-blue-600 hover:text-blue-700 cursor-pointer transition"
-                    >
-                        <ImageIcon className="w-5 h-5"/>
+                    <label htmlFor="image-upload" className="flex items-center gap-2 text-blue-600 hover:text-blue-700 cursor-pointer transition">
+                        <ImageIcon className="w-5 h-5" />
                         <span className="text-sm font-medium">Agregar imagen</span>
                     </label>
-                    <input
-                        id="image-upload"
-                        type="file"
-                        accept="image/*"
-                        onChange={handleFileChange}
-                        className="hidden"
-                    />
+                    <input id="image-upload" type="file" accept="image/*" onChange={handleFileChange} className="hidden" />
                     {preview && (
                         <div className="relative w-24 h-24 rounded-xl overflow-hidden border border-gray-200">
-                            <img src={preview} alt="preview" className="w-full h-full object-cover"/>
+                            <img src={preview} alt="preview" className="w-full h-full object-cover" />
                             <button
                                 type="button"
                                 onClick={() => {
@@ -176,19 +163,26 @@ const NewPostForm: React.FC<Props> = ({onCreated}) => {
                                     setPreview(null);
                                 }}
                                 className="absolute top-1 right-1 bg-white/80 rounded-full p-1 hover:bg-white transition"
+                                aria-label="Quitar imagen"
                             >
-                                <X className="w-4 h-4 text-gray-700"/>
+                                <X className="w-4 h-4 text-gray-700" />
                             </button>
                         </div>
                     )}
                 </div>
 
-                {/* Categorías */}
                 <div ref={dropdownRef} className="relative">
-                    <button
-                        type="button"
+                    <div
+                        role="button"
+                        tabIndex={0}
                         onClick={() => setOpenDropdown((s) => !s)}
-                        className="w-full text-left px-4 py-2 border border-gray-300 rounded-2xl bg-white flex items-center justify-between"
+                        onKeyDown={(e) => {
+                            if (e.key === 'Enter' || e.key === ' ') {
+                                e.preventDefault();
+                                setOpenDropdown((s) => !s);
+                            }
+                        }}
+                        className="w-full text-left px-4 py-2 border border-gray-300 rounded-2xl bg-white flex items-center justify-between cursor-pointer"
                     >
                         <div className="flex flex-wrap gap-2">
                             {selectedIds.length === 0 ? (
@@ -197,42 +191,35 @@ const NewPostForm: React.FC<Props> = ({onCreated}) => {
                                 selectedIds.map((id) => {
                                     const cat = categories.find((c) => c.id === id);
                                     return (
-                                        <span
-                                            key={id}
-                                            className="inline-flex items-center bg-blue-100 text-blue-800 text-xs px-2 py-0.5 rounded-full"
-                                        >
-                                          {cat?.name ?? id}
-                                                                <button
-                                                                    type="button"
-                                                                    onClick={(ev) => {
-                                                                        ev.stopPropagation();
-                                                                        removeSelected(id);
-                                                                    }}
-                                                                    className="ml-2 text-blue-600 hover:text-blue-800"
-                                                                >
-                                            ×
-                                          </button>
-                                        </span>
+                                        <span key={id} className="inline-flex items-center bg-blue-100 text-blue-800 text-xs px-2 py-0.5 rounded-full">
+                      {cat?.name ?? id}
+                                            <button
+                                                type="button"
+                                                onClick={(ev) => {
+                                                    ev.stopPropagation();
+                                                    removeSelected(id);
+                                                }}
+                                                className="ml-2 text-blue-600 hover:text-blue-800"
+                                                aria-label={`Quitar categoría ${id}`}
+                                            >
+                        ×
+                      </button>
+                    </span>
                                     );
                                 })
                             )}
                         </div>
-                        <svg
-                            className="w-4 h-4 ml-2 text-gray-600"
-                            viewBox="0 0 20 20"
-                            fill="currentColor"
-                        >
+                        <svg className="w-4 h-4 ml-2 text-gray-600" viewBox="0 0 20 20" fill="currentColor" aria-hidden>
                             <path
                                 fillRule="evenodd"
                                 d="M5.23 7.21a.75.75 0 011.06.02L10 11.584l3.71-4.354a.75.75 0 011.14.976l-4.25 5a.75.75 0 01-1.14 0l-4.25-5a.75.75 0 01.02-1.06z"
                                 clipRule="evenodd"
                             />
                         </svg>
-                    </button>
+                    </div>
 
                     {openDropdown && (
-                        <div
-                            className="absolute z-50 left-0 right-0 mt-2 bg-white border border-gray-200 rounded-xl shadow-lg max-h-64 overflow-auto">
+                        <div className="absolute z-50 left-0 right-0 mt-2 bg-white border border-gray-200 rounded-xl shadow-lg max-h-64 overflow-auto">
                             <div className="p-2 border-b">
                                 <input
                                     value={filter}
@@ -250,14 +237,8 @@ const NewPostForm: React.FC<Props> = ({onCreated}) => {
                                         const checked = selectedIds.includes(c.id);
                                         return (
                                             <li key={c.id}>
-                                                <label
-                                                    className="flex items-center gap-2 px-2 py-1 rounded hover:bg-gray-50 cursor-pointer">
-                                                    <input
-                                                        type="checkbox"
-                                                        checked={checked}
-                                                        onChange={() => toggleSelect(c.id)}
-                                                        className="h-4 w-4"
-                                                    />
+                                                <label className="flex items-center gap-2 px-2 py-1 rounded hover:bg-gray-50 cursor-pointer">
+                                                    <input type="checkbox" checked={checked} onChange={() => toggleSelect(c.id)} className="h-4 w-4" />
                                                     <span className="text-sm">{c.name}</span>
                                                 </label>
                                             </li>
@@ -269,18 +250,14 @@ const NewPostForm: React.FC<Props> = ({onCreated}) => {
                     )}
                 </div>
 
-                {/* Error */}
                 {error && <div className="text-red-500 text-sm">{error}</div>}
 
-                {/* Botón */}
                 <div className="flex justify-end">
                     <button
                         type="submit"
                         disabled={loading || !title.trim()}
                         className={`px-5 py-2 rounded-full font-semibold text-white transition ${
-                            loading || !title.trim()
-                                ? 'bg-gray-400 cursor-not-allowed'
-                                : 'bg-blue-500 hover:bg-blue-600'
+                            loading || !title.trim() ? 'bg-gray-400 cursor-not-allowed' : 'bg-blue-500 hover:bg-blue-600'
                         }`}
                     >
                         {loading ? 'Publicando...' : 'Publicar'}

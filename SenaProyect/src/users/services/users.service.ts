@@ -1,8 +1,8 @@
-import {BadRequestException, ForbiddenException, Injectable, NotFoundException} from '@nestjs/common';
-import {CreateUserDto, UpdateUserDto} from "../dtos/user.dto";
-import {InjectRepository} from "@nestjs/typeorm";
-import {User} from "../entities/user.entity";
-import {Repository} from "typeorm";
+import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
+import { CreateUserDto, UpdateUserDto } from "../dtos/user.dto";
+import { InjectRepository } from "@nestjs/typeorm";
+import { User } from "../entities/user.entity";
+import { Repository } from "typeorm";
 
 @Injectable()
 export class UsersService {
@@ -27,14 +27,14 @@ export class UsersService {
     return user
   }
 
-  async getProfileUser(id: number){
+  async getProfileUser(id: number) {
     const userProfile = await this.findOne(id)
     return userProfile.profile
   }
 
-  async getPostUser(id: number){
+  async getPostUser(id: number) {
     const user = await this.usersRepository.findOne({
-      where: {id},
+      where: { id },
       relations: ['posts']
     })
     if (!user) {
@@ -50,7 +50,6 @@ export class UsersService {
     });
     return user;
   }
-
 
   async create(create: CreateUserDto) {
     try {
@@ -69,7 +68,8 @@ export class UsersService {
   async update(id: number, changes: UpdateUserDto) {
     try {
       const user = await this.findOne(id);
-      const updatedUser = this.usersRepository.merge(user, changes);
+      // CAST a any para evitar error de tipado con avatar: null en el DTO
+      const updatedUser = this.usersRepository.merge(user, changes as any);
       const savedUser = await this.usersRepository.save(updatedUser);
       return savedUser;
     } catch {
@@ -77,10 +77,23 @@ export class UsersService {
     }
   }
 
+  /**
+   * Nuevo helper: Actualiza solo el avatar del profile.
+   * - avatarUrl puede ser string o null (para quitar avatar).
+   * - requesterId opcional para validar permisos (p. ej. req.user.id)
+   */
+  async updateProfileAvatar(id: number, avatarUrl: string | null, requesterId?: number) {
+    if (requesterId !== undefined && requesterId !== id) {
+      throw new ForbiddenException('No tienes permisos para actualizar el avatar de este usuario');
+    }
+    const changes: any = { profile: { avatar: avatarUrl } };
+    return this.update(id, changes);
+  }
+
   async delete(id: number) {
     try {
       await this.usersRepository.delete(id);
-      return {message: 'User deleted successfully.'};
+      return { message: 'User deleted successfully.' };
     } catch {
       throw new BadRequestException('Error deleting user');
     }

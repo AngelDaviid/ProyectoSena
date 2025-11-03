@@ -9,7 +9,11 @@ export interface User {
     email: string;
     profile?: Profile;
     role?: 'desarrollador' | 'instructor' | 'aprendiz';
+    // metadatos del usuario
+    createdAt?: string;
+    updatedAt?: string;
 }
+
 
 export interface AuthResponse {
     access_token: string;

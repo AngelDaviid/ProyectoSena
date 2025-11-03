@@ -53,7 +53,6 @@ const PostList: React.FC = () => {
                 </div>
             )}
 
-            {/* Lista */}
             <div className="space-y-6">
                 {localPosts.map((p) => (
                     <PostItem
