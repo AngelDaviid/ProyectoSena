@@ -4,6 +4,7 @@ import Register from './pages/Register';
 import ProtectedRoute from './components/protected-routes';
 import Home from './pages/Home';
 import Profile from './pages/Profile';
+import ChatPage from "./pages/Chat.tsx";
 
 function App() {
     return (
@@ -25,6 +26,15 @@ function App() {
                 element={
                     <ProtectedRoute>
                         <Profile />
+                    </ProtectedRoute>
+                }
+            />
+
+            <Route
+                path="/chat"
+                element={
+                    <ProtectedRoute>
+                        <ChatPage />
                     </ProtectedRoute>
                 }
             />
