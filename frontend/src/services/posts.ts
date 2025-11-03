@@ -3,10 +3,8 @@ import { getAuthToken } from './auth';
 import type { Post } from '../types/post';
 
 /**
- * Nota: usamos getAuthToken() para tomar el token desde auth.ts
- * y lo añadimos manualmente al header de la petición que envía FormData,
- * porque muchas veces axios no combina interceptor + multipart/form-data boundary
- * de forma predecible si el interceptor no configura bien la cabecera.
+ * Nota: No fijar Content-Type al enviar FormData. El navegador/axios añade
+ * automáticamente el boundary necesario. Solo añadir Authorization cuando sea necesario.
  */
 
 export async function getPosts(): Promise<Post[]> {
@@ -19,33 +17,46 @@ export async function getPost(id: number): Promise<Post> {
     return res.data;
 }
 
-/**
- * Crea post con imagen opcional.
- * formData debe incluir:
- * - title (string)
- * - content? (string)
- * - summary? (string)
- * - image (File)  <-- backend usa FileInterceptor('image')
- * - categoryIds[] (append por cada id)
- */
 export async function createPost(formData: FormData): Promise<Post> {
     const token = getAuthToken();
-    const headers: any = { 'Content-Type': 'multipart/form-data' };
+    const headers: Record<string, string> = {};
     if (token) headers.Authorization = `Bearer ${token}`;
+    // IMPORTANT: do NOT set Content-Type for FormData
     const res = await api.post<Post>('/posts', formData, { headers });
     return res.data;
 }
 
 /**
- * Actualiza post (PUT JSON). Si deseas permitir subir archivo al editar,
- * hay que cambiar backend PUT para aceptar multipart/form-data y usar FileInterceptor.
+ * updatePost acepta FormData (multipart) o un payload JSON (obj)
+ * - Si payload es FormData: NO fijar Content-Type (dejar que axios lo añada)
+ * - Si es JSON: filtrar las propiedades permitidas antes de enviar
  */
-export async function updatePost(id: number, payload: Partial<Post>): Promise<Post> {
-    const res = await api.put<Post>(`/posts/${id}`, payload);
+export async function updatePost(id: number, payload: Partial<Post> | FormData): Promise<Post> {
+    const token = getAuthToken();
+
+    if (payload instanceof FormData) {
+        const headers: Record<string, string> = {};
+        if (token) headers.Authorization = `Bearer ${token}`;
+        const res = await api.put<Post>(`/posts/${id}`, payload, { headers });
+        return res.data;
+    }
+
+    const allowed = ['title', 'content', 'summary', 'imageUrl', 'coverImage', 'categoryIds'];
+    const body: any = {};
+    for (const key of allowed) {
+        if ((payload as any)[key] !== undefined) body[key] = (payload as any)[key];
+    }
+
+    const res = await api.put<Post>(`/posts/${id}`, body, {
+        headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+    });
     return res.data;
 }
 
 export async function deletePost(id: number): Promise<{ message: string }> {
-    const res = await api.delete<{ message: string }>(`/posts/${id}`);
+    const token = getAuthToken();
+    const res = await api.delete<{ message: string }>(`/posts/${id}`, {
+        headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+    });
     return res.data;
 }

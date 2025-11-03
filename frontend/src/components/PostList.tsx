@@ -1,44 +1,69 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import NewPostForm from './PostForm.tsx';
 import PostItem from './PostItem.tsx';
 import { usePosts } from '../hooks/usePosts';
-import '../components/post.css';
+import type { Post } from '../types/post';
 
 const PostList: React.FC = () => {
-    const { posts, loading, error, update, remove, reload } = usePosts();
+    const { posts, loading, error, update, remove } = usePosts();
+    const [localPosts, setLocalPosts] = useState<Post[]>(posts);
 
-    const handleCreated = () => {
-        reload();
+    useEffect(() => {
+        setLocalPosts(posts);
+    }, [posts]);
+
+    const handleCreated = (newPost: Post) => {
+        setLocalPosts((prev) => [newPost, ...prev]);
     };
 
-    const handleUpdated = (updated: any) => {
+    const handleUpdated = (updated: Post) => {
+        setLocalPosts((prev) =>
+            prev.map((p) => (p.id === updated.id ? updated : p))
+        );
         if (update) update(updated.id, updated);
     };
 
     const handleDeleted = (id: number) => {
+        setLocalPosts((prev) => prev.filter((p) => p.id !== id));
         if (remove) remove(id);
     };
 
+    useEffect(() => {
+        if (!loading && !error) {
+            setLocalPosts(posts);
+        }
+    }, [loading, error, posts]);
+
     return (
-        <div className="posts-container">
-            <NewPostForm onCreated={handleCreated} />
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <h3>Publicaciones</h3>
-                <div>
-                    <button onClick={reload}>Recargar</button>
-                </div>
+        <div className="max-w-2xl mx-auto mt-8 bg-gray-50 rounded-3xl shadow-sm border border-gray-200 p-6">
+            <div className="mb-8">
+                <NewPostForm onCreated={handleCreated} />
             </div>
 
-            {loading && <div>Cargando...</div>}
-            {error && <div className="post-error">{error}</div>}
-            {!loading && posts.length === 0 && <div>No hay publicaciones</div>}
-            <div className="posts-list">
-                {posts.map((p) => (
+            {loading && (
+                <div className="text-center py-6 text-gray-500 animate-pulse">
+                    Cargando publicaciones...
+                </div>
+            )}
+            {error && (
+                <div className="text-red-600 bg-red-50 border border-red-200 rounded-xl p-3 text-sm mb-4">
+                    {error}
+                </div>
+            )}
+            {!loading && localPosts.length === 0 && (
+                <div className="text-center text-gray-500 py-8">
+                    No hay publicaciones todavía 📝
+                </div>
+            )}
+
+            {/* Lista */}
+            <div className="space-y-6">
+                {localPosts.map((p) => (
                     <PostItem
                         key={p.id}
                         post={p}
-                        onUpdated={(u) => handleUpdated(u)}
-                        onDeleted={(id) => handleDeleted(id)}
+                        onUpdated={handleUpdated}
+                        onDeleted={handleDeleted}
                     />
                 ))}
             </div>

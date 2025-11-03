@@ -34,13 +34,13 @@ export default function Login() {
     }
 
     return (
-        <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-blue-600 to-indigo-700 px-4">
-            <div className="bg-white shadow-xl rounded-3xl p-10 w-full max-w-md transform transition-all duration-500 hover:scale-105">
-                <h1 className="text-4xl font-extrabold text-center text-gray-800 mb-8">
+        <div className="flex items-center justify-center min-h-screen bg-gray-100 px-4">
+            <div className="bg-white shadow-md rounded-2xl p-8 w-full max-w-md">
+                <h1 className="text-3xl font-bold text-center text-gray-800 mb-6">
                     Iniciar sesión
                 </h1>
 
-                <form onSubmit={handleSubmit} className="space-y-6">
+                <form onSubmit={handleSubmit} className="space-y-5">
                     <div className="relative">
                         <label className="block text-gray-600 text-sm mb-2">Correo electrónico</label>
                         <input
@@ -49,7 +49,7 @@ export default function Login() {
                             onChange={(e) => setEmail(e.target.value)}
                             type="email"
                             autoComplete="username"
-                            className="w-full px-5 py-3 border border-gray-300 rounded-2xl focus:ring-2 focus:ring-blue-500 focus:outline-none transition-all duration-200"
+                            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-400 focus:outline-none transition duration-200"
                         />
                     </div>
 
@@ -61,12 +61,12 @@ export default function Login() {
                             onChange={(e) => setPassword(e.target.value)}
                             type="password"
                             autoComplete="current-password"
-                            className="w-full px-5 py-3 border border-gray-300 rounded-2xl focus:ring-2 focus:ring-blue-500 focus:outline-none transition-all duration-200"
+                            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-400 focus:outline-none transition duration-200"
                         />
                     </div>
 
                     {error && (
-                        <div className="flex items-center text-red-600 text-sm bg-red-50 border border-red-300 rounded-lg p-3 space-x-2">
+                        <div className="flex items-center text-red-600 text-sm bg-red-50 border border-red-300 rounded-md p-2 space-x-2">
                             <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
                                 <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01M21 12c0 4.97-4.03 9-9 9s-9-4.03-9-9 4.03-9 9-9 9 4.03 9 9z" />
                             </svg>
@@ -77,9 +77,9 @@ export default function Login() {
                     <button
                         type="submit"
                         disabled={loading}
-                        className={`w-full py-3 rounded-2xl font-semibold text-white transition-all duration-300 shadow-md hover:shadow-lg transform hover:-translate-y-0.5 ${
+                        className={`w-full py-2 rounded-lg font-semibold text-white transition-all duration-200 shadow-sm hover:shadow-md ${
                             loading
-                                ? 'bg-blue-400 cursor-not-allowed'
+                                ? 'bg-gray-400 cursor-not-allowed'
                                 : 'bg-blue-600 hover:bg-blue-700'
                         }`}
                     >
@@ -90,7 +90,7 @@ export default function Login() {
                         ¿No tienes cuenta?{' '}
                         <a
                             href="/register"
-                            className="text-blue-600 hover:text-blue-800 font-medium underline decoration-2 decoration-blue-500"
+                            className="text-blue-600 hover:text-blue-800 font-medium underline decoration-1"
                         >
                             Regístrate
                         </a>
