@@ -15,7 +15,7 @@ import { UploadsController } from './uploads/uploads/uploads.controller';
 @Module({
   imports: [
     ServeStaticModule.forRoot({
-      rootPath: join(process.cwd(), 'uploads'),
+      rootPath: join(__dirname, '..', 'uploads'),
       serveRoot: '/uploads',
     }),
     ConfigModule.forRoot({

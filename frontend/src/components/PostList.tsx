@@ -5,7 +5,7 @@ import { usePosts } from '../hooks/usePosts';
 import type { Post } from '../types/post';
 
 const PostList: React.FC = () => {
-    const { posts, loading, error, update, remove } = usePosts();
+    const { posts, loading, error, remove } = usePosts();
     const [localPosts, setLocalPosts] = useState<Post[]>(posts);
 
     useEffect(() => {
@@ -17,10 +17,7 @@ const PostList: React.FC = () => {
     };
 
     const handleUpdated = (updated: Post) => {
-        setLocalPosts((prev) =>
-            prev.map((p) => (p.id === updated.id ? updated : p))
-        );
-        if (update) update(updated.id, updated);
+        setLocalPosts((prev) => prev.map((p) => (p.id === updated.id ? updated : p)));
     };
 
     const handleDeleted = (id: number) => {
@@ -41,7 +38,7 @@ const PostList: React.FC = () => {
             </div>
 
             {loading && (
-                <div className="text-center py-6 text-gray-500 animate-pulse">
+                <div className="text-center py-6 text-gray-500 anima te-pulse">
                     Cargando publicaciones...
                 </div>
             )}

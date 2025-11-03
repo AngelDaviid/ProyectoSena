@@ -10,11 +10,19 @@ type Props = {
 };
 
 const EditPostForm: React.FC<Props> = ({ post, onCancel, onSaved }) => {
+    const API_BASE = import.meta.env.SENA_API_URL || "http://localhost:3001";
+
+    const initialPreview =
+        post.imageUrl && post.imageUrl.startsWith("/")
+            ? `${API_BASE}${post.imageUrl}`
+            : post.imageUrl ?? null;
+
     const [title, setTitle] = useState(post.title ?? "");
     const [content, setContent] = useState(post.content ?? "");
     const [summary, setSummary] = useState(post.summary ?? "");
     const [file, setFile] = useState<File | null>(null);
-    const [preview, setPreview] = useState<string | null>(post.imageUrl ?? null);
+    const [preview, setPreview] = useState<string | null>(initialPreview);
+    const [removeImage, setRemoveImage] = useState<boolean>(false);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
 
@@ -60,15 +68,26 @@ const EditPostForm: React.FC<Props> = ({ post, onCancel, onSaved }) => {
     };
 
     const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        const file = e.target.files?.[0] ?? null;
-        setFile(file);
-        if (file) {
+        const f = e.target.files?.[0] ?? null;
+        setFile(f);
+        if (f) {
+            // al seleccionar nuevo archivo, anulamos removeImage y mostramos preview local
+            setRemoveImage(false);
             const reader = new FileReader();
             reader.onload = () => setPreview(reader.result as string);
-            reader.readAsDataURL(file);
+            reader.readAsDataURL(f);
         } else {
-            setPreview(null);
+            // si el usuario borró la selección del input -> restauramos preview original
+            setPreview(initialPreview);
+            setRemoveImage(false);
         }
+    };
+
+    const handleRemoveImageClick = () => {
+        // El usuario pide quitar la imagen: limpiamos preview y marcamos removeImage
+        setFile(null);
+        setPreview(null);
+        setRemoveImage(true);
     };
 
     const handleSubmit = async (e: React.FormEvent) => {
@@ -83,7 +102,10 @@ const EditPostForm: React.FC<Props> = ({ post, onCancel, onSaved }) => {
         try {
             setLoading(true);
 
-            // Si hay archivo nuevo -> enviar FormData (multipart)
+            // debug para confirmar que el submit se ejecuta y qué datos contiene
+            // eslint-disable-next-line no-console
+            console.log("EditPostForm.handleSubmit", { postId: post.id, title, content, summary, file, selectedIds, removeImage });
+
             if (file) {
                 const fd = new FormData();
                 fd.append("title", title);
@@ -106,6 +128,11 @@ const EditPostForm: React.FC<Props> = ({ post, onCancel, onSaved }) => {
             if (content) payload.content = content;
             if (summary) payload.summary = summary;
             if (selectedIds.length > 0) payload.categoryIds = selectedIds.map(Number);
+
+            // si el usuario pidió eliminar la imagen, señalamos removeImage: true
+            if (removeImage) {
+                payload.removeImage = true;
+            }
 
             const { updatePost } = await import("../services/posts");
             const updated = await updatePost(post.id, payload);
@@ -179,13 +206,29 @@ const EditPostForm: React.FC<Props> = ({ post, onCancel, onSaved }) => {
                             <img src={preview} alt="preview" className="w-full h-full object-cover" />
                             <button
                                 type="button"
-                                onClick={() => {
-                                    setFile(null);
-                                    setPreview(null);
-                                }}
+                                onClick={handleRemoveImageClick}
                                 className="absolute top-1 right-1 bg-white/80 rounded-full p-1 hover:bg-white transition"
+                                aria-label="Quitar imagen"
                             >
                                 <X className="w-4 h-4 text-gray-700" />
+                            </button>
+                        </div>
+                    )}
+
+                    {/* si no hay preview pero el post tiene imagen en servidor y no se seleccionó file */}
+                    {!preview && post.imageUrl && !file && (
+                        <div className="flex items-center gap-2">
+                            <img
+                                src={initialPreview ?? undefined}
+                                alt="imagen actual"
+                                className="w-24 h-24 object-cover rounded-xl border border-gray-200"
+                            />
+                            <button
+                                type="button"
+                                onClick={handleRemoveImageClick}
+                                className="text-sm text-red-600 underline"
+                            >
+                                Quitar imagen
                             </button>
                         </div>
                     )}
@@ -209,7 +252,7 @@ const EditPostForm: React.FC<Props> = ({ post, onCancel, onSaved }) => {
                                             key={id}
                                             className="inline-flex items-center bg-blue-100 text-blue-800 text-xs px-2 py-0.5 rounded-full"
                                         >
-                      {cat?.name ?? id}
+                                            {cat?.name ?? id}
                                             <button
                                                 type="button"
                                                 onClick={(ev) => {
@@ -217,10 +260,11 @@ const EditPostForm: React.FC<Props> = ({ post, onCancel, onSaved }) => {
                                                     removeSelected(id);
                                                 }}
                                                 className="ml-2 text-blue-600 hover:text-blue-800"
+                                                aria-label={`Quitar categoría ${id}`}
                                             >
-                        ×
-                      </button>
-                    </span>
+                                                ×
+                                            </button>
+                                        </span>
                                     );
                                 })
                             )}
@@ -292,9 +336,7 @@ const EditPostForm: React.FC<Props> = ({ post, onCancel, onSaved }) => {
                         type="submit"
                         disabled={loading}
                         className={`flex items-center gap-2 px-4 py-2 rounded-full text-white font-medium transition ${
-                            loading
-                                ? "bg-gray-400 cursor-not-allowed"
-                                : "bg-blue-500 hover:bg-blue-600"
+                            loading ? "bg-gray-400 cursor-not-allowed" : "bg-blue-500 hover:bg-blue-600"
                         }`}
                     >
                         <Save className="w-4 h-4" />

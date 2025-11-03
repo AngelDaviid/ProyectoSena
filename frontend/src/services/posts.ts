@@ -21,7 +21,6 @@ export async function createPost(formData: FormData): Promise<Post> {
     const token = getAuthToken();
     const headers: Record<string, string> = {};
     if (token) headers.Authorization = `Bearer ${token}`;
-    // IMPORTANT: do NOT set Content-Type for FormData
     const res = await api.post<Post>('/posts', formData, { headers });
     return res.data;
 }
@@ -32,13 +31,8 @@ export async function createPost(formData: FormData): Promise<Post> {
  * - Si es JSON: filtrar las propiedades permitidas antes de enviar
  */
 export async function updatePost(id: number, payload: Partial<Post> | FormData): Promise<Post> {
-    const token = getAuthToken();
-
     if (payload instanceof FormData) {
-        const headers: Record<string, string> = { 'Content-Type': 'multipart/form-data' };
-        if (token) headers.Authorization = `Bearer ${token}`;
-
-        const res = await api.patch<Post>(`/posts/${id}`, payload, { headers });
+        const res = await api.put<Post>(`/posts/${id}`, payload);
         return res.data;
     }
 
@@ -51,13 +45,9 @@ export async function updatePost(id: number, payload: Partial<Post> | FormData):
         }
     }
 
-    const headers: Record<string, string> = {};
-    if (token) headers.Authorization = `Bearer ${token}`;
-
-    const res = await api.put<Post>(`/posts/${id}`, body, { headers });
+    const res = await api.put<Post>(`/posts/${id}`, body);
     return res.data;
 }
-
 
 export async function deletePost(id: number): Promise<{ message: string }> {
     const token = getAuthToken();

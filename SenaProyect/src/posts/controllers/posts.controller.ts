@@ -13,6 +13,8 @@ import {
   BadRequestException,
   UploadedFile,
 } from '@nestjs/common';
+import { join } from 'path';
+import * as fs from 'fs';
 import { AuthGuard } from '@nestjs/passport';
 import { ApiOperation, ApiResponse } from '@nestjs/swagger';
 import type { Request } from 'express';
@@ -33,15 +35,23 @@ export class PostsController {
   @UseGuards(AuthGuard('jwt'))
   @UseInterceptors(FileInterceptor('image', {
     storage: diskStorage({
-      destination: './uploads',
+      destination: (req, file, cb) => {
+        const uploadPath = join(process.cwd(), 'uploads');
+        try {
+          fs.mkdirSync(uploadPath, { recursive: true });
+          cb(null, uploadPath);
+        } catch (err) {
+          cb(err, uploadPath);
+        }
+      },
       filename: (req, file, cb) => {
         const filename = `${uuidv4()}${extname(file.originalname)}`;
         cb(null, filename);
       },
     }),
     fileFilter: (req, file, cb) => {
-      if (!file.mimetype.match(/\/(jpg|jpeg|png|gif)$/)) {
-        cb(new BadRequestException('Solo imágenes permitidas (jpg, jpeg, png, gif)'), false);
+      if (!file.mimetype.match(/\/(jpg|jpeg|png|gif|webp)$/)) {
+        cb(new BadRequestException('Solo imágenes permitidas (jpg, jpeg, png, gif, webp)'), false);
       } else cb(null, true);
     },
     limits: { fileSize: 5 * 1024 * 1024 },
@@ -77,33 +87,50 @@ export class PostsController {
   }
 
   @ApiOperation({ summary: 'Update a post by ID' })
-  @UseGuards(AuthGuard('jwt'))
   @Put(':id')
+  @UseGuards(AuthGuard('jwt'))
   @UseInterceptors(FileInterceptor('image', {
     storage: diskStorage({
-      destination: './uploads',
+      destination: (req, file, cb) => {
+        const uploadPath = join(process.cwd(), 'uploads');
+        fs.mkdirSync(uploadPath, { recursive: true });
+        cb(null, uploadPath);
+      },
       filename: (req, file, cb) => {
         const filename = `${uuidv4()}${extname(file.originalname)}`;
         cb(null, filename);
       },
     }),
-    fileFilter: (req, file, cb) => {
-      if (!file.mimetype.match(/\/(jpg|jpeg|png|gif)$/)) {
-        cb(new BadRequestException('Solo imágenes permitidas'), false);
-      } else cb(null, true);
-    },
   }))
-  update(
+  async update(
     @Param('id', ParseIntPipe) id: number,
-    @Body() updatePostDto: UpdatePostDto,
+    @UploadedFile() file: Express.Multer.File,
+    @Body() updatePostDto: any,
     @Req() req: Request,
-    @UploadedFile() file?: Express.Multer.File
   ) {
     const user = req.user as any;
     const userId = user?.id;
-    const imageUrl = file ? `/uploads/${file.filename}` : updatePostDto.imageUrl;
+
+    if (typeof updatePostDto.categoryIds === 'string') {
+      try {
+        updatePostDto.categoryIds = JSON.parse(updatePostDto.categoryIds);
+      } catch {
+        updatePostDto.categoryIds = [];
+      }
+    }
+
+    let imageUrl: string | undefined;
+    if (file) {
+      imageUrl = `/uploads/${file.filename}`;
+    } else if (updatePostDto.removeImage === 'true' || updatePostDto.removeImage === true) {
+      imageUrl = undefined;
+    } else if (updatePostDto.imageUrl) {
+      imageUrl = updatePostDto.imageUrl;
+    }
+
     return this.postsService.update(id, { ...updatePostDto, imageUrl }, userId);
   }
+
 
   @ApiOperation({ summary: 'Delete a post by ID' })
   @UseGuards(AuthGuard('jwt'))

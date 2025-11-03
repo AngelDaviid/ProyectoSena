@@ -41,7 +41,7 @@ export class PostsService {
     return post;
   }
 
-  async update(id: number, updatePostDto: UpdatePostDto, userId?: number) {
+  async update(id: number, updatePostDto: UpdatePostDto, userId?: number, imageUrl?: string) {
     try {
       const post = await this.findOne(id);
 
@@ -52,6 +52,10 @@ export class PostsService {
       if ((updatePostDto as any).categoryIds) {
         (updatePostDto as any).categories = (updatePostDto as any).categoryIds.map((id: number) => ({ id }));
         delete (updatePostDto as any).categoryIds;
+      }
+
+      if ((updatePostDto as any).removeImage) {
+        (updatePostDto as any).imageUrl = undefined;
       }
 
       const updatedPost = this.postsRepository.merge(post, updatePostDto);
