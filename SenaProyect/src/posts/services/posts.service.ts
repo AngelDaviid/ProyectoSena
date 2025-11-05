@@ -6,7 +6,7 @@ import {
   UnauthorizedException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Repository, In } from 'typeorm';
 import { Post } from '../entities/post.entity';
 import { CreatePostDto } from '../dto/create-post.dto';
 import { UpdatePostDto } from '../dto/update-post.dto';
@@ -119,19 +119,72 @@ export class PostsService {
     }
   }
 
-  async findAll() {
+  async findAll(userId?: number) {
     const posts = await this.postsRepository.find({
       relations: ['user.profile', 'categories'],
+      order: { createdAt: 'DESC' },
     });
-    return posts;
+
+    const postIds = posts.map((p) => p.id);
+    if (postIds.length === 0) return posts;
+
+    const countsRaw = await this.likeRepository
+      .createQueryBuilder('like')
+      .select('like.postId', 'postId')
+      .addSelect('COUNT(like.id)', 'count')
+      .where('like.postId IN (:...ids)', { ids: postIds })
+      .groupBy('like.postId')
+      .getRawMany();
+
+    const likesCountMap: Record<number, number> = {};
+    countsRaw.forEach((r) => {
+      likesCountMap[Number(r.postId)] = Number(r.count);
+    });
+
+    const likedMap: Record<number, boolean> = {};
+    if (userId) {
+      const userLikes = await this.likeRepository.find({
+        where: { user: { id: userId }, post: { id: In(postIds) } },
+        relations: ['post'],
+      });
+      userLikes.forEach((l) => {
+        if (l.post?.id) likedMap[l.post.id] = true;
+      });
+    }
+
+    return posts.map((p) => {
+      return {
+        ...p,
+        likesCount: likesCountMap[p.id] ?? 0,
+        likedByUser: !!likedMap[p.id],
+      };
+    });
   }
 
-  async findOne(id: number) {
+
+  /**
+   * findOne admite userId opcional para devolver likedByUser y likesCount
+   */
+  async findOne(id: number, userId?: number) {
     const post = await this.postsRepository.findOne({ where: { id }, relations: ['user.profile', 'categories'] });
     if (!post) {
       throw new NotFoundException(`Post con id ${id} no encontrado`);
     }
-    return post;
+
+    const likesCount = await this.likeRepository.count({ where: { post: { id: post.id } } });
+    let likedByUser = false;
+    if (userId) {
+      const existing = await this.likeRepository.findOne({
+        where: { post: { id: post.id }, user: { id: userId } },
+      });
+      likedByUser = !!existing;
+    }
+
+    return {
+      ...post,
+      likesCount,
+      likedByUser,
+    };
   }
 
   async update(id: number, updatePostDto: UpdatePostDto, userId?: number, imageUrl?: string | null) {

@@ -74,8 +74,10 @@ export class PostsController {
   @ApiResponse({ status: 201, description: 'Post created successfully.' })
   @ApiOperation({ summary: 'Get all posts' })
   @Get()
-  findAll() {
-    return this.postsService.findAll();
+  findAll(@Req() req: Request) {
+    const user = (req as any).user;
+    const userId = user?.id;
+    return this.postsService.findAll(userId);
   }
 
   @ApiResponse({ status: 200, description: 'Post found successfully.', type: PostEntity })
