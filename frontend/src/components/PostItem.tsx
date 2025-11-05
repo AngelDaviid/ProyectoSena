@@ -294,7 +294,8 @@ const PostItem: React.FC<Props> = ({ post, onUpdated, onDeleted }) => {
                                         onUpdated={handleCommentUpdated}
                                         onDeleted={handleCommentDeleted}
                                     />
-                                ))}
+                                ))
+                            }
 
                             <CommentForm onSubmit={handleCreateComment} />
                         </div>

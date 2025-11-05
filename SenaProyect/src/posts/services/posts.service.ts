@@ -30,13 +30,13 @@ export class PostsService {
     const post = await this.findOne(postId)
     const comment = this.commentRepository.create({content, post: {id: post.id} as any, user: {id: userId} as any})
     await this.commentRepository.save(comment);
-    return this.commentRepository.findOne({where: {id: comment.id}})
+    return this.commentRepository.findOne({where: {id: comment.id}, relations: ['user']})
   }
 
 
   async getCommet(postId: number){
     const post = await this.findOne(postId)
-    return this.commentRepository.findOne({where: {post: {id: post.id}}, order: { createdAt: 'ASC'}})
+    return this.commentRepository.find({where: {post: {id: post.id}}, relations: ['user'], order: { createdAt: 'ASC'}})
   }
 
   async updateComment(postId: number, commentId: number, userId: number | undefined, content: string) {

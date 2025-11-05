@@ -151,7 +151,8 @@ export class PostsController {
   @Post(':id/comments')
   async createComment(@Param('id', ParseIntPipe) id: number, @Body() body: { content: string }, @Req() req: any) {
     const user = req.user;
-    return this.postsService.CreateCommet(id, user, body.content);
+    const userId = user?.id;
+    return this.postsService.CreateCommet(id, userId, body.content);
   }
 
   @UseGuards(AuthGuard('jwt'))
