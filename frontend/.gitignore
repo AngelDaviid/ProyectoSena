@@ -1,6 +1,5 @@
 # Node
-../node_modules/
-**/node_modules/
+node_modules
 
 # Lockfiles
 package-lock.json

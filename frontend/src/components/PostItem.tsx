@@ -1,7 +1,11 @@
 import React, { useState, useRef, useEffect } from 'react';
-import type { Post } from '../types/post';
+import type { Post, PostComment } from '../types/post';
 import { useAuth } from '../hooks/useAuth';
 import EditPostForm from './EditPostForm';
+import { toggleLike as apiToggleLike, createComment as apiCreateComment, getComments as apiGetComments, deletePost } from '../services/posts';
+import CommentForm from './CommentForm';
+import CommentItem from './CommentItem';
+import { Heart, MessageSquare } from 'lucide-react';
 
 type Props = {
     post: Post;
@@ -12,11 +16,23 @@ type Props = {
 const API_BASE = import.meta.env.SENA_API_URL || 'http://localhost:3001';
 
 const PostItem: React.FC<Props> = ({ post, onUpdated, onDeleted }) => {
+    const initialLikes = Array.isArray((post as any).likes)
+        ? (post as any).likes.length
+        : (typeof post.likesCount === 'number' ? post.likesCount : 0);
+
     const { user } = useAuth();
     const [editing, setEditing] = useState(false);
     const [deleting, setDeleting] = useState(false);
     const [menuOpen, setMenuOpen] = useState(false);
     const menuRef = useRef<HTMLDivElement | null>(null);
+
+    const [likesCount, setLikesCount] = useState<number>(initialLikes);
+    const [liked, setLiked] = useState<boolean>(!!post.likedByUser);
+    const [liking, setLiking] = useState<boolean>(false);
+
+    const [comments, setComments] = useState<PostComment[]>(post.comments ?? []);
+    const [showComments, setShowComments] = useState(false);
+    const [loadingComments, setLoadingComments] = useState(false);
 
     const authorName =
         post.user?.profile?.name ||
@@ -40,6 +56,10 @@ const PostItem: React.FC<Props> = ({ post, onUpdated, onDeleted }) => {
     const isOwner = !!(user && post.user && user.id === post.user.id);
 
     useEffect(() => {
+        setComments(post.comments ?? []);
+    }, [post.comments]);
+
+    useEffect(() => {
         function handleClickOutside(e: MouseEvent) {
             if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
                 setMenuOpen(false);
@@ -49,11 +69,32 @@ const PostItem: React.FC<Props> = ({ post, onUpdated, onDeleted }) => {
         return () => document.removeEventListener('mousedown', handleClickOutside);
     }, []);
 
+    useEffect(() => {
+        if (!showComments) return;
+        if (comments.length > 0) return;
+        let mounted = true;
+        const load = async () => {
+            try {
+                setLoadingComments(true);
+                const data = await apiGetComments(post.id);
+                if (!mounted) return;
+                setComments(data);
+            } catch (err) {
+                console.error('Error cargando comentarios', err);
+            } finally {
+                if (mounted) setLoadingComments(false);
+            }
+        };
+        load();
+        return () => {
+            mounted = false;
+        };
+    }, [showComments, post.id, comments.length]);
+
     const handleDeleted = async () => {
         if (!confirm('¿Eliminar esta publicación?')) return;
         setDeleting(true);
         try {
-            const { deletePost } = await import('../services/posts');
             await deletePost(post.id);
             onDeleted?.(post.id);
         } catch (err: any) {
@@ -62,6 +103,57 @@ const PostItem: React.FC<Props> = ({ post, onUpdated, onDeleted }) => {
             setDeleting(false);
             setMenuOpen(false);
         }
+    };
+
+    const handleToggleLike = async () => {
+        // require login
+        if (!user || !user.id) {
+            alert('Inicia sesión para dar like');
+            return;
+        }
+
+        if (liking) return; // evitar múltiples clicks
+
+        const prevLiked = liked;
+        const prevCount = likesCount;
+
+        // Optimistic update
+        setLiked(!prevLiked);
+        setLikesCount(prevCount + (prevLiked ? -1 : 1));
+        setLiking(true);
+
+        try {
+            const res = await apiToggleLike(post.id);
+            // Use server response to normalize state
+            if (typeof res.liked === 'boolean') setLiked(res.liked);
+            if (typeof res.likesCount === 'number') setLikesCount(res.likesCount);
+        } catch (err) {
+            console.error('Error toggling like', err);
+            // revert optimistic update on error
+            setLiked(prevLiked);
+            setLikesCount(prevCount);
+        } finally {
+            setLiking(false);
+        }
+    };
+
+    const handleCreateComment = async (content: string) => {
+        try {
+            const created = await apiCreateComment(post.id, content);
+            setComments((prev) => [...prev, created]);
+            setShowComments(true);
+        } catch (err) {
+            console.error(err);
+            throw err;
+        }
+    };
+
+    const handleCommentUpdated = (updated: PostComment) => {
+        setComments((prev) => prev.map((c) => (c.id === updated.id ? updated : c)));
+    };
+
+    const handleCommentDeleted = (id: number) => {
+        setComments((prev) => prev.filter((c) => c.id !== id));
     };
 
     return (
@@ -80,8 +172,8 @@ const PostItem: React.FC<Props> = ({ post, onUpdated, onDeleted }) => {
                         <div className="flex items-center space-x-2">
                             <span className="font-semibold text-gray-900">{authorName}</span>
                             <span className="text-sm text-gray-500">
-                {post.createdAt ? new Date(post.createdAt).toLocaleDateString() : ''}
-              </span>
+                                {post.createdAt ? new Date(post.createdAt).toLocaleDateString() : ''}
+                            </span>
                         </div>
 
                         {isOwner && (
@@ -146,6 +238,32 @@ const PostItem: React.FC<Props> = ({ post, onUpdated, onDeleted }) => {
                         </div>
                     )}
 
+                    <div className="mt-3 flex items-center gap-4">
+                        <button
+                            onClick={handleToggleLike}
+                            className={`flex items-center gap-2 focus:outline-none transition ${
+                                liked ? 'text-red-600' : 'text-gray-600'
+                            } ${liking ? 'opacity-60 cursor-not-allowed' : 'hover:text-red-500'}`}
+                            aria-pressed={liked}
+                            aria-disabled={liking}
+                            title={liked ? 'Quitar me gusta' : 'Me gusta'}
+                            disabled={liking}
+                        >
+                            <Heart className="w-5 h-5" />
+                            <span>{likesCount ?? 0}</span>
+                        </button>
+
+                        <button
+                            onClick={() => setShowComments((s) => !s)}
+                            className="flex items-center gap-2 text-gray-600"
+                            aria-expanded={showComments}
+                            title="Mostrar comentarios"
+                        >
+                            <MessageSquare className="w-5 h-5" />
+                            <span>Comentarios ({comments.length})</span>
+                        </button>
+                    </div>
+
                     {editing && (
                         <div className="mt-4 border-t border-gray-200 pt-4">
                             <EditPostForm
@@ -156,6 +274,29 @@ const PostItem: React.FC<Props> = ({ post, onUpdated, onDeleted }) => {
                                 }}
                                 onCancel={() => setEditing(false)}
                             />
+                        </div>
+                    )}
+
+                    {showComments && (
+                        <div className="mt-4 border-t border-gray-100 pt-4 space-y-3">
+                            {loadingComments && <div className="text-sm text-gray-500">Cargando comentarios...</div>}
+
+                            {!loadingComments && comments.length === 0 && (
+                                <div className="text-sm text-gray-500">No hay comentarios aún</div>
+                            )}
+
+                            {!loadingComments &&
+                                comments.map((c) => (
+                                    <CommentItem
+                                        key={c.id}
+                                        postId={post.id}
+                                        comment={c}
+                                        onUpdated={handleCommentUpdated}
+                                        onDeleted={handleCommentDeleted}
+                                    />
+                                ))}
+
+                            <CommentForm onSubmit={handleCreateComment} />
                         </div>
                     )}
                 </div>

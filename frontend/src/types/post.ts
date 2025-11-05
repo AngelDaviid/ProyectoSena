@@ -16,6 +16,20 @@ export interface User {
     role?: 'desarrollador' | 'instructor' | 'aprendiz';
 }
 
+export interface Comment {
+    id: number;
+    content: string;
+    createdAt?: string;
+    user?: User;
+}
+
+export interface PostComment {
+    id: number;
+    content: string;
+    createdAt?: string;
+    user?: User;
+}
+
 export interface Post {
     id: number;
     title: string;
@@ -25,6 +39,9 @@ export interface Post {
     isDraft?: boolean;
     createdAt?: string;
     updatedAt?: string;
+    comments?: PostComment[];
+    likesCount?: number;
+    likedByUser?: boolean;
     user?: User;
     categories?: Category[];
 }

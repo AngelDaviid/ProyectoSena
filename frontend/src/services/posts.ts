@@ -1,6 +1,6 @@
 import api from './api';
 import { getAuthToken } from './auth';
-import type { Post } from '../types/post';
+import type { Post, PostComment } from '../types/post';
 
 /**
  * Nota: No fijar Content-Type al enviar FormData. El navegador/axios añade
@@ -8,12 +8,18 @@ import type { Post } from '../types/post';
  */
 
 export async function getPosts(): Promise<Post[]> {
-    const res = await api.get<Post[]>('/posts');
+    const token = getAuthToken();
+    const res = await api.get<Post[]>('/posts', {
+        headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+    });
     return res.data;
 }
 
 export async function getPost(id: number): Promise<Post> {
-    const res = await api.get<Post>(`/posts/${id}`);
+    const token = getAuthToken();
+    const res = await api.get<Post>(`/posts/${id}`, {
+        headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+    });
     return res.data;
 }
 
@@ -55,4 +61,44 @@ export async function deletePost(id: number): Promise<{ message: string }> {
         headers: token ? { Authorization: `Bearer ${token}` } : undefined,
     });
     return res.data;
+}
+
+export async function getComments(postId: number): Promise<PostComment[]> {
+    const res = await api.get<PostComment[]>(`/posts/${postId}/comments`);
+    return res.data;
+}
+
+export async function createComment(postId: number, content: string): Promise<PostComment> {
+    const token = getAuthToken();
+    const res = await api.post<PostComment>(`/posts/${postId}/comments`, { content }, {
+        headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+    });
+    return res.data;
+}
+
+export async function updateComment(postId: number, commentId: number, content: string): Promise<PostComment> {
+    const token = getAuthToken();
+    const res = await api.put<PostComment>(`/posts/${postId}/comments/${commentId}`, { content }, {
+        headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+    });
+    return res.data;
+}
+
+export async function deleteComment(postId: number, commentId: number): Promise<{ message: string }> {
+    const token = getAuthToken();
+    const res = await api.delete<{ message: string }>(`/posts/${postId}/comments/${commentId}`, {
+        headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+    });
+    return res.data;
+}
+
+/* ---- Likes ---- */
+export async function toggleLike(postId: number): Promise<{ liked: boolean; likesCount: number }> {
+    const token = getAuthToken();
+    const res = await api.post(`/posts/${postId}/like`, null, {
+        headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+    });
+    const data = res.data || {};
+    const likesCount = typeof data.likesCount === 'number' ? data.likesCount : data.likeCount ?? 0;
+    return { liked: !!data.liked, likesCount };
 }
