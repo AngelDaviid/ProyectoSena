@@ -12,7 +12,7 @@ export class Category {
   name: string;
 
   @Column({ type: 'varchar', length: 800, nullable: true })
-  description: string;
+  description?: string;
 
   @Column({ type: 'varchar', length: 800, nullable: true, name: 'cover_image' })
   coverImage: string;

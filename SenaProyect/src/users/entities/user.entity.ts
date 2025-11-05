@@ -6,7 +6,8 @@ import {Exclude} from "class-transformer";
 import { Event } from '../../events/entities/events.entity';
 import {Conversation} from "../../chat/entities/conversations.entity";
 import {Message} from "../../chat/entities/message.entity";
-
+import { Comment } from '../../posts/entities/comment.entity';
+import { Like } from '../../posts/entities/like.entity';
 
 @Entity({
   name: 'users',
@@ -46,6 +47,12 @@ export class User {
 
   @OneToMany(() => Message, (message) => message.sender)
   messages: Message[];
+
+  @OneToMany(() => Comment, (comment) => comment.user)
+  comments: Comment[];
+
+  @OneToMany(() => Like, (like) => like.user)
+  likes: Like[];
 
   @BeforeInsert()
   async hashPassword() {

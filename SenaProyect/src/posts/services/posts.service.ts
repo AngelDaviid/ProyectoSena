@@ -1,16 +1,109 @@
-import { Injectable, NotFoundException, BadRequestException, ForbiddenException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  BadRequestException,
+  ForbiddenException,
+  UnauthorizedException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Post } from '../entities/post.entity';
 import { CreatePostDto } from '../dto/create-post.dto';
 import { UpdatePostDto } from '../dto/update-post.dto';
+import { Comment } from '../entities/comment.entity';
+import { Like } from '../entities/like.entity';
+import { User } from '../../users/entities/user.entity';
 
 @Injectable()
 export class PostsService {
   constructor(
     @InjectRepository(Post)
     private postsRepository: Repository<Post>,
+    @InjectRepository(Comment)
+    private commentRepository: Repository<Comment>,
+    @InjectRepository(Like)
+    private likeRepository: Repository<Like>,
   ) {}
+
+
+  async CreateCommet(postId: number, userId: number, content: string) {
+    const post = await this.findOne(postId)
+    const comment = this.commentRepository.create({content, post: {id: post.id} as any, user: {id: userId} as any})
+    await this.commentRepository.save(comment);
+    return this.commentRepository.findOne({where: {id: comment.id}})
+  }
+
+
+  async getCommet(postId: number){
+    const post = await this.findOne(postId)
+    return this.commentRepository.findOne({where: {post: {id: post.id}}, order: { createdAt: 'ASC'}})
+  }
+
+  async updateComment(postId: number, commentId: number, userId: number | undefined, content: string) {
+    const post = await this.findOne(postId);
+    const comment = await this.commentRepository.findOne({
+      where: { id: commentId },
+      relations: ['user', 'post'],
+    });
+    if (!comment) {
+      throw new NotFoundException(`Comentario con id ${commentId} no encontrado`);
+    }
+    if (comment.post && comment.post.id !== post.id) {
+      throw new BadRequestException('El comentario no pertenece a este post');
+    }
+    if (userId && comment.user && comment.user.id !== userId) {
+      throw new ForbiddenException('No tienes permisos para editar este comentario');
+    }
+    comment.content = content;
+    return await this.commentRepository.save(comment);
+  }
+
+  async removeComment(postId: number, commentId: number, userId?: number) {
+    const post = await this.findOne(postId);
+    const comment = await this.commentRepository.findOne({
+      where: { id: commentId },
+      relations: ['user', 'post'],
+    });
+    if (!comment) {
+      throw new NotFoundException(`Comentario con id ${commentId} no encontrado`);
+    }
+    if (comment.post && comment.post.id !== post.id) {
+      throw new BadRequestException('El comentario no pertenece a este post');
+    }
+    if (userId && comment.user && comment.user.id !== userId) {
+      throw new ForbiddenException('No tienes permisos para eliminar este comentario');
+    }
+    await this.commentRepository.delete(commentId);
+    return { message: 'Comentario eliminado correctamente' };
+  }
+
+  async toggleLike(postId: number, userOrId: User | number) {
+    const userId = typeof userOrId === 'number' ? userOrId : (userOrId as any)?.id;
+    if (!userId) throw new UnauthorizedException('Usuario no autenticado');
+
+    const post = await this.findOne(postId);
+    const existingLike = await this.likeRepository.findOne({
+      where: { post: { id: post.id }, user: { id: userId } },
+    });
+
+    let liked: boolean;
+    if (existingLike) {
+      await this.likeRepository.delete(existingLike.id);
+      liked = false;
+    } else {
+      const like = this.likeRepository.create({ post: { id: post.id } as any, user: { id: userId } as any });
+      await this.likeRepository.save(like);
+      liked = true;
+    }
+
+    const likesCount = await this.likeRepository.count({ where: { post: { id: post.id } } });
+    return { liked, likesCount };
+  }
+
+  async getLikeCount(postId: number){
+    const post = await this.findOne(postId)
+    return this.likeRepository.count({where: {post: {id: post.id}}})
+  }
 
   async create(createPostDto: CreatePostDto, userId: number, imageUrl?: string) {
     try {

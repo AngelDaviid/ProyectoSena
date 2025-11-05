@@ -1,6 +1,19 @@
-import {Column, CreateDateColumn, Entity, JoinColumn, JoinTable, ManyToMany, ManyToOne, PrimaryGeneratedColumn, UpdateDateColumn} from "typeorm";
+import {
+  Column,
+  CreateDateColumn,
+  Entity,
+  JoinColumn,
+  JoinTable,
+  ManyToMany,
+  ManyToOne,
+  OneToMany,
+  PrimaryGeneratedColumn,
+  UpdateDateColumn,
+} from 'typeorm';
 import {User} from "../../users/entities/user.entity";
-import { Category } from "../entities/category.entity";
+import { Category } from './category.entity';
+import { Comment } from './comment.entity';
+import { Like } from './like.entity';
 import {ApiProperty} from "@nestjs/swagger";
 
 @Entity({
@@ -21,6 +34,12 @@ export class Post {
 
   @Column({ nullable: true })
   imageUrl?: string;
+
+  @OneToMany(() => Comment, (c) => c.post, { cascade: true })
+  comments?: Comment[];
+
+  @OneToMany(() => Like, (l) => l.post, { cascade: true })
+  likes?: Like[];
 
   @ApiProperty({ description: 'Summary of the post', required: false })
   @Column({type: 'varchar', length: 255, name: 'summary', nullable: true})

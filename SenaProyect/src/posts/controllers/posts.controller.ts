@@ -144,4 +144,47 @@ export class PostsController {
     const userId = user?.id;
     return this.postsService.remove(id, userId);
   }
+
+  @UseGuards(AuthGuard('jwt'))
+  @Post(':id/comments')
+  async createComment(@Param('id', ParseIntPipe) id: number, @Body() body: { content: string }, @Req() req: any) {
+    const user = req.user;
+    return this.postsService.CreateCommet(id, user, body.content);
+  }
+
+  @UseGuards(AuthGuard('jwt'))
+  @Get(':id/comments')
+  async getComments(@Param('id', ParseIntPipe) id: number) {
+    return this.postsService.getCommet(id);
+  }
+
+  @UseGuards(AuthGuard('jwt'))
+  @Post(':id/like')
+  async toggleLike(@Param('id', ParseIntPipe) id: number, @Req() req: any) {
+    const user = req.user;
+    return this.postsService.toggleLike(id, user);
+  }
+
+  @UseGuards(AuthGuard('jwt'))
+  @Put(':postId/comments/:id')
+  async updateComment(
+    @Param('postId', ParseIntPipe) postId: number,
+    @Param('id', ParseIntPipe) id: number,
+    @Body() body: { content: string },
+    @Req() req: any,
+  ) {
+    const user = req.user;
+    return this.postsService.updateComment(postId, id, user?.id, body.content);
+  }
+
+  @UseGuards(AuthGuard('jwt'))
+  @Delete(':postId/comments/:id')
+  async deleteComment(
+    @Param('postId', ParseIntPipe) postId: number,
+    @Param('id', ParseIntPipe) id: number,
+    @Req() req: any,
+  ) {
+    const user = req.user;
+    return this.postsService.removeComment(postId, id, user?.id);
+  }
 }

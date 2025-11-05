@@ -6,11 +6,13 @@ import {Post} from "./entities/post.entity";
 import {Category} from "./entities/category.entity";
 import {CategoriesController} from "./controllers/categories.controller";
 import {CategoriesService} from "./services/categories.service";
+import { Comment } from './entities/comment.entity';
+import { Like } from './entities/like.entity';
 
 @Module({
-  imports:[TypeOrmModule.forFeature([Post, Category])],
+  imports: [TypeOrmModule.forFeature([Post, Category, Comment, Like])],
   controllers: [PostsController, CategoriesController],
   providers: [PostsService, CategoriesService],
-  exports: [PostsService, CategoriesService]
+  exports: [PostsService, CategoriesService],
 })
 export class PostsModule {}
