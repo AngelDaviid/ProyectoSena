@@ -1,10 +1,10 @@
 import React, { useState, useRef, useEffect } from 'react';
-import type { Post, PostComment } from '../types/post';
-import { useAuth } from '../hooks/useAuth';
-import EditPostForm from './EditPostForm';
-import { toggleLike as apiToggleLike, createComment as apiCreateComment, getComments as apiGetComments, deletePost } from '../services/posts';
-import CommentForm from './CommentForm';
-import CommentItem from './CommentItem';
+import type { Post, PostComment } from '../../types/post.ts';
+import { useAuth } from '../../hooks/useAuth.ts';
+import EditPostForm from './EditPostForm.tsx';
+import { toggleLike as apiToggleLike, createComment as apiCreateComment, getComments as apiGetComments, deletePost } from '../../services/posts.ts';
+import CommentForm from '../Comments/CommentForm.tsx';
+import CommentItem from '../Comments/CommentItem.tsx';
 import { Heart, MessageSquare } from 'lucide-react';
 
 type Props = {

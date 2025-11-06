@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { useAuth } from '../hooks/useAuth';
-import api from '../services/api';
-import type { Post, Category } from '../types/post';
+import { useAuth } from '../../hooks/useAuth.ts';
+import api from '../../services/api.ts';
+import type { Post, Category } from '../../types/post.ts';
 import { Image as ImageIcon, X } from 'lucide-react';
 
 type Props = {
@@ -85,7 +85,7 @@ const NewPostForm: React.FC<Props> = ({ onCreated }) => {
 
         try {
             setLoading(true);
-            const { createPost } = await import('../services/posts');
+            const { createPost } = await import('../../services/posts.ts');
             const created = await createPost(fd);
             setTitle('');
             setContent('');

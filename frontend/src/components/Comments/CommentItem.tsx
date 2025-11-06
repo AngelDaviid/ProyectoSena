@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
-import type { Comment as CommentType } from '../types/post';
-import { useAuth } from '../hooks/useAuth';
-import { updateComment as apiUpdateComment, deleteComment as apiDeleteComment } from '../services/posts';
+import type { Comment as CommentType } from '../../types/post.ts';
+import { useAuth } from '../../hooks/useAuth.ts';
+import { updateComment as apiUpdateComment, deleteComment as apiDeleteComment } from '../../services/posts.ts';
 
 type Props = {
     postId: number;

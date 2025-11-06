@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import { Save, X, Image as ImageIcon, Trash, Search } from "lucide-react";
-import type { Post, Category } from "../types/post";
-import api from "../services/api";
+import type { Post, Category } from "../../types/post.ts";
+import api from "../../services/api.ts";
 
 type Props = {
     post: Post;
@@ -117,7 +117,7 @@ const EditPostForm: React.FC<Props> = ({ post, onCancel, onSaved }) => {
                     fd.append("removeImage", "true");
                 }
 
-                const { updatePost } = await import("../services/posts");
+                const { updatePost } = await import("../../services/posts.ts");
                 const updated = await updatePost(post.id, fd);
                 onSaved?.(updated);
                 return;
@@ -133,7 +133,7 @@ const EditPostForm: React.FC<Props> = ({ post, onCancel, onSaved }) => {
             if (summary) payload.summary = summary;
             if (removeImage) payload.removeImage = true;
 
-            const { updatePost } = await import("../services/posts");
+            const { updatePost } = await import("../../services/posts.ts");
             const updated = await updatePost(post.id, payload);
             onSaved?.(updated);
         } catch (err: any) {

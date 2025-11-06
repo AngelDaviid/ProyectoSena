@@ -1,8 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import NewPostForm from './PostForm.tsx';
 import PostItem from './PostItem.tsx';
-import { usePosts } from '../hooks/usePosts';
-import type { Post } from '../types/post';
+import { usePosts } from '../../hooks/usePosts.ts';
+import type { Post } from '../../types/post.ts';
 
 const PostList: React.FC = () => {
     const { posts, loading, error, remove } = usePosts();

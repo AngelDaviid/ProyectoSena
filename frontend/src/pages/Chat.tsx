@@ -3,8 +3,8 @@ import { useAuth } from '../hooks/useAuth';
 import { connectSocket, disconnectSocket, getSocket } from '../services/socket';
 import { getConversations, getMessages } from '../services/chat';
 import type { Conversation, Message } from '../types/chat';
-import ChatSidebar from '../components/ChatSidebar';
-import ChatWindow from '../components/ChatWindow';
+import ChatSidebar from '../components/Chat/ChatSidebar.tsx';
+import ChatWindow from '../components/Chat/ChatWindow.tsx';
 
 const ChatPage: React.FC = () => {
     const { user } = useAuth();
@@ -23,7 +23,7 @@ const ChatPage: React.FC = () => {
         }
     }, []);
 
-    // === Conectar socket y escuchar nuevos mensajes ===
+    // === Conectar socket y escuchar mensajes ===
     useEffect(() => {
         loadConversations();
         const s = connectSocket();
@@ -32,7 +32,6 @@ const ChatPage: React.FC = () => {
         const handleNewMessage = (msg: Message) => {
             if (activeConversation && msg.conversationId === activeConversation.id) {
                 setMessages((prev) => {
-                    // Buscar y reemplazar un mensaje temporal si coincide texto + remitente
                     const tempIdx = prev.findIndex(
                         (m) =>
                             m.sending &&
@@ -40,9 +39,9 @@ const ChatPage: React.FC = () => {
                             String(m.text || '').trim() === String(msg.text || '').trim()
                     );
                     if (tempIdx !== -1) {
-                        const copy = [...prev];
-                        copy.splice(tempIdx, 1);
-                        return [...copy, msg];
+                        const updated = [...prev];
+                        updated.splice(tempIdx, 1);
+                        return [...updated, msg];
                     }
                     return [...prev, msg];
                 });
@@ -78,12 +77,11 @@ const ChatPage: React.FC = () => {
         s.emit('joinConversation', { conversationId: String(conv.id) });
     };
 
-    // === Enviar mensaje (corregido) ===
-    const handleSend = (text: string, imageUrl?: string | File | undefined): void => {
+    // === Enviar mensaje ===
+    const handleSend = (text: string, imageUrl?: string | File) => {
         if (!activeConversation || !user) return;
         const s = getSocket();
 
-        // Si el usuario envía una imagen (File), crear una URL temporal para mostrarla
         const image =
             imageUrl instanceof File ? URL.createObjectURL(imageUrl) : imageUrl ?? null;
 
@@ -105,11 +103,11 @@ const ChatPage: React.FC = () => {
                 conversationId: activeConversation.id,
                 sending: true,
                 tempId: `temp-${Date.now()}`,
-            } as Message & { sending?: boolean; tempId?: string },
+            },
         ]);
     };
 
-    // === Cargar mensajes antiguos ===
+    // === Cargar más mensajes ===
     const handleLoadMore = async (): Promise<number> => {
         if (!activeConversation) return 0;
         try {
@@ -126,10 +124,10 @@ const ChatPage: React.FC = () => {
             }
 
             const earliest = messages[0];
-            const earliestTime = new Date(earliest.createdAt || 0).getTime();
             const older = all.filter(
-                (m) => new Date(m.createdAt || 0).getTime() < earliestTime
+                (m) => new Date(m.createdAt || 0).getTime() < new Date(earliest.createdAt || 0).getTime()
             );
+
             if (older.length === 0) return 0;
 
             setMessages((prev) => [...older, ...prev]);
@@ -140,15 +138,17 @@ const ChatPage: React.FC = () => {
         }
     };
 
-    // === Render ===
     return (
-        <div className="flex h-full min-h-screen">
+        <div className="grid grid-cols-[300px_1fr] min-h-screen bg-gray-100">
+            {/* SIDEBAR */}
             <ChatSidebar
                 conversations={conversations}
                 currentUserId={user?.id}
                 onSelect={openConversation}
             />
-            <div className="flex-1 bg-gray-50">
+
+            {/* MAIN CHAT AREA */}
+            <div className="bg-white border-l flex flex-col">
                 {activeConversation ? (
                     <ChatWindow
                         conversation={activeConversation}
@@ -158,7 +158,7 @@ const ChatPage: React.FC = () => {
                         onLoadMore={handleLoadMore}
                     />
                 ) : (
-                    <div className="flex items-center justify-center h-full text-gray-500">
+                    <div className="flex items-center justify-center flex-1 text-gray-500">
                         Selecciona una conversación
                     </div>
                 )}
