@@ -30,13 +30,13 @@ export class PostsService {
     const post = await this.findOne(postId)
     const comment = this.commentRepository.create({content, post: {id: post.id} as any, user: {id: userId} as any})
     await this.commentRepository.save(comment);
-    return this.commentRepository.findOne({where: {id: comment.id}, relations: ['user']})
+    return this.commentRepository.findOne({where: {id: comment.id}, relations: ['user', 'user.profile']})
   }
 
 
   async getCommet(postId: number){
     const post = await this.findOne(postId)
-    return this.commentRepository.find({where: {post: {id: post.id}}, relations: ['user'], order: { createdAt: 'ASC'}})
+    return this.commentRepository.find({where: {post: {id: post.id}}, relations: ['user', 'user.profile'], order: { createdAt: 'ASC'}})
   }
 
   async updateComment(postId: number, commentId: number, userId: number | undefined, content: string) {
@@ -100,11 +100,6 @@ export class PostsService {
     return { liked, likesCount };
   }
 
-  async getLikeCount(postId: number){
-    const post = await this.findOne(postId)
-    return this.likeRepository.count({where: {post: {id: post.id}}})
-  }
-
   async create(createPostDto: CreatePostDto, userId: number, imageUrl?: string) {
     try {
       const newPost = await this.postsRepository.save({
@@ -121,7 +116,13 @@ export class PostsService {
 
   async findAll(userId?: number) {
     const posts = await this.postsRepository.find({
-      relations: ['user.profile', 'categories'],
+      relations: [
+        'user.profile',
+        'categories',
+        'comments',
+        'comments.user',
+        'comments.user.profile',
+      ],
       order: { createdAt: 'DESC' },
     });
 
@@ -166,7 +167,13 @@ export class PostsService {
    * findOne admite userId opcional para devolver likedByUser y likesCount
    */
   async findOne(id: number, userId?: number) {
-    const post = await this.postsRepository.findOne({ where: { id }, relations: ['user.profile', 'categories'] });
+    const post = await this.postsRepository.findOne({ where: { id },       relations: [
+        'user.profile',
+        'categories',
+        'comments',
+        'comments.user',
+        'comments.user.profile',
+      ], });
     if (!post) {
       throw new NotFoundException(`Post con id ${id} no encontrado`);
     }
