@@ -11,9 +11,44 @@ export async function getConversation(id: number): Promise<Conversation> {
     return res.data;
 }
 
-export async function getMessages(conversationId: number): Promise<Message[]> {
-    const res = await api.get<Message[]>(`/messages/conversation/${conversationId}`);
-    return res.data;
+/**
+ * Ahora soporta paginación: page (1..n) y limit.
+ * También implementa retry/backoff para status 429.
+ */
+export async function getMessages(conversationId: number, page = 1, limit = 20, maxRetries = 3): Promise<{ messages: Message[]; hasMore: boolean; }> {
+    let attempt = 0;
+
+    const doRequest = async (): Promise<{ messages: Message[]; hasMore: boolean; }> => {
+        try {
+            const res = await api.get<Message[]>(`/messages/conversation/${conversationId}`, {
+                params: { page, limit },
+            });
+            // Ajusta según la forma en que el backend devuelva la paginación.
+            // Aquí asumimos que el cuerpo es { messages: [...], hasMore: boolean } OR un array (en ese caso, calculas hasMore por length).
+            const data = res.data as any;
+            if (Array.isArray(data)) {
+                return {
+                    messages: data,
+                    hasMore: data.length === limit, // heurística
+                };
+            }
+            return {
+                messages: data.messages ?? [],
+                hasMore: data.hasMore ?? false,
+            };
+        } catch (err: any) {
+            attempt++;
+            const status = err?.response?.status;
+            if (status === 429 && attempt <= maxRetries) {
+                const backoffMs = 300 * Math.pow(2, attempt - 1); // 300ms, 600ms, 1200ms...
+                await new Promise((r) => setTimeout(r, backoffMs));
+                return doRequest();
+            }
+            throw err;
+        }
+    };
+
+    return doRequest();
 }
 
 /**
