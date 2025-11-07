@@ -55,9 +55,45 @@ const PostItem: React.FC<Props> = ({ post, onUpdated, onDeleted }) => {
 
     const isOwner = !!(user && post.user && user.id === post.user.id);
 
+    // Sync comments if backend included them in the post payload
     useEffect(() => {
         setComments(post.comments ?? []);
     }, [post.comments]);
+
+    // Preload comments on mount / when post.id changes so comments are available after refresh
+    useEffect(() => {
+        let mounted = true;
+
+        const preload = async () => {
+            try {
+                // If backend already provided comments, use them
+                if (post.comments && post.comments.length > 0) {
+                    setComments(post.comments);
+                    return;
+                }
+
+                // If we already loaded them locally, skip
+                if (comments.length > 0) return;
+
+                setLoadingComments(true);
+                const data = await apiGetComments(post.id);
+                if (!mounted) return;
+                setComments(data);
+            } catch (err) {
+                // Non-blocking: failure to preload is ok, comments can still be loaded when user opens them
+                console.error('Error pre-cargando comentarios', err);
+            } finally {
+                if (mounted) setLoadingComments(false);
+            }
+        };
+
+        preload();
+
+        return () => {
+            mounted = false;
+        };
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [post.id]);
 
     useEffect(() => {
         function handleClickOutside(e: MouseEvent) {
@@ -69,6 +105,8 @@ const PostItem: React.FC<Props> = ({ post, onUpdated, onDeleted }) => {
         return () => document.removeEventListener('mousedown', handleClickOutside);
     }, []);
 
+    // Existing behavior: lazy load comments when user opens the comments panel.
+    // This will not re-fetch if comments are already populated.
     useEffect(() => {
         if (!showComments) return;
         if (comments.length > 0) return;
@@ -140,6 +178,7 @@ const PostItem: React.FC<Props> = ({ post, onUpdated, onDeleted }) => {
     const handleCreateComment = async (content: string) => {
         try {
             const created = await apiCreateComment(post.id, content);
+            // Ensure created has user.profile (backend should return it)
             setComments((prev) => [...prev, created]);
             setShowComments(true);
         } catch (err) {
@@ -225,7 +264,13 @@ const PostItem: React.FC<Props> = ({ post, onUpdated, onDeleted }) => {
 
                     <div className="mt-2 text-gray-800 whitespace-pre-wrap break-words">
                         {post.title && <p className="text-base font-medium">{post.title}</p>}
-                        {post.summary && <p className="text-gray-700">{post.summary}</p>}
+
+                        {/* Mostrar el contenido completo si existe, si no mostrar summary */}
+                        {post.content ? (
+                            <div className="text-gray-700 mt-1">{post.content}</div>
+                        ) : post.summary ? (
+                            <p className="text-gray-700 mt-1">{post.summary}</p>
+                        ) : null}
                     </div>
 
                     {imageSrc && (
