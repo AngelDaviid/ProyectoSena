@@ -5,45 +5,10 @@ import { getProfile } from '../services/auth';
 import { updateUser, uploadAvatar } from '../services/users';
 import type { User } from '../types/type';
 import { Save, X, Image as ImageIcon } from 'lucide-react';
+import PostItem from '../components/Posts/PostItem';
+import type { Post } from '../types/post';
 
 const API_BASE = import.meta.env.SENA_API_URL || 'http://localhost:3001';
-
-// Tipos mínimos para posts y comentarios — ajusta según tu API real
-type Attachment = { url?: string; path?: string; attributes?: any } | string;
-type PostLike = {
-    id?: string | number;
-    title?: string;
-    body?: string;
-    content?: string;
-    images?: Array<string>;
-    attachments?: Array<Attachment>;
-    image?: string;
-    comments?: CommentLike[] | any[];
-    user?: {
-        id?: string | number;
-        email?: string;
-        profile?: { name?: string; avatar?: string };
-    };
-    author?: { id?: string | number; name?: string; email?: string };
-    userId?: string | number;
-    authorId?: string | number;
-    createdAt?: string;
-    created_at?: string;
-    publishedAt?: string;
-};
-
-type CommentLike = {
-    id?: string | number;
-    body?: string;
-    createdAt?: string;
-    created_at?: string;
-    user?: {
-        id?: string | number;
-        email?: string;
-        profile?: { name?: string; avatar?: string };
-    };
-    author?: { id?: string | number; name?: string; email?: string };
-};
 
 const Profile: React.FC = () => {
     const { user: contextUser, setUser: setContextUser, token } = useAuth();
@@ -70,8 +35,8 @@ const Profile: React.FC = () => {
     // pestañas: actividad (posts) y ajustes
     const [activeTab, setActiveTab] = useState<'actividad' | 'ajustes'>('actividad');
 
-    // posts (actividad)
-    const [posts, setPosts] = useState<PostLike[]>([]);
+    // posts (actividad) - usando el tipo Post del repo
+    const [posts, setPosts] = useState<Post[]>([]);
     const [postsLoading, setPostsLoading] = useState(false);
     const [postsError, setPostsError] = useState<string | null>(null);
 
@@ -108,61 +73,24 @@ const Profile: React.FC = () => {
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [user, token]);
 
-    // Helper: resuelve rutas relativas y varios formatos a URL completa
-    const resolveUrl = (val?: any): string | null => {
-        if (!val && val !== 0) return null;
-        if (typeof val === 'string') {
-            const s = val.trim();
-            if (!s) return null;
-            if (s.startsWith('http://') || s.startsWith('https://') || s.startsWith('data:')) return s;
-            if (s.startsWith('/')) return `${API_BASE}${s}`;
-            return s;
-        }
-        return null;
-    };
-
-    // Extrae URL desde attachments u objetos complejos (Strapi, otros)
-    const getUrlFromAttachment = (att: Attachment): string | null => {
-        if (!att) return null;
-        if (typeof att === 'string') return resolveUrl(att);
-        // objeto: { url } or { path } or Strapi-like { attributes: { url } } or nested structures
-        if (typeof (att as any).url === 'string') return resolveUrl((att as any).url);
-        if (typeof (att as any).path === 'string') return resolveUrl((att as any).path);
-        // Strapi v4: att.data[0].attributes.url or att.attributes.url
-        if ((att as any).attributes) {
-            const attr = (att as any).attributes;
-            if (typeof attr.url === 'string') return resolveUrl(attr.url);
-            // formats
-            const formats = attr.formats;
-            if (formats && typeof formats.small?.url === 'string') return resolveUrl(formats.small.url);
-            if (formats && typeof formats.medium?.url === 'string') return resolveUrl(formats.medium.url);
-            if (attr.data && Array.isArray(attr.data) && attr.data[0]?.attributes?.url) return resolveUrl(attr.data[0].attributes.url);
-        }
-        if ((att as any).data && (att as any).data.attributes && (att as any).data.attributes.url) {
-            return resolveUrl((att as any).data.attributes.url);
-        }
-        return null;
-    };
-
+    // Cargar posts del usuario
     useEffect(() => {
-        // cargar posts del usuario cuando se abre "actividad"
         let mounted = true;
         const loadPosts = async () => {
             if (!user) return;
             setPostsError(null);
             setPostsLoading(true);
             try {
-                // Intenta rutas comunes; ajusta si tu API es diferente
+                // intenta endpoint general filtrando por userId
                 const tryUrl1 = `${API_BASE}/posts?userId=${user.id}`;
                 const res = await fetch(tryUrl1);
                 if (!mounted) return;
                 if (res.ok) {
                     const data = await res.json();
                     const arr = Array.isArray(data) ? data : [];
-                    // filtrar por author / user comparando como strings (evita mismatch number/string)
+                    // filtro adicional por seguridad: compara strings (evita mismatch number/string)
                     const userIdStr = String(user.id ?? user.id ?? user.email ?? '');
                     const filtered = arr.filter((p: any) => {
-                        // posibles campos que identifiquen al autor
                         const candidates = [
                             p.userId,
                             p.authorId,
@@ -175,16 +103,15 @@ const Profile: React.FC = () => {
                         ];
                         return candidates.some((c) => (c !== undefined && c !== null) && (String(c) === userIdStr || c === user.email));
                     });
-                    setPosts(filtered);
+                    setPosts(filtered as Post[]);
                 } else {
-                    // intenta ruta alternativa específica del usuario
+                    // intenta ruta alternativa específica de usuario
                     const altUrl = `${API_BASE}/users/${user.id}/posts`;
                     const alt = await fetch(altUrl);
                     if (!mounted) return;
                     if (!alt.ok) throw new Error('No se pudo cargar las publicaciones');
                     const altData = await alt.json();
-                    const arr = Array.isArray(altData) ? altData : [];
-                    setPosts(arr);
+                    setPosts(Array.isArray(altData) ? (altData as Post[]) : []);
                 }
             } catch (err: any) {
                 console.warn('Error cargando posts:', err);
@@ -215,7 +142,9 @@ const Profile: React.FC = () => {
     };
 
     const resolvePreviewUrl = (p: string | null | undefined) => {
-        return resolveUrl(p ?? undefined);
+        if (!p) return null;
+        if (p.startsWith('/')) return `${API_BASE}${p}`;
+        return p;
     };
 
     const onFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -236,7 +165,6 @@ const Profile: React.FC = () => {
         }
     };
 
-    // cleanup object URL on unmount
     useEffect(() => {
         return () => {
             if (objectUrl) {
@@ -346,208 +274,50 @@ const Profile: React.FC = () => {
         }
     };
 
+    // Handlers para que PostItem comunique cambios al listado del perfil
+    const handlePostUpdated = (updated: Post) => {
+        setPosts((prev) => prev.map((p) => (String(p.id) === String(updated.id) ? updated : p)));
+    };
+
+    const handlePostDeleted = (id: number | string) => {
+        setPosts((prev) => prev.filter((p) => String(p.id) !== String(id)));
+    };
+
     if (!user) return <div className="p-6 text-center text-gray-600">Inicia sesión para ver tu perfil</div>;
 
-    const displayName =
-        `${user.profile?.name ?? ''} ${user.profile?.lastName ?? ''}`.trim() || user.email;
+    const displayName = `${user.profile?.name ?? ''} ${user.profile?.lastName ?? ''}`.trim() || user.email;
 
-    const imageSrc = preview
-        ? preview.startsWith('blob:')
-            ? preview
-            : resolvePreviewUrl(preview) ?? undefined
-        : undefined;
+    const imageSrc = preview ? (preview.startsWith('blob:') ? preview : resolvePreviewUrl(preview) ?? undefined) : undefined;
 
     const formatDate = (d?: string) => {
         if (!d) return '';
         try {
-            return new Date(d).toLocaleString();
+            return new Date(d).toLocaleDateString();
         } catch {
             return d ?? '';
         }
     };
 
-    //
-    // Componente interno: PostItem (con imágenes y comentarios)
-    //
-    const PostItem: React.FC<{ post: PostLike }> = ({ post }) => {
-        const [comments, setComments] = useState<CommentLike[]>(Array.isArray(post.comments) ? (post.comments as CommentLike[]) : []);
-        const [commentsLoading, setCommentsLoading] = useState(false);
-        const [newComment, setNewComment] = useState('');
-        const [sending, setSending] = useState(false);
-
-        const fetchComments = async () => {
-            setCommentsLoading(true);
-            try {
-                const res = await fetch(`${API_BASE}/posts/${post.id}/comments`);
-                if (res.ok) {
-                    const data = await res.json();
-                    setComments(Array.isArray(data) ? data : []);
-                    setCommentsLoading(false);
-                    return;
-                }
-                // fallback
-                const r2 = await fetch(`${API_BASE}/comments?postId=${post.id}`);
-                if (r2.ok) {
-                    const d2 = await r2.json();
-                    setComments(Array.isArray(d2) ? d2 : []);
-                }
-            } catch (err) {
-                console.warn('Error cargando comentarios:', err);
-            } finally {
-                setCommentsLoading(false);
-            }
-        };
-
-        useEffect(() => {
-            // cargar solo si no vienen embebidos
-            if (!post.comments) fetchComments();
-            // eslint-disable-next-line react-hooks/exhaustive-deps
-        }, []);
-
-        // calcula urls de imagen robustas (usa helpers definidos arriba)
-        const postImages: string[] = (() => {
-            if (!post) return [];
-
-            // images array (strings)
-            if (Array.isArray(post.images) && post.images.length > 0) {
-                return post.images.map((i) => resolveUrl(i)).filter((s): s is string => !!s);
-            }
-
-            // attachments array (strings u objetos)
-            if (Array.isArray(post.attachments) && post.attachments.length > 0) {
-                return post.attachments.map((att) => getUrlFromAttachment(att)).filter((s): s is string => !!s);
-            }
-
-            // single image field
-            if (post.image && typeof post.image === 'string') {
-                const r = resolveUrl(post.image);
-                return r ? [r] : [];
-            }
-
-            // algunos backends devuelven media en post.media[0].url o post.attributes...
-            if ((post as any).media && Array.isArray((post as any).media) && (post as any).media.length > 0) {
-                const m = (post as any).media.map((mi: any) => getUrlFromAttachment(mi)).filter((s: any) => !!s);
-                return m;
-            }
-            if ((post as any).attributes?.image) {
-                const candidate = getUrlFromAttachment((post as any).attributes.image);
-                return candidate ? [candidate] : [];
-            }
-
-            return [];
-        })();
-
-        const handleAddComment = async () => {
-            if (!newComment.trim() || !post.id) return;
-            setSending(true);
-            try {
-                const res = await fetch(`${API_BASE}/posts/${post.id}/comments`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        body: newComment,
-                        userId: user?.id,
-                        authorId: user?.id,
-                    }),
-                });
-                if (res.ok) {
-                    const created = await res.json();
-                    setComments((c) => [created, ...c]);
-                    setNewComment('');
-                } else {
-                    // fallback: add optimistically
-                    const fake: CommentLike = {
-                        id: `local-${Date.now()}`,
-                        body: newComment,
-                        user: { id: user?.id, email: user?.email, profile: user?.profile },
-                        createdAt: new Date().toISOString(),
-                    };
-                    setComments((c) => [fake, ...c]);
-                    setNewComment('');
-                }
-            } catch (err) {
-                console.warn('Error creando comentario:', err);
-            } finally {
-                setSending(false);
-            }
-        };
-
-        return (
-            <article className="border border-gray-100 rounded-md p-4 bg-white">
-                <header className="flex items-center gap-3 mb-3">
-                    <div className="w-10 h-10 rounded-full overflow-hidden bg-gray-200 flex items-center justify-center text-sm font-semibold text-white">
-                        {post.user?.profile?.avatar ? (
-                            <img
-                                src={resolveUrl(post.user.profile.avatar) ?? undefined}
-                                alt={post.user.profile.name ?? post.user.email}
-                                className="w-full h-full object-cover"
-                            />
-                        ) : (
-                            (post.user?.profile?.name?.charAt(0) || post.user?.email?.charAt(0) || 'U').toUpperCase()
-                        )}
-                    </div>
-                    <div>
-                        <div className="text-sm font-semibold text-gray-800">
-                            {post.user?.profile?.name ?? post.user?.email ?? post.author?.name ?? 'Usuario'}
-                        </div>
-                        <div className="text-xs text-gray-400">{formatDate(post.createdAt ?? post.created_at ?? post.publishedAt)}</div>
-                    </div>
-                </header>
-
-                <div className="mb-3">
-                    <h3 className="font-semibold text-gray-800">{post.title ?? ''}</h3>
-                    <p className="text-sm text-gray-700 mt-1">{post.body ?? post.content ?? ''}</p>
-                </div>
-
-                {postImages.length > 0 && (
-                    <div className="mb-3 grid grid-cols-1 md:grid-cols-3 gap-2">
-                        {postImages.map((src, i) => (
-                            <div key={i} className="w-full h-48 rounded-md overflow-hidden bg-gray-100">
-                                {src ? <img src={src} alt={`imagen-${i}`} className="w-full h-full object-cover" /> : null}
-                            </div>
-                        ))}
-                    </div>
-                )}
-
-                <div className="mt-3">
-                    <div className="text-sm font-medium text-gray-700 mb-2">Comentarios</div>
-
-                    {commentsLoading && <div className="text-sm text-gray-500">Cargando comentarios...</div>}
-                    {!commentsLoading && comments.length === 0 && <div className="text-sm text-gray-500">Sin comentarios.</div>}
-
-                    <div className="space-y-2">
-                        {comments.map((c) => (
-                            <div key={String(c.id ?? Math.random())} className="flex items-start gap-3">
-                                <div className="w-8 h-8 rounded-full overflow-hidden bg-gray-200 flex items-center justify-center text-xs font-semibold text-white">
-                                    {c.user?.profile?.name?.charAt(0) ?? c.author?.name?.charAt(0) ?? (c.user?.email?.charAt(0) ?? 'U')}
-                                </div>
-                                <div>
-                                    <div className="text-sm font-medium">{c.user?.profile?.name ?? c.author?.name ?? c.user?.email ?? 'Usuario'}</div>
-                                    <div className="text-sm text-gray-600">{c.body}</div>
-                                    <div className="text-xs text-gray-400 mt-1">{formatDate(c.createdAt ?? c.created_at)}</div>
-                                </div>
-                            </div>
-                        ))}
-                    </div>
-
-                    <div className="mt-3 flex gap-2">
-                        <input
-                            value={newComment}
-                            onChange={(e) => setNewComment(e.target.value)}
-                            className="flex-1 border border-gray-200 rounded-md px-3 py-2 text-sm outline-none"
-                            placeholder="Escribe un comentario..."
-                        />
-                        <button onClick={handleAddComment} disabled={sending} className="px-3 py-2 rounded-md bg-blue-500 text-white">
-                            {sending ? 'Enviando...' : 'Comentar'}
-                        </button>
-                    </div>
-                </div>
-            </article>
-        );
-    };
+    // navigate home helper
+    const goHome = () => navigate('/');
 
     return (
         <div className="max-w-5xl mx-auto p-6">
+            {/* Back to home button */}
+            <div className="mb-4 flex justify-start">
+                <button
+                    onClick={goHome}
+                    className="inline-flex items-center gap-2 px-3 py-2 rounded-md bg-gray-100 hover:bg-gray-200 text-sm text-gray-700"
+                    aria-label="Volver al inicio"
+                >
+                    {/* simple left arrow SVG */}
+                    <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                        <path strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" d="M15 18l-6-6 6-6" />
+                    </svg>
+                    Volver al inicio
+                </button>
+            </div>
+
             <div className="bg-white rounded-2xl shadow-md border border-gray-200 p-6 flex flex-col lg:flex-row gap-6">
                 {/* Left column - profile card */}
                 <aside className="w-full lg:w-80 flex-shrink-0">
@@ -574,7 +344,7 @@ const Profile: React.FC = () => {
                             <div className="text-lg font-semibold text-gray-900">{displayName}</div>
                             <div className="text-sm text-gray-500">{user.email}</div>
                             <div className="text-xs text-gray-400 mt-1">{user.role}</div>
-                            <div className="text-xs text-gray-400 mt-1">Miembro desde: {new Date(user.createdAt || Date.now()).toLocaleDateString()}</div>
+                            <div className="text-xs text-gray-400 mt-1">Miembro desde: {formatDate(user.createdAt ?? undefined)}</div>
                         </div>
 
                         {editing ? (
@@ -610,7 +380,9 @@ const Profile: React.FC = () => {
                                 {!postsLoading && posts.length === 0 && !postsError && <div className="text-sm text-gray-500">No hay publicaciones.</div>}
 
                                 <div className="space-y-4 mt-4">
-                                    {posts.map((p) => <PostItem key={String(p.id ?? p.id ?? Math.random())} post={p} />)}
+                                    {posts.map((p) => (
+                                        <PostItem key={String(p.id ?? (p as any)._id ?? Math.random())} post={p} onUpdated={handlePostUpdated} onDeleted={handlePostDeleted} />
+                                    ))}
                                 </div>
                             </div>
                         )}
