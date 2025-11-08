@@ -1,4 +1,16 @@
-import {Column, Entity, PrimaryGeneratedColumn, CreateDateColumn, UpdateDateColumn, OneToOne, JoinColumn, OneToMany, BeforeInsert, ManyToMany} from 'typeorm';
+import {
+  Column,
+  Entity,
+  PrimaryGeneratedColumn,
+  CreateDateColumn,
+  UpdateDateColumn,
+  OneToOne,
+  JoinColumn,
+  OneToMany,
+  BeforeInsert,
+  ManyToMany,
+  JoinTable,
+} from 'typeorm';
 import {Profile} from './profile.entity'
 import {Post} from "../../posts/entities/post.entity";
 import * as bcrypt from 'bcrypt';
@@ -8,6 +20,7 @@ import {Conversation} from "../../chat/entities/conversations.entity";
 import {Message} from "../../chat/entities/message.entity";
 import { Comment } from '../../posts/entities/comment.entity';
 import { Like } from '../../posts/entities/like.entity';
+import { FriendRequest } from '../../friend/entities/firend-request.entity';
 
 @Entity({
   name: 'users',
@@ -41,6 +54,28 @@ export class User {
 
   @OneToMany(() => Event, (events) => events.user)
   events: Event[];
+
+  @ManyToMany(() => User, (user) => user.friends)
+  @JoinTable({
+    name: 'user_friends',
+    joinColumn: { name: 'user_id', referencedColumnName: 'id' },
+    inverseJoinColumn: { name: 'friend_id', referencedColumnName: 'id' },
+  })
+  friends: User[];
+
+  @ManyToMany(() => User)
+  @JoinTable({
+    name: 'user_blocks',
+    joinColumn: { name: 'blocker_id', referencedColumnName: 'id' },
+    inverseJoinColumn: { name: 'blocked_id', referencedColumnName: 'id' },
+  })
+  blockedUsers: User[];
+
+  @OneToMany(() => FriendRequest, (fr) => fr.sender)
+  sentRequests: FriendRequest[];
+
+  @OneToMany(() => FriendRequest, (fr) => fr.receiver)
+  receivedRequests: FriendRequest[];
 
   @ManyToMany(() => Conversation, (conversation) => conversation.participants)
   conversations: Conversation[];

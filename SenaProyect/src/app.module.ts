@@ -11,6 +11,7 @@ import { EventsModule } from './events/events.module';
 import { ChatModule } from './chat/chat.module';
 import { MessagesController } from './chat/controllers/message.controller';
 import { UploadsController } from './uploads/uploads/uploads.controller';
+import { FriendModule } from './friend/friend.module';
 
 @Module({
   imports: [
@@ -39,6 +40,7 @@ import { UploadsController } from './uploads/uploads/uploads.controller';
     AuthModule,
     EventsModule,
     ChatModule,
+    FriendModule,
   ],
   providers: [],
   controllers: [MessagesController, UploadsController],
