@@ -6,7 +6,7 @@ import ChatWindow from "../components/Chat/ChatWindow.tsx";
 import { connectSocket, disconnectSocket, getSocket } from "../services/socket";
 import { getConversations, getMessages } from "../services/chat";
 import type { Conversation, Message } from "../types/chat";
-import NavbarSearch from "../components/NavbarSearch";
+import NavbarSearch from "../components/Navbar/NavbarSearch.tsx";
 
 const API_BASE = import.meta.env.VITE_SENA_API_URL || "http://localhost:3001";
 

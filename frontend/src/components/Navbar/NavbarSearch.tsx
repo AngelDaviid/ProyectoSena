@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react";
-import { searchUsers, sendFriendRequest } from "../services/friends";
-import type { User } from "../types/user.type";
+import { searchUsers, sendFriendRequest } from "../../services/friends.ts";
+import type { User } from "../../types/user.type.ts";
 
 const API_BASE = import.meta.env.VITE_SENA_API_URL || "http://localhost:3001";
 

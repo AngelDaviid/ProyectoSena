@@ -5,6 +5,8 @@ import ProtectedRoute from './components/protected-routes';
 import Home from './pages/Home';
 import Profile from './pages/Profile';
 import ChatPage from "./pages/Chat.tsx";
+import NotificationsPage from "./components/Notifications.tsx";
+import FriendsPage from "./pages/Friends.tsx";
 
 function App() {
     return (
@@ -38,6 +40,9 @@ function App() {
                     </ProtectedRoute>
                 }
             />
+
+            <Route path="/notifications" element={<NotificationsPage />} />
+            <Route path="/friends" element={<FriendsPage />} />
 
             <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
