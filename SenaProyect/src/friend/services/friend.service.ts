@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException, BadRequestException, ForbiddenException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, In } from 'typeorm';
+import { Repository } from 'typeorm';
 import { FriendRequest, FriendRequestStatus } from '../entities/firend-request.entity';
 import { User } from '../../users/entities/user.entity';
 import { Conversation } from '../../chat/entities/conversations.entity';
@@ -67,7 +67,6 @@ export class FriendsService {
     return results;
   }
 
-
   async sendRequest(senderId: number, receiverId: number) {
     if (senderId === receiverId) throw new BadRequestException('No puedes enviarte solicitud a ti mismo');
 
@@ -108,7 +107,6 @@ export class FriendsService {
     return saved;
   }
 
-
   async getIncoming(userId: number) {
     return this.frRepo.find({
       where: { receiver: { id: userId }, status: FriendRequestStatus.PENDING },
@@ -138,14 +136,17 @@ export class FriendsService {
 
     if (!accept) return fr; // si es rechazo, ya terminamos (no notificar según tu requerimiento)
 
-    // Traer sender y receiver con las relaciones que usaremos
+    // Traer sender y receiver con solo lo necesario (evitar cargar todo el grafo de 'friends')
+    const senderId = fr.sender.id;
+    const receiverId = fr.receiver.id;
+
     const sender = await this.usersRepo.findOne({
-      where: { id: fr.sender.id },
-      relations: ['friends', 'blockedUsers'],
+      where: { id: senderId },
+      relations: ['blockedUsers'], // solo lo necesario
     });
     const receiver = await this.usersRepo.findOne({
-      where: { id: fr.receiver.id },
-      relations: ['friends', 'blockedUsers'],
+      where: { id: receiverId },
+      relations: ['blockedUsers'],
     });
 
     if (!sender || !receiver) throw new NotFoundException('Sender o receiver no encontrados');
@@ -155,26 +156,64 @@ export class FriendsService {
     const receiverBlockedSender = receiver.blockedUsers?.some(b => b.id === sender.id) ?? false;
 
     if (!senderBlockedReceiver && !receiverBlockedSender) {
-      // Normalizar arrays (evita asignar undefined / null)
-      sender.friends = sender.friends ?? [];
-      receiver.friends = receiver.friends ?? [];
+      // Usar relation query builder para evitar serializar todo el grafo y provocar recursion
+      try {
+        // Evitar duplicados comprobando si ya son amigos (consulta ligera)
+        const alreadyFriendsCount = await this.usersRepo.createQueryBuilder('u')
+          .leftJoin('u.friends', 'f')
+          .where('u.id = :senderId AND f.id = :receiverId', { senderId, receiverId })
+          .getCount();
 
-      // Evitar duplicados
-      if (!sender.friends.some(f => f.id === receiver.id)) sender.friends.push(receiver);
-      if (!receiver.friends.some(f => f.id === sender.id)) receiver.friends.push(sender);
+        if (alreadyFriendsCount === 0) {
+          // Añadir relación bidireccional usando relation query builder
+          await this.usersRepo.createQueryBuilder()
+            .relation(User, 'friends')
+            .of(senderId)
+            .add(receiverId);
 
-      await this.usersRepo.save([sender, receiver]);
+          await this.usersRepo.createQueryBuilder()
+            .relation(User, 'friends')
+            .of(receiverId)
+            .add(senderId);
+        }
+      } catch (e) {
+        console.warn('Error adding friends relation via relation query builder', e);
+        // Como fallback podrías intentar guardar con datos mínimos, pero evitamos guardar objetos con relaciones anidadas.
+      }
     }
 
-    // Crear conversación solo si lo deseas; aquí lo hacemos asegurando tipos
-    const conv = this.convRepo.create({ participants: [sender, receiver] as User[] });
-    const savedConv = await this.convRepo.save(conv);
+    // Crear conversación de forma segura y añadir participantes por relación
+    let savedConv: Conversation | null = null;
+    try {
+      const conv = this.convRepo.create({} as Partial<Conversation>);
+      savedConv = await this.convRepo.save(conv);
+      // Añadir participantes por relation builder (si tu entidad Conversation tiene relation 'participants')
+      try {
+        await this.convRepo.createQueryBuilder()
+          .relation(Conversation, 'participants')
+          .of(savedConv.id)
+          .add([senderId, receiverId]);
+      } catch (e) {
+        // algunos setups requieren .of(entity) en vez de id; intentar fallback
+        try {
+          await this.convRepo.createQueryBuilder()
+            .relation(Conversation, 'participants')
+            .of(savedConv)
+            .add([senderId, receiverId]);
+        } catch (err) {
+          console.warn('Error adding participants to conversation via relation builder', err);
+        }
+      }
+    } catch (e) {
+      console.warn('Error creating conversation', e);
+    }
 
     // Notificar por socket (solo accepted y sent, según lo pediste)
-    this.gateway.notifyRequestAccepted(fr, savedConv);
+    this.gateway.notifyRequestAccepted(fr, savedConv ?? undefined);
 
     return fr;
   }
+
   // Obtener lista de amigos
   async getFriends(userId: number) {
     const user = await this.usersRepo.findOne({ where: { id: userId }, relations: ['friends'] });

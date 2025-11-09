@@ -10,11 +10,11 @@ const ProtectedRoute = ({ children }: Props) => {
     const { token, loading, user } = useAuth();
 
     useEffect(() => {
-        // Si no hay usuario autenticado no conectamos.
+        // No conectar si no hay user ni token
         if (!user && !token) return;
 
         try {
-            // Pasamos token ?? undefined para evitar error de tipos (token puede ser null)
+            // Pasamos token ?? undefined para evitar error de tipos si token es null
             connectSocket(token ?? undefined);
             if (user?.id) {
                 registerUser(user.id, token ?? undefined);

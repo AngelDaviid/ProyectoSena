@@ -7,6 +7,7 @@ import { connectSocket, disconnectSocket, getSocket } from "../services/socket";
 import { getConversations, getMessages } from "../services/chat";
 import type { Conversation, Message } from "../types/chat";
 import NavbarSearch from "../components/Navbar/NavbarSearch.tsx";
+import NavbarNotifications from '../components/Navbar/NavbarNotifications.tsx';
 
 const API_BASE = import.meta.env.VITE_SENA_API_URL || "http://localhost:3001";
 
@@ -205,34 +206,38 @@ const Home: React.FC = () => {
                     <NavbarSearch />
                 </div>
 
-                <div ref={dropdownRef} className="relative">
-                    <button onClick={() => setDropdownOpen(!dropdownOpen)} className="flex items-center gap-3">
-                        {avatarSrc ? (
-                            <img src={avatarSrc} alt={displayName} className="w-10 h-10 rounded-full object-cover" />
-                        ) : (
-                            <div className="w-10 h-10 rounded-full bg-green-200 flex items-center justify-center text-green-700 font-semibold">
-                                {displayName.charAt(0).toUpperCase()}
+                <div className="flex items-center gap-4">
+                    <NavbarNotifications />
+
+                    <div ref={dropdownRef} className="relative">
+                        <button onClick={() => setDropdownOpen(!dropdownOpen)} className="flex items-center gap-3">
+                            {avatarSrc ? (
+                                <img src={avatarSrc} alt={displayName} className="w-10 h-10 rounded-full object-cover" />
+                            ) : (
+                                <div className="w-10 h-10 rounded-full bg-green-200 flex items-center justify-center text-green-700 font-semibold">
+                                    {displayName.charAt(0).toUpperCase()}
+                                </div>
+                            )}
+                            <span className="font-medium">{displayName}</span>
+                        </button>
+
+                        {dropdownOpen && (
+                            <div className="absolute right-0 mt-2 w-44 bg-white border rounded-md shadow-lg">
+                                <button
+                                    onClick={() => {
+                                        navigate("/profile", { state: { user } });
+                                        setDropdownOpen(false);
+                                    }}
+                                    className="block w-full text-left px-4 py-2 hover:bg-green-50"
+                                >
+                                    Ver perfil
+                                </button>
+                                <button onClick={() => logout()} className="block w-full text-left px-4 py-2 text-red-600 hover:bg-red-50">
+                                    Cerrar sesión
+                                </button>
                             </div>
                         )}
-                        <span className="font-medium">{displayName}</span>
-                    </button>
-
-                    {dropdownOpen && (
-                        <div className="absolute right-0 mt-2 w-44 bg-white border rounded-md shadow-lg">
-                            <button
-                                onClick={() => {
-                                    navigate("/profile", { state: { user } });
-                                    setDropdownOpen(false);
-                                }}
-                                className="block w-full text-left px-4 py-2 hover:bg-green-50"
-                            >
-                                Ver perfil
-                            </button>
-                            <button onClick={() => logout()} className="block w-full text-left px-4 py-2 text-red-600 hover:bg-red-50">
-                                Cerrar sesión
-                            </button>
-                        </div>
-                    )}
+                    </div>
                 </div>
             </header>
 
@@ -281,7 +286,7 @@ const Home: React.FC = () => {
                     </button>
                 ) : (
                     <div className="w-80 h-96 bg-white rounded-lg shadow-xl flex flex-col overflow-hidden">
-                        <div className="flex items-center justify-between p-3 border-b">
+                        <div className="flex items-center justify-between p<3 border-b">
                             <span className="font-medium">Chat</span>
                             <div className="flex gap-2">
                                 <button onClick={() => navigate("/chat")} className="text-xs text-gray-600 px-2 py-1 hover:bg-gray-100 rounded">

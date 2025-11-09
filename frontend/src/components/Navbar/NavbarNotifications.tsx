@@ -1,4 +1,4 @@
-import  { useEffect, useState, useRef } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { getIncomingRequests } from '../../services/friends';
 import {
@@ -41,7 +41,6 @@ export default function NavbarNotifications() {
         })();
 
         const handleNew = (payload: any) => {
-            // payload puede ser la FriendRequest completa según tu backend
             setIncomingCount((c) => c + 1);
             setPreview((p) => {
                 const next = [payload as FriendRequestDTO, ...p];
@@ -49,7 +48,7 @@ export default function NavbarNotifications() {
             });
         };
         const handleAccepted = (payload: any) => {
-            // si la petición aceptada aparece en el preview, la removemos y decrementamos contador
+            // payload puede tener request.id o requestId dependiendo del backend
             const reqId = payload?.request?.id ?? payload?.requestId;
             setPreview((p) => p.filter((r) => r.id !== reqId));
             setIncomingCount((c) => Math.max(0, c - 1));
