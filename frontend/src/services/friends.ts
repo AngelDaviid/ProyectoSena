@@ -1,8 +1,12 @@
 import api from './api';
 import type { User } from '../types/user.type.ts'
 
+export interface UserWithStatus extends User {
+    friendStatus?: 'friend' | 'request_sent' | 'request_received' | 'none';
+}
+
 export async function searchUsers(q: string) {
-    const res = await api.get<User[]>('/friends/search', { params: { q } });
+    const res = await api.get<UserWithStatus[]>('/friends/search', { params: { q } });
     return res.data;
 }
 
@@ -11,6 +15,7 @@ export async function sendFriendRequest(receiverId: number) {
     return res.data;
 }
 
+// ... resto sin cambios
 export async function getIncomingRequests() {
     const res = await api.get('/friends/requests/incoming');
     return res.data;

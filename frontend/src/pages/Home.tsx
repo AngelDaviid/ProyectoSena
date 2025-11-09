@@ -6,6 +6,7 @@ import ChatWindow from "../components/Chat/ChatWindow.tsx";
 import { connectSocket, disconnectSocket, getSocket } from "../services/socket";
 import { getConversations, getMessages } from "../services/chat";
 import type { Conversation, Message } from "../types/chat";
+import NavbarSearch from "../components/NavbarSearch";
 
 const API_BASE = import.meta.env.VITE_SENA_API_URL || "http://localhost:3001";
 
@@ -199,11 +200,10 @@ const Home: React.FC = () => {
                     Sena Conecta
                 </h1>
 
-                <input
-                    type="text"
-                    placeholder="Buscar..."
-                    className="w-2/4 px-4 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
-                />
+                {/* NavbarSearch reemplaza la input anterior */}
+                <div className="w-2/4">
+                    <NavbarSearch />
+                </div>
 
                 <div ref={dropdownRef} className="relative">
                     <button onClick={() => setDropdownOpen(!dropdownOpen)} className="flex items-center gap-3">

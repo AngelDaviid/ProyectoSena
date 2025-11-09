@@ -11,9 +11,9 @@ import { Conversation } from '../chat/entities/conversations.entity';
 
 @Module({
   imports: [TypeOrmModule.forFeature([FriendRequest,User, Conversation])],
-  providers: [FriendsController, FriendsGateway, FriendsService ],
+  providers: [FriendsGateway, FriendsService ],
   controllers: [FriendsController],
-  exports: [FriendsController, FriendsGateway],
+  exports: [FriendsService, FriendsGateway],
 })
 
 

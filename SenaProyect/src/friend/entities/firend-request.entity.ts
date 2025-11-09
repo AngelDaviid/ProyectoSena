@@ -1,4 +1,4 @@
-import { Entity, PrimaryGeneratedColumn, ManyToOne, Column, CreateDateColumn } from 'typeorm';
+import { Entity, PrimaryGeneratedColumn, ManyToOne, Column, CreateDateColumn, Index } from 'typeorm';
 import { User } from '../../users/entities/user.entity';
 
 export enum FriendRequestStatus {
@@ -7,6 +7,7 @@ export enum FriendRequestStatus {
   REJECTED = 'rejected',
 }
 
+@Index(['sender', 'receiver'], { unique: true })
 @Entity({ name: 'friend_requests' })
 export class FriendRequest {
   @PrimaryGeneratedColumn()
