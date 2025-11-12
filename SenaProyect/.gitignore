@@ -3,11 +3,7 @@ node_modules
 dist/
 coverage/
 
-# Uploads & temporales
-uploads/
-.tmp/
-.env
-.env.*.local
+
 
 # OS / IDE
 .DS_Store
