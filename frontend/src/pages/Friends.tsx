@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback, useRef } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
     searchUsers,
@@ -6,31 +6,23 @@ import {
     getIncomingRequests,
     getOutgoingRequests,
     respondRequest,
-    getFriends,
     deleteRequest,
     blockUser,
     unblockUser,
+    getFriends,
 } from '../services/friends';
 import { createConversation } from '../services/chat';
 import { useAuth } from '../hooks/useAuth';
-import {
-    connectSocket,
-    registerUser,
-    releaseSocket,
-    onFriendRequestSent,
-    offFriendRequestSent,
-    onFriendRequestAccepted,
-    offFriendRequestAccepted,
-} from '../services/socket';
+import Toast from '../components/Toast';
 
-const API_BASE = import.meta.env.VITE_SENA_API_URL || 'http://localhost:3001';
+type UserResult = any; // mantengo any para compatibilidad con tu backend
 
-const FriendsPage: React.FC = () => {
+export default function FriendsPage() {
     const { user } = useAuth();
     const navigate = useNavigate();
 
     const [q, setQ] = useState('');
-    const [results, setResults] = useState<any[]>([]);
+    const [results, setResults] = useState<UserResult[]>([]);
     const [incoming, setIncoming] = useState<any[]>([]);
     const [outgoing, setOutgoing] = useState<any[]>([]);
     const [friends, setFriends] = useState<any[]>([]);
@@ -40,8 +32,12 @@ const FriendsPage: React.FC = () => {
     const [loadingOutgoing, setLoadingOutgoing] = useState(false);
     const [loadingFriends, setLoadingFriends] = useState(false);
 
-    const [processing, setProcessing] = useState<Record<string | number, boolean>>({});
-    const searchDebounceRef = useRef<number | null>(null);
+    const [processing, setProcessing] = useState<Record<string|number, boolean>>({});
+    const [toast, setToast] = useState<{type?:'info'|'error'|'success', message:string}|null>(null);
+    const searchTimer = useRef<number | null>(null);
+
+    const setBusy = (key: string|number, value: boolean) =>
+        setProcessing(prev => ({ ...prev, [key]: value }));
 
     const loadIncoming = useCallback(async () => {
         setLoadingIncoming(true);
@@ -49,7 +45,8 @@ const FriendsPage: React.FC = () => {
             const r = await getIncomingRequests();
             setIncoming(r || []);
         } catch (err) {
-            console.error('Error loading incoming requests', err);
+            console.error('loadIncoming', err);
+            setToast({ type: 'error', message: 'No se pudieron cargar solicitudes entrantes' });
             setIncoming([]);
         } finally {
             setLoadingIncoming(false);
@@ -62,7 +59,8 @@ const FriendsPage: React.FC = () => {
             const r = await getOutgoingRequests();
             setOutgoing(r || []);
         } catch (err) {
-            console.error('Error loading outgoing requests', err);
+            console.error('loadOutgoing', err);
+            setToast({ type: 'error', message: 'No se pudieron cargar solicitudes enviadas' });
             setOutgoing([]);
         } finally {
             setLoadingOutgoing(false);
@@ -75,7 +73,8 @@ const FriendsPage: React.FC = () => {
             const f = await getFriends();
             setFriends(f || []);
         } catch (err) {
-            console.error('Error loading friends', err);
+            console.error('loadFriends', err);
+            setToast({ type: 'error', message: 'No se pudieron cargar tus amigos' });
             setFriends([]);
         } finally {
             setLoadingFriends(false);
@@ -83,194 +82,170 @@ const FriendsPage: React.FC = () => {
     }, []);
 
     useEffect(() => {
-        if (!user) return;
-
-        // Connect socket and register user (try to pass token if stored)
-        try {
-            connectSocket();
-            const token = localStorage.getItem('token') ?? null;
-            registerUser(user.id, token ?? undefined);
-        } catch (e) {
-            console.warn('Socket init warning', e);
-        }
-
-        // Initial loads
         loadIncoming();
         loadOutgoing();
         loadFriends();
+    }, [loadIncoming, loadOutgoing, loadFriends]);
 
-        // Handlers
-        const handleSent = () => {
-            // refresh incoming/outgoing
-            loadIncoming();
-            loadOutgoing();
-        };
-        const handleAccepted = (data: any) => {
-            // refresh friends and lists, navigate to conversation if provided
-            loadFriends();
-            loadIncoming();
-            loadOutgoing();
-            if (data?.conversation?.id) {
-                navigate(`/chat/${data.conversation.id}`);
-            }
-        };
-
-        onFriendRequestSent(handleSent);
-        onFriendRequestAccepted(handleAccepted);
-
-        return () => {
-            offFriendRequestSent(handleSent);
-            offFriendRequestAccepted(handleAccepted);
-            // release socket reference (decrement)
-            releaseSocket();
-        };
-    }, [user, loadIncoming, loadOutgoing, loadFriends, navigate]);
-
+    // Debounced search
     useEffect(() => {
-        // Debounced search: wait 350ms after typing stops
-        if (searchDebounceRef.current) {
-            window.clearTimeout(searchDebounceRef.current);
-            searchDebounceRef.current = null;
+        if (searchTimer.current) {
+            window.clearTimeout(searchTimer.current);
+            searchTimer.current = null;
         }
-        if (!q || q.trim().length === 0) {
+
+        if (!q || q.trim() === '') {
             setResults([]);
+            setLoadingSearch(false);
             return;
         }
-        searchDebounceRef.current = window.setTimeout(async () => {
-            setLoadingSearch(true);
+
+        setLoadingSearch(true);
+        searchTimer.current = window.setTimeout(async () => {
             try {
                 const r = await searchUsers(q.trim());
-                // Backend may annotate friendStatus; ensure we keep it
                 const filtered = (r || []).filter((u: any) => u.id !== user?.id);
                 setResults(filtered);
             } catch (err) {
-                console.error('Error searching users', err);
+                console.error('searchUsers', err);
+                setToast({ type: 'error', message: 'Error buscando usuarios' });
                 setResults([]);
             } finally {
                 setLoadingSearch(false);
             }
-        }, 350);
+        }, 300);
 
         return () => {
-            if (searchDebounceRef.current) {
-                window.clearTimeout(searchDebounceRef.current);
-                searchDebounceRef.current = null;
+            if (searchTimer.current) {
+                window.clearTimeout(searchTimer.current);
+                searchTimer.current = null;
             }
         };
-        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [q, user?.id]);
 
-    const setBusy = (key: string | number, value: boolean) =>
-        setProcessing((p) => ({ ...p, [key]: value }));
+    // Send request: optimistic UI + rollback on error
+    const handleSendRequest = async (receiverId: number) => {
+        if (!user) return setToast({ type: 'error', message: 'Debes iniciar sesión' });
+        const busyKey = `send:${receiverId}`;
+        setBusy(busyKey, true);
 
-    const handleSendRequest = async (receiverId: number, updateUI = true) => {
-        if (!user) return alert('Debes iniciar sesión');
-        setBusy(`send:${receiverId}`, true);
+        // Optimistic UI: marcar en resultados y añadir temporal a outgoing
+        setResults(prev => prev.map(u => (u.id === receiverId ? { ...u, friendStatus: 'request_sent' } : u)));
+        setOutgoing(prev => [{ id: `optim-${Date.now()}`, receiver: { id: receiverId }, __optimistic: true }, ...prev]);
+
         try {
-            await sendFriendRequest(receiverId);
-            if (updateUI) {
-                // mark result as sent if present
-                setResults((rs) => rs.map((u) => (u.id === receiverId ? { ...u, friendStatus: 'request_sent' } : u)));
-                // refresh outgoing list
-                await loadOutgoing();
-            }
+            // Guardamos la respuesta real para usar sus datos (id real de la solicitud)
+            const saved = await sendFriendRequest(receiverId);
+
+            // Reemplazar la entrada optimista por la real (si existe)
+            setOutgoing(prev => prev.map(o => {
+                if (o.__optimistic && o.receiver?.id === receiverId) {
+                    // saved puede venir con estructura { id, sender, receiver, status, createdAt }
+                    return saved;
+                }
+                return o;
+            }));
+
+            // Aseguramos sincronía con el backend
+            await loadOutgoing();
+            setToast({ type: 'success', message: 'Solicitud enviada' });
         } catch (err: any) {
-            console.error('Error sending request', err);
-            alert(err?.response?.data?.message || err?.message || 'Error al enviar solicitud');
+            console.error('sendFriendRequest', err);
+            // rollback optimistic: quitar la entrada optimista y resetear estado en results
+            setResults(prev => prev.map(u => (u.id === receiverId ? { ...u, friendStatus: 'none' } : u)));
+            setOutgoing(prev => prev.filter(o => !(o.__optimistic && o.receiver?.id === receiverId)));
+            const msg = err?.response?.data?.message ?? err?.message ?? 'Error al enviar solicitud';
+            setToast({ type: 'error', message: msg });
         } finally {
-            setBusy(`send:${receiverId}`, false);
+            setBusy(busyKey, false);
         }
     };
 
+    // Respond incoming: accept/reject. On accept add to friends
     const handleRespond = async (requestId: number, accept: boolean, senderId?: number) => {
-        setBusy(`respond:${requestId}`, true);
+        const busyKey = `respond:${requestId}`;
+        setBusy(busyKey, true);
         try {
             await respondRequest(requestId, accept);
-            await loadIncoming();
-            await loadOutgoing();
-            await loadFriends();
+            // Update lists locally
+            setIncoming(prev => prev.filter(r => r.id !== requestId));
+            setOutgoing(prev => prev.filter(r => r.id !== requestId));
+
             if (accept && senderId) {
+                // Optimistic: añadir a friends localmente
+                setFriends(prev => [{ id: senderId, profile: { name: 'Amigo' } }, ...prev]);
+
+                // Crear o abrir conversación (no bloqueamos la UI por esto)
                 try {
                     const conv = await createConversation([user!.id, senderId]);
                     if (conv?.id) navigate(`/chat/${conv.id}`);
                 } catch (e) {
-                    // Backend may already have sent conversation via socket
-                    console.warn('No se pudo crear conversación (puede ya existir)', e);
+                    console.warn('createConversation', e);
                 }
             }
-        } catch (err: any) {
-            console.error('Error responding request', err);
-            alert(err?.response?.data?.message || err?.message || 'Error al responder solicitud');
-        } finally {
-            setBusy(`respond:${requestId}`, false);
-        }
-    };
 
-    const handleDeleteRequest = async (requestId: number) => {
-        if (!confirm('¿Eliminar/cancelar esta solicitud?')) return;
-        setBusy(`delete:${requestId}`, true);
-        try {
-            await deleteRequest(requestId);
-            await loadIncoming();
-            await loadOutgoing();
+            setToast({ type: 'success', message: accept ? 'Solicitud aceptada' : 'Solicitud rechazada' });
+
+            // Sincronizar lista de amigos con backend
             await loadFriends();
-        } catch (err) {
-            console.error('Error deleting request', err);
-            alert('Error al eliminar solicitud');
+        } catch (err: any) {
+            console.error('respondRequest', err);
+            const msg = err?.response?.data?.message ?? err?.message ?? 'Error al responder solicitud';
+            setToast({ type: 'error', message: msg });
         } finally {
-            setBusy(`delete:${requestId}`, false);
+            setBusy(busyKey, false);
         }
     };
 
     const handleCancelOutgoing = async (requestId: number) => {
         if (!confirm('¿Cancelar esta solicitud enviada?')) return;
-        setBusy(`cancel:${requestId}`, true);
+        const busyKey = `cancel:${requestId}`;
+        setBusy(busyKey, true);
         try {
             await deleteRequest(requestId);
+            setToast({ type: 'success', message: 'Solicitud cancelada' });
             await loadOutgoing();
         } catch (err) {
-            console.error('Error cancelling outgoing request', err);
-            alert('Error al cancelar solicitud');
+            console.error('deleteRequest', err);
+            setToast({ type: 'error', message: 'No se pudo cancelar la solicitud' });
         } finally {
-            setBusy(`cancel:${requestId}`, false);
+            setBusy(busyKey, false);
         }
     };
 
     const handleBlock = async (targetId: number) => {
-        if (!confirm('¿Estás seguro que quieres bloquear a este usuario?')) return;
-        setBusy(`block:${targetId}`, true);
+        if (!confirm('¿Bloquear a este usuario?')) return;
+        const busyKey = `block:${targetId}`;
+        setBusy(busyKey, true);
         try {
             await blockUser(targetId);
-            await loadIncoming();
-            await loadOutgoing();
-            await loadFriends();
-            alert('Usuario bloqueado');
+            setToast({ type: 'success', message: 'Usuario bloqueado' });
+            await Promise.all([loadIncoming(), loadOutgoing(), loadFriends()]);
         } catch (err) {
-            console.error('Error blocking user', err);
-            alert('Error al bloquear usuario');
+            console.error('blockUser', err);
+            setToast({ type: 'error', message: 'No se pudo bloquear' });
         } finally {
-            setBusy(`block:${targetId}`, false);
+            setBusy(busyKey, false);
         }
     };
 
     const handleUnblock = async (targetId: number) => {
-        setBusy(`unblock:${targetId}`, true);
+        const busyKey = `unblock:${targetId}`;
+        setBusy(busyKey, true);
         try {
             await unblockUser(targetId);
-            await loadIncoming();
-            await loadOutgoing();
-            await loadFriends();
-            alert('Usuario desbloqueado');
+            setToast({ type: 'success', message: 'Usuario desbloqueado' });
+            await Promise.all([loadIncoming(), loadOutgoing(), loadFriends()]);
         } catch (err) {
-            console.error('Error unblocking user', err);
-            alert('Error al desbloquear usuario');
+            console.error('unblockUser', err);
+            setToast({ type: 'error', message: 'No se pudo desbloquear' });
         } finally {
-            setBusy(`unblock:${targetId}`, false);
+            setBusy(busyKey, false);
         }
     };
 
     return (
-        <div className="p-4 max-w-4xl mx-auto">
+        <div className="p-6 max-w-4xl mx-auto">
             <h1 className="text-2xl font-semibold mb-4">Amigos</h1>
 
             <section className="mb-6">
@@ -281,57 +256,28 @@ const FriendsPage: React.FC = () => {
                         placeholder="Nombre, apellido o email..."
                         value={q}
                         onChange={(e) => setQ(e.target.value)}
+                        aria-label="Buscar usuarios"
                     />
                     <button
-                        onClick={() => {
-                            // force immediate search
-                            if (searchDebounceRef.current) {
-                                window.clearTimeout(searchDebounceRef.current);
-                                searchDebounceRef.current = null;
-                            }
-                            if (q && q.trim().length > 0) {
-                                // call search immediately
-                                (async () => {
-                                    setLoadingSearch(true);
-                                    try {
-                                        const r = await searchUsers(q.trim());
-                                        const filtered = (r || []).filter((u: any) => u.id !== user?.id);
-                                        setResults(filtered);
-                                    } catch (err) {
-                                        console.error('Error searching users', err);
-                                        setResults([]);
-                                    } finally {
-                                        setLoadingSearch(false);
-                                    }
-                                })();
-                            } else {
-                                setResults([]);
-                            }
-                        }}
+                        onClick={() => setQ(q => q.trim())}
                         className="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700"
                         disabled={loadingSearch}
                     >
-                        Buscar
+                        {loadingSearch ? 'Buscando...' : 'Buscar'}
                     </button>
                 </div>
 
-                <div className="mt-3">
-                    {loadingSearch ? (
-                        <div className="text-sm text-gray-500">Buscando...</div>
-                    ) : results.length === 0 ? (
-                        q.trim() ? <div className="text-sm text-gray-500">No se encontraron usuarios.</div> : null
+                <div className="mt-3 bg-white rounded shadow">
+                    {results.length === 0 ? (
+                        <div className="p-4 text-sm text-gray-500">{q.trim() ? 'No se encontraron usuarios.' : 'Escribe para buscar usuarios.'}</div>
                     ) : (
-                        results.map((u) => {
+                        results.map(u => {
                             const status: string = u.friendStatus ?? 'none';
                             const isSelf = u.id === user?.id;
                             return (
-                                <div key={u.id} className="flex items-center justify-between py-2 border-b">
+                                <div key={u.id} className="flex items-center justify-between py-3 px-4 border-b">
                                     <div className="flex items-center gap-3">
-                                        <img
-                                            src={u.profile?.avatar ? (u.profile.avatar.startsWith('/') ? `${API_BASE}${u.profile.avatar}` : u.profile.avatar) : '/default.png'}
-                                            alt={u.profile?.name || u.email}
-                                            className="w-10 h-10 rounded-full object-cover"
-                                        />
+                                        <img src={u.profile?.avatar || '/default.png'} alt={u.profile?.name || u.email} className="w-12 h-12 rounded-full object-cover"/>
                                         <div>
                                             <div className="font-medium">{u.profile?.name || u.email}</div>
                                             <div className="text-xs text-gray-500">{u.profile?.lastName || ''}</div>
@@ -339,43 +285,23 @@ const FriendsPage: React.FC = () => {
                                     </div>
                                     <div className="flex gap-2 items-center">
                                         {isSelf ? (
-                                            <button disabled className="text-sm bg-gray-100 text-black px-3 py-1 rounded">Tú</button>
+                                            <span className="text-sm px-3 py-1 rounded bg-gray-100">Tú</span>
                                         ) : status === 'friend' ? (
-                                            <button disabled className="text-sm bg-gray-100 text-black px-3 py-1 rounded">Amigos</button>
+                                            <span className="text-sm px-3 py-1 rounded bg-gray-100">Amigos</span>
                                         ) : status === 'request_sent' ? (
-                                            <button disabled className="text-sm bg-gray-100 text-black px-3 py-1 rounded">Enviada</button>
+                                            <span className="text-sm px-3 py-1 rounded bg-gray-100">Enviada</span>
                                         ) : status === 'request_received' ? (
-                                            <div className="flex gap-2">
-                                                <button
-                                                    onClick={() => handleRespond(u.requestId ?? u.id, true, u.id)}
-                                                    className="text-sm bg-green-600 text-white px-3 py-1 rounded"
-                                                >
-                                                    Aceptar
-                                                </button>
-                                                <button
-                                                    onClick={() => handleRespond(u.requestId ?? u.id, false)}
-                                                    className="text-sm bg-yellow-500 text-white px-3 py-1 rounded"
-                                                >
-                                                    Rechazar
-                                                </button>
-                                            </div>
+                                            <>
+                                                <button onClick={() => handleRespond(u.requestId ?? u.id, true, u.id)} className="text-sm bg-green-600 text-white px-3 py-1 rounded">Aceptar</button>
+                                                <button onClick={() => handleRespond(u.requestId ?? u.id, false)} className="text-sm bg-yellow-500 text-white px-3 py-1 rounded">Rechazar</button>
+                                            </>
                                         ) : (
-                                            <div className="flex gap-2">
-                                                <button
-                                                    onClick={() => handleSendRequest(u.id)}
-                                                    className="text-sm bg-blue-500 text-white px-3 py-1 rounded"
-                                                    disabled={!!processing[`send:${u.id}`]}
-                                                >
-                                                    {processing[`send:${u.id}`] ? 'Enviando...' : 'Enviar solicitud'}
+                                            <>
+                                                <button onClick={() => handleSendRequest(u.id)} disabled={!!processing[`send:${u.id}`]} className="text-sm bg-blue-600 text-white px-3 py-1 rounded">
+                                                    {processing[`send:${u.id}`] ? 'Enviando...' : 'Enviar'}
                                                 </button>
-                                                <button
-                                                    onClick={() => handleBlock(u.id)}
-                                                    className="text-sm bg-red-400 text-white px-3 py-1 rounded"
-                                                    disabled={!!processing[`block:${u.id}`]}
-                                                >
-                                                    Bloquear
-                                                </button>
-                                            </div>
+                                                <button onClick={() => handleBlock(u.id)} disabled={!!processing[`block:${u.id}`]} className="text-sm bg-red-400 text-white px-3 py-1 rounded">Bloquear</button>
+                                            </>
                                         )}
                                     </div>
                                 </div>
@@ -385,14 +311,14 @@ const FriendsPage: React.FC = () => {
                 </div>
             </section>
 
-            <section className="mb-6">
+            <section className="mb-6 bg-white p-4 rounded shadow">
                 <h2 className="text-lg font-medium mb-2">Solicitudes entrantes ({incoming.length})</h2>
                 {loadingIncoming ? (
                     <div className="text-sm text-gray-500">Cargando...</div>
                 ) : incoming.length === 0 ? (
                     <div className="text-sm text-gray-500">No hay solicitudes</div>
                 ) : (
-                    incoming.map((req) => (
+                    incoming.map(req => (
                         <div key={req.id} className="flex items-center justify-between py-2 border-b">
                             <div className="flex items-center gap-3">
                                 <img src={req.sender?.profile?.avatar || '/default.png'} className="w-12 h-12 rounded-full object-cover" alt="avatar" />
@@ -402,41 +328,25 @@ const FriendsPage: React.FC = () => {
                                 </div>
                             </div>
                             <div className="flex gap-2">
-                                <button
-                                    onClick={() => handleRespond(req.id, true, req.sender?.id)}
-                                    className="text-sm bg-green-600 text-white px-3 py-1 rounded"
-                                    disabled={!!processing[`respond:${req.id}`]}
-                                >
+                                <button disabled={!!processing[`respond:${req.id}`]} onClick={() => handleRespond(req.id, true, req.sender?.id)} className="px-3 py-1 bg-green-600 text-white rounded">
                                     {processing[`respond:${req.id}`] ? 'Procesando...' : 'Aceptar'}
                                 </button>
-                                <button
-                                    onClick={() => handleRespond(req.id, false)}
-                                    className="text-sm bg-yellow-500 text-white px-3 py-1 rounded"
-                                    disabled={!!processing[`respond:${req.id}`]}
-                                >
+                                <button disabled={!!processing[`respond:${req.id}`]} onClick={() => handleRespond(req.id, false)} className="px-3 py-1 bg-yellow-500 text-white rounded">
                                     Rechazar
                                 </button>
-                                <button
-                                    onClick={() => handleDeleteRequest(req.id)}
-                                    className="text-sm bg-gray-300 text-black px-3 py-1 rounded"
-                                    disabled={!!processing[`delete:${req.id}`]}
-                                >
-                                    Eliminar
-                                </button>
+                                <button disabled={!!processing[`delete:${req.id}`]} onClick={() => { if (confirm('Eliminar solicitud?')) handleRespond(req.id, false); }} className="px-3 py-1 bg-gray-200 text-black rounded">Eliminar</button>
                             </div>
                         </div>
                     ))
                 )}
             </section>
 
-            <section className="mb-6">
+            <section className="mb-6 bg-white p-4 rounded shadow">
                 <h2 className="text-lg font-medium mb-2">Solicitudes enviadas ({outgoing.length})</h2>
-                {loadingOutgoing ? (
-                    <div className="text-sm text-gray-500">Cargando...</div>
-                ) : outgoing.length === 0 ? (
+                {loadingOutgoing ? <div className="text-sm text-gray-500">Cargando...</div> : outgoing.length === 0 ? (
                     <div className="text-sm text-gray-500">No tienes solicitudes pendientes enviadas.</div>
                 ) : (
-                    outgoing.map((req) => (
+                    outgoing.map(req => (
                         <div key={req.id} className="flex items-center justify-between py-2 border-b">
                             <div className="flex items-center gap-3">
                                 <img src={req.receiver?.profile?.avatar || '/default.png'} className="w-12 h-12 rounded-full object-cover" alt="avatar" />
@@ -446,11 +356,7 @@ const FriendsPage: React.FC = () => {
                                 </div>
                             </div>
                             <div className="flex gap-2">
-                                <button
-                                    onClick={() => handleCancelOutgoing(req.id)}
-                                    className="text-sm bg-gray-200 text-black px-3 py-1 rounded"
-                                    disabled={!!processing[`cancel:${req.id}`]}
-                                >
+                                <button disabled={!!processing[`cancel:${req.id}`]} onClick={() => handleCancelOutgoing(req.id)} className="px-3 py-1 bg-gray-200 text-black rounded">
                                     {processing[`cancel:${req.id}`] ? 'Cancelando...' : 'Cancelar'}
                                 </button>
                             </div>
@@ -459,14 +365,12 @@ const FriendsPage: React.FC = () => {
                 )}
             </section>
 
-            <section>
+            <section className="bg-white p-4 rounded shadow">
                 <h2 className="text-lg font-medium mb-2">Tus amigos ({friends.length})</h2>
-                {loadingFriends ? (
-                    <div className="text-sm text-gray-500">Cargando...</div>
-                ) : friends.length === 0 ? (
+                {loadingFriends ? <div className="text-sm text-gray-500">Cargando...</div> : friends.length === 0 ? (
                     <div className="text-sm text-gray-500">No tienes amigos aún</div>
                 ) : (
-                    friends.map((f) => (
+                    friends.map(f => (
                         <div key={f.id} className="flex items-center justify-between py-2 border-b">
                             <div className="flex items-center gap-3">
                                 <img src={f.profile?.avatar || '/default.png'} alt={f.profile?.name || f.email} className="w-12 h-12 rounded-full object-cover" />
@@ -476,42 +380,26 @@ const FriendsPage: React.FC = () => {
                                 </div>
                             </div>
                             <div className="flex gap-2">
-                                <button
-                                    onClick={async () => {
-                                        try {
-                                            const conv = await createConversation([user!.id, f.id]);
-                                            if (conv?.id) navigate(`/chat/${conv.id}`);
-                                            else navigate('/chat');
-                                        } catch (e) {
-                                            console.warn('No se pudo crear conversación', e);
-                                            navigate('/chat');
-                                        }
-                                    }}
-                                    className="text-sm bg-blue-600 text-white px-3 py-1 rounded"
-                                >
-                                    Chatear
-                                </button>
-                                <button
-                                    onClick={() => handleBlock(f.id)}
-                                    className="text-sm bg-red-400 text-white px-3 py-1 rounded"
-                                    disabled={!!processing[`block:${f.id}`]}
-                                >
-                                    Bloquear
-                                </button>
-                                <button
-                                    onClick={() => handleUnblock(f.id)}
-                                    className="text-sm bg-gray-300 text-black px-3 py-1 rounded"
-                                    disabled={!!processing[`unblock:${f.id}`]}
-                                >
-                                    Desbloquear
-                                </button>
+                                <button onClick={async () => {
+                                    try {
+                                        const conv = await createConversation([user!.id, f.id]);
+                                        if (conv?.id) navigate(`/chat/${conv.id}`);
+                                        else navigate('/chat');
+                                    } catch (e) {
+                                        console.warn('createConversation', e);
+                                        navigate('/chat');
+                                    }
+                                }} className="px-3 py-1 bg-blue-600 text-white rounded">Chatear</button>
+
+                                <button disabled={!!processing[`block:${f.id}`]} onClick={() => handleBlock(f.id)} className="px-3 py-1 bg-red-400 text-white rounded">Bloquear</button>
+                                <button disabled={!!processing[`unblock:${f.id}`]} onClick={() => handleUnblock(f.id)} className="px-3 py-1 bg-gray-200 text-black rounded">Desbloquear</button>
                             </div>
                         </div>
                     ))
                 )}
             </section>
+
+            {toast && <Toast type={toast.type ?? 'info'} message={toast.message} onClose={() => setToast(null)} />}
         </div>
     );
-};
-
-export default FriendsPage;
+}
