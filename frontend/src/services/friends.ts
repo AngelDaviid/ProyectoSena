@@ -5,6 +5,20 @@ export interface UserWithStatus extends User {
     friendStatus?: 'friend' | 'request_sent' | 'request_received' | 'none';
 }
 
+export type FriendRequestDTO = {
+    id: number;
+    sender?: {
+        id?: number;
+        email?: string;
+        profile?: {
+            name?: string;
+            lastName?: string;
+            avatar?: string | null;
+        };
+    } | null;
+    [key: string]: any;
+};
+
 export async function searchUsers(q: string) {
     const res = await api.get<UserWithStatus[]>('/friends/search', { params: { q } });
     return res.data;
