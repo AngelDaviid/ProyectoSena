@@ -6,7 +6,7 @@ import Home from './pages/Home';
 import Profile from './pages/Profile';
 import NotificationsPage from "./components/Notifications.tsx";
 import FriendsPage from "./pages/Friends.tsx";
-import {ChatPage} from "./pages/Chat.tsx";
+import ChatPage from "./pages/Chat.tsx"
 
 function App() {
     return (

@@ -1,303 +1,68 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
-import type { Conversation, Message as ChatMessage, SimpleUser } from '../../types/chat';
-import ChatBubble from './chat-bubble.tsx';
-import { on as socketOn, off as socketOff } from '../../services/socket';
-import { postMessage } from '../../services/chat';
+import React, { useState, useRef, useEffect } from 'react';
+import type { Conversation, Message } from '../../types/chat';
+import ChatBubble from './chat-bubble';
 
-const API_BASE = import.meta.env.VITE_SENA_API_URL || 'http://localhost:3001';
-const RECENT_SENT_KEY = 'chat_recent_sent_v2';
-const MATCH_WINDOW_MS = 20000; // 20s para emparejar por texto+timestamp (más robusto)
-
-// Mostrar menos mensajes cuando esté colapsado (solicitaste "esconde más mensajes")
-const COLLAPSED_VISIBLE = 8;
-
-type RecentRecord = { tempId: string; text: string; createdAt: number; conversationId?: number | string };
+export type MsgWithMeta = Omit<Message, 'id'> & {
+    id?: number;
+    sending?: boolean;
+    tempId?: string;
+    seenBy?: number[];
+    _inferred?: boolean;
+};
 
 type Props = {
     activeConversation: Conversation | null;
+    messages: MsgWithMeta[];
+    onSend: (text: string, image?: string | File) => void;
     currentUserId?: number | null;
+    onLoadMore?: () => Promise<number>;
 };
 
-/**
- * ChatWindow:
- * - oculta más mensajes cuando está colapsado (COLLAPSED_VISIBLE)
- * - persiste registros de envíos en localStorage para que, tras refresh,
- *   podamos inferir que un mensaje es "propio" incluso si el servidor no devuelve senderId
- * - amplia ventana de emparejado para hacerlo más tolerante (MATCH_WINDOW_MS)
- * - previsualización de imagen antes de enviar
- * - reconciliación por tempId si el servidor lo devuelve
- */
-const ChatWindow: React.FC<Props> = ({ activeConversation, currentUserId }) => {
+const COLLAPSED_VISIBLE = 8;
+
+const ChatWindow: React.FC<Props> = ({ activeConversation, messages, onSend, currentUserId, onLoadMore }) => {
     const [text, setText] = useState('');
     const [file, setFile] = useState<File | null>(null);
     const [filePreviewUrl, setFilePreviewUrl] = useState<string | null>(null);
     const [sending, setSending] = useState(false);
+    const [expanded, setExpanded] = useState(false);
+
     const fileInputRef = useRef<HTMLInputElement | null>(null);
     const bottomRef = useRef<HTMLDivElement | null>(null);
 
-    const [expanded, setExpanded] = useState(false);
-
-    // mensajes locales: server + optimistas
-    const [messages, setMessages] = useState<(ChatMessage & { tempId?: string; sending?: boolean; _inferred?: boolean })[]>(
-        (activeConversation?.messages ?? []).map(m => normalizeMessageInitial(m))
-    );
-
-    // ---------------- localStorage helpers ----------------
-    const readRecent = (): RecentRecord[] => {
-        try {
-            const raw = localStorage.getItem(RECENT_SENT_KEY);
-            if (!raw) return [];
-            return JSON.parse(raw) as RecentRecord[];
-        } catch {
-            return [];
-        }
-    };
-    const writeRecent = (arr: RecentRecord[]) => {
-        try { localStorage.setItem(RECENT_SENT_KEY, JSON.stringify(arr)); } catch {}
-    };
-    const pushRecentRecord = (r: RecentRecord) => {
-        const arr = readRecent();
-        arr.push(r);
-        if (arr.length > 200) arr.splice(0, arr.length - 200);
-        writeRecent(arr);
-    };
-    const removeRecentByTempId = (tempId: string) => {
-        const arr = readRecent().filter(x => x.tempId !== tempId);
-        writeRecent(arr);
-    };
-    function consumeRecentMatch(m: any): RecentRecord | null {
-        const arr = readRecent();
-        // 1) try by tempId if provided
-        if (m?.tempId) {
-            const i = arr.findIndex(r => r.tempId === String(m.tempId));
-            if (i !== -1) {
-                const [found] = arr.splice(i, 1);
-                writeRecent(arr);
-                return found;
-            }
-        }
-        // 2) fallback: match by text + createdAt within window and same conversation
-        if (m?.text) {
-            const msgTime = new Date(m.createdAt ?? Date.now()).getTime();
-            const i = arr.findIndex(r =>
-                r.text === m.text &&
-                Math.abs(r.createdAt - msgTime) < MATCH_WINDOW_MS &&
-                // si conversationId está definida en el registro, debe coincidir
-                (typeof r.conversationId === 'undefined' || String(r.conversationId) === String(m.conversationId))
-            );
-            if (i !== -1) {
-                const [found] = arr.splice(i, 1);
-                writeRecent(arr);
-                return found;
-            }
-        }
-        return null;
-    }
-
-    // ---------------- normalizadores ----------------
-    function normalizeMessageInitial(m: any): any {
-        if (!m) return m;
-        const msg = { ...m };
-        if ((typeof msg.senderId === 'undefined' || msg.senderId === null) && msg.sender && typeof msg.sender.id !== 'undefined') {
-            msg.senderId = msg.sender.id;
-        }
-        if (msg.imageUrl && typeof msg.imageUrl === 'string') {
-            if (msg.imageUrl.startsWith('/')) msg.imageUrl = `${API_BASE}${msg.imageUrl}`;
-            else if (!msg.imageUrl.startsWith('http') && !msg.imageUrl.startsWith('blob:')) msg.imageUrl = `${API_BASE}/${msg.imageUrl}`;
-        }
-        return msg;
-    }
-
-    function normalizeMessage(m: any): any {
-        if (!m) return m;
-        const msg = { ...m };
-
-        // convertir sender.id -> senderId si aplica
-        if ((typeof msg.senderId === 'undefined' || msg.senderId === null) && msg.sender && typeof msg.sender.id !== 'undefined') {
-            msg.senderId = msg.sender.id;
-        }
-
-        // normalizar imageUrl relativo
-        if (msg.imageUrl && typeof msg.imageUrl === 'string') {
-            if (msg.imageUrl.startsWith('/')) msg.imageUrl = `${API_BASE}${msg.imageUrl}`;
-            else if (!msg.imageUrl.startsWith('http') && !msg.imageUrl.startsWith('blob:')) msg.imageUrl = `${API_BASE}/${msg.imageUrl}`;
-        }
-
-        // intentar inferir senderId si no viene (usando recent records)
-        if ((typeof msg.senderId === 'undefined' || msg.senderId === null)) {
-            const rec = consumeRecentMatch(msg);
-            if (rec && typeof currentUserId !== 'undefined' && currentUserId !== null) {
-                msg.senderId = Number(currentUserId);
-                msg.tempId = msg.tempId ?? rec.tempId;
-                msg._inferred = true; // marcar que fue inferido desde localStorage
-            }
-        }
-
-        return msg;
-    }
-
-    // ---------------- merge server messages (no sobrescribir optimistas) ----------------
-    useEffect(() => {
-        const serverMessages = (activeConversation?.messages ?? []).map(m => normalizeMessage(m));
-        setMessages(prev => {
-            const byId = new Map<number, any>();
-            const byTemp = new Map<string, any>();
-            serverMessages.forEach((s: any) => { if (s.id) byId.set(s.id, s); if (s.tempId) byTemp.set(String(s.tempId), s); });
-
-            const newPrev = prev.map(p => {
-                const pTemp = (p as any).tempId ? String((p as any).tempId) : null;
-
-                if (pTemp && byTemp.has(pTemp)) {
-                    const serverMatch = byTemp.get(pTemp);
-                    if (p.imageUrl && String(p.imageUrl).startsWith('blob:')) {
-                        try { URL.revokeObjectURL(p.imageUrl); } catch {}
-                    }
-                    // conservar senderId del optimista si server no lo envía
-                    return { ...(serverMatch || {}), senderId: serverMatch?.senderId ?? (p as any).senderId ?? serverMatch?.sender?.id };
-                }
-
-                if ((p as any).id && byId.has((p as any).id)) {
-                    // si server tiene la versión persistida con id, pero no trae senderId,
-                    // conservar el senderId previo (optimista) si existía
-                    const serverMatch = byId.get((p as any).id);
-                    return { ...(serverMatch || {}), senderId: serverMatch?.senderId ?? (p as any).senderId ?? serverMatch?.sender?.id };
-                }
-
-                return p;
-            });
-
-            const existsIdOrTemp = (m: any) => {
-                if (m.tempId && newPrev.some(n => (n as any).tempId === m.tempId)) return true;
-                if (m.id && newPrev.some(n => n.id === m.id)) return true;
-                return false;
-            };
-            const toAdd = serverMessages.filter((s: any) => !existsIdOrTemp(s));
-            return [...newPrev, ...toAdd];
-        });
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [activeConversation?.messages]);
-
-    // findSenderName (sender.profile > participants > fallback 1-a-1)
-    const findSenderName = (m: any): string => {
-        if (m?.sender?.profile) {
-            const name = m.sender.profile.name ?? '';
-            const last = m.sender.profile.lastName ?? '';
-            const full = `${name} ${last}`.trim();
-            if (full) return full;
-        }
-        const senderId = m.senderId ?? m.sender?.id;
-        if (senderId && activeConversation?.participants) {
-            const p = (activeConversation.participants as SimpleUser[]).find(u => Number(u.id) === Number(senderId));
-            if (p) {
-                const name = p.profile?.name ?? '';
-                const last = p.profile?.lastName ?? '';
-                const full = `${name} ${last}`.trim();
-                return full || p.email || `Usuario ${p.id}`;
-            }
-        }
-        if (activeConversation?.participants && activeConversation.participants.length === 2 && typeof currentUserId !== 'undefined' && currentUserId !== null) {
-            const other = (activeConversation.participants as SimpleUser[]).find(u => Number(u.id) !== Number(currentUserId));
-            if (other) {
-                const name = other.profile?.name ?? '';
-                const last = other.profile?.lastName ?? '';
-                const full = `${name} ${last}`.trim();
-                return full || other.email || `Usuario ${other.id}`;
-            }
-        }
-        return 'Desconocido';
-    };
-
-    // Reconciliación desde socket: reemplaza optimista por server msg con mismo tempId
-    const pushIncomingMessage = useCallback((msg: any) => {
-        const s = normalizeMessage(msg);
-        setMessages(prev => {
-            if (s.tempId) {
-                const hasTemp = prev.some(m => (m as any).tempId === s.tempId);
-                if (hasTemp) {
-                    const opt = prev.find(m => (m as any).tempId === s.tempId);
-                    if (opt && opt.imageUrl && String(opt.imageUrl).startsWith('blob:')) {
-                        try { URL.revokeObjectURL(opt.imageUrl); } catch {}
-                    }
-                    const merged = { ...(s || {}), senderId: s.senderId ?? opt?.senderId ?? s?.sender?.id };
-                    if (merged.tempId) removeRecentByTempId(String(merged.tempId));
-                    return prev.map(m => ((m as any).tempId === s.tempId ? merged : m));
-                }
-            }
-            if (s.id && prev.some(m => m.id === s.id)) return prev;
-            return [...prev, s];
-        });
-    }, []);
-
-    useEffect(() => {
-        socketOn('newMessage', pushIncomingMessage);
-        return () => socketOff('newMessage', pushIncomingMessage);
-    }, [pushIncomingMessage]);
-
-    // isOwnMessage robusto: compara Number para evitar mismatch string/number.
-    const isOwnMessage = (m: ChatMessage | any) => {
-        if (typeof currentUserId === 'undefined' || currentUserId === null) return false;
-        // si ya marcamos _inferred true, considerarlo propio
-        if (m?._inferred) return true;
-        const sid = Number(m?.senderId ?? m?.sender?.id ?? (m as any).senderId ?? NaN);
-        const me = Number(currentUserId);
-        return !isNaN(sid) && sid === me;
-    };
-
-    // scroll to bottom
+    // scroll to bottom when messages change
     useEffect(() => {
         bottomRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' });
     }, [messages.length, expanded]);
 
-    // Envío: crear optimista con tempId y persistir registro
+    const visibleMessages = expanded ? messages : messages.slice(-COLLAPSED_VISIBLE);
+    const hiddenCount = Math.max(0, messages.length - visibleMessages.length);
+
+    // send wrapper (calls parent onSend)
     const handleSubmit = async (e?: React.FormEvent) => {
         e?.preventDefault();
         const trimmed = text.trim();
         if (!trimmed && !file) return;
-        if (!activeConversation) return;
+        if (!onSend) return;
 
-        const tempId = `temp-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-        const createdAt = Date.now();
-        const optimistic: any = {
-            tempId,
-            id: undefined,
-            text: trimmed,
-            imageUrl: file ? URL.createObjectURL(file) : undefined,
-            createdAt: new Date(createdAt).toISOString(),
-            senderId: currentUserId,
-            conversationId: activeConversation.id,
-            sending: true,
-        };
-
-        // Guardar registro persistente para poder inferir tras refresh
-        pushRecentRecord({ tempId, text: trimmed, createdAt, conversationId: activeConversation.id });
-
-        setMessages(prev => [...prev, optimistic]);
-
-        if (fileInputRef.current) fileInputRef.current.value = '';
-        setFile(null);
-        setFilePreviewUrl(null);
-        setText('');
         setSending(true);
-
         try {
-            const fd = new FormData();
-            fd.append('conversationId', String(activeConversation.id));
-            fd.append('text', trimmed);
-            if (file) fd.append('image', file);
-            fd.append('tempId', tempId);
-
-            await postMessage(fd);
-            // NOTA: el servidor idealmente emite 'newMessage' con tempId; si no,
-            // la persistencia en localStorage permitirá inferir ownership al refrescar.
+            await Promise.resolve(onSend(trimmed, file ?? undefined));
+            // optimistic UI is handled by parent (ChatPage), so we only clear inputs here
+            setText('');
+            setFile(null);
+            if (filePreviewUrl) {
+                try { URL.revokeObjectURL(filePreviewUrl); } catch {}
+                setFilePreviewUrl(null);
+            }
+            if (fileInputRef.current) fileInputRef.current.value = '';
         } catch (err) {
-            console.error('Send error', err);
-            setMessages(prev => prev.map(m => ((m as any).tempId === tempId ? { ...(m as any), sending: false, failed: true } : m)));
+            console.error('[ChatWindow] send error', err);
         } finally {
             setSending(false);
         }
     };
 
-    // File handling: preview before send
     const onAttachClick = () => fileInputRef.current?.click();
     const onFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const f = e.target.files?.[0] ?? null;
@@ -316,7 +81,6 @@ const ChatWindow: React.FC<Props> = ({ activeConversation, currentUserId }) => {
             setFilePreviewUrl(null);
         }
     };
-
     const removePreview = () => {
         if (filePreviewUrl) {
             try { URL.revokeObjectURL(filePreviewUrl); } catch {}
@@ -326,15 +90,31 @@ const ChatWindow: React.FC<Props> = ({ activeConversation, currentUserId }) => {
         if (fileInputRef.current) fileInputRef.current.value = '';
     };
 
-    // visibleMessages: si no expanded mostramos sólo los últimos COLLAPSED_VISIBLE
-    const visibleMessages = expanded ? messages : messages.slice(-COLLAPSED_VISIBLE);
-    const hiddenCount = Math.max(0, messages.length - visibleMessages.length);
+    // helper to determine ownership
+    const isOwnMessage = (m: MsgWithMeta) => {
+        if (typeof currentUserId === 'undefined' || currentUserId === null) return false;
+        if (m?._inferred) return true;
+        const sid = Number(m?.senderId ?? (m as any).sender?.id ?? NaN);
+        const me = Number(currentUserId);
+        return !isNaN(sid) && sid === me;
+    };
 
     return (
         <section style={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0 }}>
             <header style={{ padding: 12, borderBottom: '1px solid #eee' }}>
                 <strong>{activeConversation ? `Conversación #${activeConversation.id}` : 'Sin conversación'}</strong>
             </header>
+
+            <div style={{ padding: 8, borderBottom: '1px solid #eee' }}>
+                {onLoadMore && (
+                    <button
+                        onClick={() => { onLoadMore().catch(e => console.error('[ChatWindow] load more', e)); }}
+                        style={{ padding: '6px 10px', fontSize: 13 }}
+                    >
+                        Cargar más mensajes
+                    </button>
+                )}
+            </div>
 
             <div style={{ flex: 1, overflowY: 'auto', padding: 12, display: 'flex', flexDirection: 'column', gap: 8 }}>
                 {hiddenCount > 0 && (
@@ -351,9 +131,9 @@ const ChatWindow: React.FC<Props> = ({ activeConversation, currentUserId }) => {
                 {visibleMessages.length === 0 ? (
                     <div style={{ color: '#666' }}>No hay mensajes</div>
                 ) : (
-                    visibleMessages.map(m => {
+                    visibleMessages.map((m) => {
                         const own = isOwnMessage(m);
-                        const senderDisplay = own ? 'Tú' : findSenderName(m);
+                        const senderDisplay = own ? 'Tú' : (m as any).sender?.profile ? `${(m as any).sender.profile.name ?? ''} ${(m as any).sender.profile.lastName ?? ''}`.trim() || (m as any).sender?.email : 'Usuario';
                         return (
                             <div key={(m as any).tempId ?? m.id} style={{ width: '100%', display: 'flex', justifyContent: own ? 'flex-end' : 'flex-start' }}>
                                 <ChatBubble
@@ -361,11 +141,14 @@ const ChatWindow: React.FC<Props> = ({ activeConversation, currentUserId }) => {
                                     imageUrl={m.imageUrl ?? null}
                                     senderDisplay={senderDisplay}
                                     own={own}
+                                    seenBy={m.seenBy ?? []}
+                                    createdAt={m.createdAt ?? null}
                                 />
                             </div>
                         );
                     })
                 )}
+
                 <div ref={bottomRef} />
             </div>
 

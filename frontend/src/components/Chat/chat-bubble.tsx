@@ -3,12 +3,13 @@ import React from 'react';
 type Props = {
     text?: string | null;
     imageUrl?: string | null;
-    // ahora senderDisplay es opcional y solo muestra el nombre arriba de la burbuja
     senderDisplay?: string | null;
     own?: boolean;
+    seenBy?: number[];
+    createdAt?: string | null;
 };
 
-const ChatBubble: React.FC<Props> = ({ text, imageUrl = null, senderDisplay = null, own = false }) => {
+const ChatBubble: React.FC<Props> = ({ text, imageUrl = null, senderDisplay = null, own = false, seenBy = [], createdAt = null }) => {
     const metaStyle: React.CSSProperties = {
         fontSize: 12,
         color: '#555',
@@ -39,6 +40,18 @@ const ChatBubble: React.FC<Props> = ({ text, imageUrl = null, senderDisplay = nu
         borderRadius: 8,
     };
 
+    const footerStyle: React.CSSProperties = {
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'flex-end',
+        gap: 8,
+        marginTop: 6,
+        fontSize: 11,
+        color: '#666',
+    };
+
+    const showDoubleCheck = own && Array.isArray(seenBy) && seenBy.length > 0;
+
     return (
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: own ? 'flex-end' : 'flex-start' }}>
             {senderDisplay ? <div style={metaStyle}>{senderDisplay}</div> : null}
@@ -49,6 +62,15 @@ const ChatBubble: React.FC<Props> = ({ text, imageUrl = null, senderDisplay = nu
                         <img src={imageUrl} alt="img" style={imgStyle} />
                     </div>
                 ) : null}
+
+                <div style={footerStyle}>
+                    <div>{createdAt ? new Date(createdAt).toLocaleString() : ''}</div>
+                    {showDoubleCheck ? (
+                        <div title={`Visto por ${seenBy.join(', ')}`} style={{ color: '#2d7a2d', fontWeight: 700 }}>
+                            ✓✓
+                        </div>
+                    ) : null}
+                </div>
             </div>
         </div>
     );
