@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useCallback, useRef } from 'react';
 import { useAuth } from '../hooks/useAuth';
-import { connectSocket, disconnectSocket, getSocket, registerUser } from '../services/socket';
-import { getConversations, getMessages } from '../services/chat';
+import { connectSocket, disconnectSocket, getSocket, registerUser } from '../services/sockets/socket.ts';
+import { getConversations, getMessages } from '../services/sockets/chat.socket.ts';
 import type { Conversation, Message } from '../types/chat';
 import ChatSidebar from '../components/Chat/ChatSidebar';
 

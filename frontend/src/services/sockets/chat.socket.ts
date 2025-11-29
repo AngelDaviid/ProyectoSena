@@ -1,5 +1,5 @@
-import api from './api';
-import type { Conversation, Message } from '../types/chat';
+import api from '../api.ts';
+import type { Conversation, Message } from '../../types/chat.ts';
 
 /**
  * Cache corto para /conversations para evitar ráfagas.

@@ -1,0 +1,168 @@
+import { io, Socket } from 'socket.io-client';
+
+const SOCKET_URL = import.meta.env.VITE_SENA_API_URL || 'http://localhost:3001';
+
+class SocketService {
+    private socket: Socket | null = null;
+    private reconnectAttempts = 0;
+    private maxReconnectAttempts = 5;
+
+    /**
+     * Conectar al servidor WebSocket
+     */
+    connect(token?: string): Socket {
+        if (this.socket?. connected) {
+            console.log('[Socket] Already connected');
+            return this.socket;
+        }
+
+        console.log('[Socket] Connecting to:', `${SOCKET_URL}/ws`);
+
+        this.socket = io(`${SOCKET_URL}/ws`, {
+            auth: token ?  { token } : undefined,
+            transports: ['websocket', 'polling'],
+            reconnection: true,
+            reconnectionDelay: 1000,
+            reconnectionDelayMax: 5000,
+            reconnectionAttempts: this.maxReconnectAttempts,
+        });
+
+        this.setupEventListeners();
+
+        return this.socket;
+    }
+
+    /**
+     * Configurar listeners de eventos del socket
+     */
+    private setupEventListeners(): void {
+        if (!this.socket) return;
+
+        this.socket.on('connect', () => {
+            console.log('[Socket] ✅ Connected:', this.socket?. id);
+            this.reconnectAttempts = 0;
+        });
+
+        this.socket.on('disconnect', (reason) => {
+            console. log('[Socket] ❌ Disconnected:', reason);
+
+            if (reason === 'io server disconnect') {
+                // El servidor forzó la desconexión, reconectar manualmente
+                this.socket?.connect();
+            }
+        });
+
+        this.socket.on('connect_error', (error) => {
+            console.error('[Socket] ⚠️ Connection error:', error);
+            this. reconnectAttempts++;
+
+            if (this.reconnectAttempts >= this.maxReconnectAttempts) {
+                console.error('[Socket] Max reconnection attempts reached');
+            }
+        });
+
+        this. socket.on('error', (error) => {
+            console.error('[Socket] 🔴 Error:', error);
+        });
+
+        this.socket.on('reconnect', (attemptNumber) => {
+            console.log('[Socket] 🔄 Reconnected after', attemptNumber, 'attempts');
+        });
+
+        this.socket.on('reconnect_attempt', (attemptNumber) => {
+            console.log('[Socket] 🔄 Reconnection attempt:', attemptNumber);
+        });
+
+        this.socket.on('reconnect_error', (error) => {
+            console.error('[Socket] ⚠️ Reconnection error:', error);
+        });
+
+        this.socket.on('reconnect_failed', () => {
+            console.error('[Socket] ❌ Reconnection failed');
+        });
+    }
+
+    /**
+     * Desconectar del servidor
+     */
+    disconnect(): void {
+        if (this.socket) {
+            console.log('[Socket] Disconnecting...');
+            this.socket. disconnect();
+            this.socket = null;
+            this.reconnectAttempts = 0;
+        }
+    }
+
+    /**
+     * Obtener instancia del socket
+     */
+    getSocket(): Socket | null {
+        return this.socket;
+    }
+
+    /**
+     * Verificar si está conectado
+     */
+    isConnected(): boolean {
+        return this.socket?.connected || false;
+    }
+
+    /**
+     * Registrar usuario en el socket
+     */
+    registerUser(userId: number): void {
+        if (this.socket && this.socket. connected) {
+            this.socket.emit('register', { userId });
+            console.log('[Socket] 👤 User registered:', userId);
+        } else {
+            console.warn('[Socket] Cannot register user: socket not connected');
+        }
+    }
+
+    /**
+     * Emitir evento personalizado
+     */
+    emit(event: string, data?: any): void {
+        if (this. socket && this.socket.connected) {
+            this.socket.emit(event, data);
+        } else {
+            console.warn(`[Socket] Cannot emit '${event}': socket not connected`);
+        }
+    }
+
+    /**
+     * Escuchar evento
+     */
+    on(event: string, callback: (...args: any[]) => void): void {
+        this.socket?.on(event, callback);
+    }
+
+    /**
+     * Dejar de escuchar evento
+     */
+    off(event: string, callback?: (...args: any[]) => void): void {
+        if (callback) {
+            this.socket?. off(event, callback);
+        } else {
+            this.socket?.off(event);
+        }
+    }
+
+    /**
+     * Escuchar evento una sola vez
+     */
+    once(event: string, callback: (...args: any[]) => void): void {
+        this.socket?.once(event, callback);
+    }
+}
+
+// Exportar instancia única (singleton)
+export const socketService = new SocketService();
+
+// Exportar también funciones individuales para compatibilidad
+export const connectSocket = (token?: string) => socketService.connect(token);
+export const disconnectSocket = () => socketService.disconnect();
+export const getSocket = () => socketService.getSocket();
+export const registerUser = (userId: number) => socketService.registerUser(userId);
+export const isSocketConnected = () => socketService. isConnected();

@@ -2,7 +2,7 @@ import type { ReactNode } from 'react';
 import { useEffect } from 'react';
 import { Navigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
-import { connectSocket, registerUser, releaseSocket, forceDisconnectSocket } from '../services/socket';
+import { connectSocket, registerUser, releaseSocket, forceDisconnectSocket } from '../services/sockets/socket.ts';
 
 type Props = { children: ReactNode };
 
