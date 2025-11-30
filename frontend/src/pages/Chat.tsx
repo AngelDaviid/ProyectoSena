@@ -1,15 +1,18 @@
 import React, { useEffect, useState, useCallback, useRef } from 'react';
 import { useAuth } from '../hooks/useAuth';
 import { useSocketContext } from '../hooks/useSocketContext';
-import { getConversations, getMessages } from '../services/sockets/chat.socket';
+import {
+    chatSocket,
+    getConversations,
+    getMessages,
+    type NewMessagePayload,
+    type UserTypingPayload,
+    type MessageSeenPayload,
+} from '../services/sockets/chat.socket';
 import type { Conversation, Message } from '../types/chat';
 import ChatSidebar from '../components/Chat/ChatSidebar';
 import ChatWindow from '../components/Chat/ChatWindow';
 
-/**
- * Local message type that allows id to be optional because incoming socket payloads
- * or optimistic messages may not have the final numeric id yet.
- */
 type MsgWithMeta = Omit<Message, 'id'> & {
     id?: number;
     sending?: boolean;
@@ -18,43 +21,36 @@ type MsgWithMeta = Omit<Message, 'id'> & {
     _inferred?: boolean;
 };
 
-const MESSAGES_LIMIT = 20;
-const REPORT_SEEN_DEBOUNCE_MS = 500;
+const MESSAGES_LIMIT = 50;
 
-const ChatPage: React. FC = () => {
+const ChatPage: React.FC = () => {
     const { user } = useAuth();
     const { socket, isConnected } = useSocketContext();
 
     const [conversations, setConversations] = useState<Conversation[]>([]);
     const [activeConversation, setActiveConversation] = useState<Conversation | null>(null);
     const [messages, setMessages] = useState<MsgWithMeta[]>([]);
+    const [typingUsers, setTypingUsers] = useState<number[]>([]);
+    const [unreadCounts, setUnreadCounts] = useState<Record<number, number>>({});
 
-    // pagination / guards
     const conversationsLoadedRef = useRef(false);
-
-    // socket refs
-    const prevConversationRef = useRef<number | null>(null);
-
-    // seen batching refs
-    const seenBufferRef = useRef<Set<number>>(new Set());
-    const seenTimerRef = useRef<number | null>(null);
-
-    // Keep a ref to activeConversation. id to use inside callbacks without re-registering listeners
+    const prevConvRef = useRef<number | null>(null);
     const activeConvIdRef = useRef<number | null>(null);
 
     useEffect(() => {
         activeConvIdRef.current = activeConversation?.id ??  null;
     }, [activeConversation]);
 
-    // Load conversations once
+    // Load conversations
     const loadConversations = useCallback(async () => {
         if (conversationsLoadedRef.current) return;
+
         try {
             const data = await getConversations();
             setConversations(data ??  []);
             conversationsLoadedRef.current = true;
         } catch (err) {
-            console.error('[chat] No se pudieron cargar conversaciones', err);
+            console.error('[Chat] Error loading conversations:', err);
         }
     }, []);
 
@@ -62,291 +58,242 @@ const ChatPage: React. FC = () => {
         void loadConversations();
     }, [loadConversations]);
 
-    // Helper: normalize messages returned by API or socket
-    const normalizeIncoming = useCallback((m: any): MsgWithMeta => {
-        const msg: Partial<MsgWithMeta> = { ...m };
-
-        // ensure id is numeric if present
-        if (typeof m.id !== 'undefined' && m.id !== null) {
-            const n = Number(m.id);
-            if (!Number.isNaN(n)) msg.id = n;
-        }
-
-        // map sender object to senderId if necessary
-        if ((typeof m.senderId === 'undefined' || m.senderId === null) && m.sender && typeof m.sender.id !== 'undefined') {
-            msg.senderId = Number(m.sender.id);
-        } else if (typeof m.senderId !== 'undefined' && m. senderId !== null) {
-            msg.senderId = Number(m.senderId);
-        }
-
-        // conversation id
-        if (typeof m. conversationId !== 'undefined' && m.conversationId !== null) {
-            msg.conversationId = Number(m.conversationId);
-        }
-
-        msg.text = m.text ??  '';
-        msg.imageUrl = m.imageUrl ?? null;
-        msg.createdAt = m.createdAt ?  String(m.createdAt) : new Date().toISOString();
-        msg.tempId = m.tempId ?? undefined;
-        msg.sending = !!m.sending;
-        msg.seenBy = Array.isArray(m.seenBy) ? m.seenBy. slice() : [];
-
-        // Keep _inferred flag if provided
-        if (m._inferred) msg._inferred = true;
-
-        return msg as MsgWithMeta;
+    // Normalize incoming messages
+    const normalizeIncoming = useCallback((m: NewMessagePayload): MsgWithMeta => {
+        return {
+            id: m.id ?  Number(m.id) : undefined,
+            text: m.text ??  '',
+            imageUrl: m.imageUrl ?? null,
+            createdAt: m.createdAt ? String(m.createdAt) : new Date().toISOString(),
+            senderId: Number(m.senderId),
+            conversationId: Number(m. conversationId),
+            tempId: m.tempId ??  undefined,
+            sending: false,
+            seenBy: [],
+            _inferred: false,
+        };
     }, []);
 
-    // Utility: report seen in batch (debounced)
-    const scheduleReportSeenIfNeeded = useCallback(
-        (m: MsgWithMeta | null) => {
-            if (! socket || !isConnected) return;
-
-            try {
-                if (! m || typeof m. id === 'undefined' || m.id === null) return;
-                if (! user?.id) return;
-
-                const isMine = Number(m.senderId) === Number(user.id) || !!m._inferred;
-                if (isMine) return;
-
-                const activeId = activeConvIdRef.current;
-                if (!activeId || Number(activeId) !== Number(m.conversationId)) return;
-
-                seenBufferRef.current.add(Number(m.id));
-
-                if (seenTimerRef.current) {
-                    window.clearTimeout(seenTimerRef.current);
-                }
-
-                seenTimerRef.current = window.setTimeout(() => {
-                    const ids = Array.from(seenBufferRef.current);
-                    if (ids.length === 0) return;
-
-                    try {
-                        console.debug('[chat] emitting messageSeen', { conversationId: activeId, messageIds: ids, userId: user?. id });
-                        socket?. emit('messageSeen', { conversationId: String(activeId), messageIds: ids, userId: user?.id });
-                    } catch (e) {
-                        console.warn('[chat] could not emit messageSeen', e);
-                    } finally {
-                        seenBufferRef.current.clear();
-                        if (seenTimerRef.current) {
-                            window.clearTimeout(seenTimerRef. current);
-                            seenTimerRef.current = null;
-                        }
-                    }
-                }, REPORT_SEEN_DEBOUNCE_MS) as unknown as number;
-            } catch (err) {
-                console.error('[chat] scheduleReportSeenIfNeeded error', err);
-            }
-        },
-        [socket, isConnected, user?.id],
-    );
-
-    // Socket setup: register listeners once, use refs for active conversation access
+    // Socket listeners
     useEffect(() => {
         if (!socket || !isConnected || !user) return;
 
-        console.debug('[chat] socket setup, id:', socket.id);
+        console.log('[Chat] 🎧 Setting up socket listeners');
 
-        const handleNotification = (payload: any) => {
-            console.debug('[socket] notification', payload);
-        };
-
-        const handleNewMessage = (rawMsg: any) => {
-            console.debug('[socket] newMessage raw', rawMsg);
-            const normalized = normalizeIncoming(rawMsg);
+        const handleNewMessage = (payload: NewMessagePayload) => {
+            console. log('[Chat] 💬 New message received:', payload);
+            const normalized = normalizeIncoming(payload);
 
             setMessages((prev) => {
-                // replace optimistic by tempId if present
-                if (normalized.tempId) {
-                    const idx = prev.findIndex((m) => String(m.tempId) === String(normalized.tempId));
+                // Replace optimistic message
+                if (normalized. tempId) {
+                    const idx = prev.findIndex((m) => m.tempId === normalized. tempId);
                     if (idx !== -1) {
                         const copy = [...prev];
-                        copy[idx] = {
-                            ...copy[idx],
-                            ...normalized,
-                            senderId: normalized.senderId ??  copy[idx].senderId,
-                            sending: false,
-                        };
-                        console.debug('[chat] replaced optimistic message with server message', copy[idx]);
-                        scheduleReportSeenIfNeeded(copy[idx]);
+                        copy[idx] = { ...normalized, sending: false };
                         return copy;
                     }
                 }
 
-                // avoid duplicates by id
-                if (typeof normalized.id !== 'undefined' && prev.some((m) => m.id === normalized.id)) {
-                    scheduleReportSeenIfNeeded(normalized);
+                // Avoid duplicates
+                if (normalized.id && prev. some((m) => m.id === normalized.id)) {
                     return prev;
                 }
 
-                // if belongs to another conversation, ignore for current UI
-                if (typeof normalized.conversationId !== 'undefined' && activeConversation && normalized.conversationId !== activeConversation.id) {
-                    console.debug('[socket] newMessage for different conversation', normalized. conversationId);
-                    scheduleReportSeenIfNeeded(normalized);
+                // Not active conversation → unread count
+                if (normalized. conversationId !== activeConvIdRef.current) {
+                    const convId = normalized.conversationId;
+
+                    // Solo actualizar si convId es un número válido
+                    if (typeof convId === 'number') {
+                        setUnreadCounts((counts: Record<number, number>) => {
+                            return {
+                                ...counts,
+                                [convId]: (counts[convId] ??  0) + 1,
+                            };
+                        });
+                    }
+
                     return prev;
                 }
 
-                scheduleReportSeenIfNeeded(normalized);
-                return [...prev, normalized];
+                return [... prev, normalized];
             });
         };
 
-        const handleMessageSeen = (payload: { conversationId: string | number; messageIds: number[]; userId: number }) => {
-            console.debug('[socket] messageSeen', payload);
+        const handleUserTyping = (payload: UserTypingPayload) => {
+            console.log('[Chat] ⌨️ User typing:', payload);
+            const convId = Number(payload.conversationId);
+            const userId = Number(payload.userId);
+
+            if (convId === activeConvIdRef. current && payload.typing) {
+                setTypingUsers((prev) =>
+                    prev.includes(userId) ? prev : [...prev, userId],
+                );
+
+                setTimeout(() => {
+                    setTypingUsers((prev) => prev.filter((id) => id !== userId));
+                }, 3000);
+            } else {
+                setTypingUsers((prev) => prev.filter((id) => id !== userId));
+            }
+        };
+
+        const handleMessageSeen = (payload: MessageSeenPayload) => {
+            console.log('[Chat] 👁️ Message seen:', payload);
+            const userId = Number(payload.userId);
+            const messageIds = payload.messageIds. map((id) => Number(id));
+
             setMessages((prev) =>
-                prev.map((m) => {
-                    if (m.id && payload.messageIds.includes(m. id)) {
-                        const seenSet = new Set<number>(m.seenBy ?? []);
-                        seenSet.add(payload.userId);
-                        return { ...m, seenBy: Array.from(seenSet) };
+                prev. map((m: MsgWithMeta) => {
+                    if (m.id && messageIds.includes(m.id)) {
+                        const seen = new Set(m.seenBy ??  []);
+                        seen.add(userId);
+                        return { ...m, seenBy: Array.from(seen) };
                     }
                     return m;
                 }),
             );
         };
 
-        socket.on('notification', handleNotification);
-        socket.on('newMessage', handleNewMessage);
-        socket.on('messageSeen', handleMessageSeen);
+        chatSocket.onNewMessage(handleNewMessage);
+        chatSocket.onUserTyping(handleUserTyping);
+        chatSocket.onMessageSeen(handleMessageSeen);
 
         return () => {
-            socket.off('notification', handleNotification);
-            socket.off('newMessage', handleNewMessage);
-            socket. off('messageSeen', handleMessageSeen);
-
-            // cleanup seen timer/buffer
-            if (seenTimerRef.current) {
-                window.clearTimeout(seenTimerRef.current);
-                seenTimerRef.current = null;
-            }
-            seenBufferRef.current.clear();
+            console.log('[Chat] 🔌 Cleaning up socket listeners');
+            chatSocket.offNewMessage(handleNewMessage);
+            chatSocket.offUserTyping(handleUserTyping);
+            chatSocket.offMessageSeen(handleMessageSeen);
         };
-    }, [socket, isConnected, user, normalizeIncoming, scheduleReportSeenIfNeeded, activeConversation]);
+    }, [socket, isConnected, user, normalizeIncoming]);
 
-    // Open conversation: load first page, join room and report seen for loaded messages
-    const openConversation = useCallback(async (conv: Conversation) => {
-        if (!socket) return;
+    // Open conversation
+    const openConversation = useCallback(
+        async (conv: Conversation) => {
+            if (!socket) return;
 
-        try {
-            if (prevConversationRef.current) {
-                socket.emit('leaveConversation', { conversationId: String(prevConversationRef.current) });
+            try {
+                if (prevConvRef.current !== null) {
+                    chatSocket.leaveConversation(prevConvRef.current);
+                }
+
+                setActiveConversation(conv);
+                prevConvRef.current = conv.id;
+                activeConvIdRef.current = conv.id;
+
+                setUnreadCounts((prev) => ({ ...prev, [conv.id]: 0 }));
+
+                const response = await getMessages(conv.id, 1, MESSAGES_LIMIT);
+                const msgs = Array.isArray(response) ? response : response.messages ?? [];
+
+                const normalized = msgs.map((m: unknown) => normalizeIncoming(m as NewMessagePayload));
+
+                normalized.sort((a: MsgWithMeta, b: MsgWithMeta) => {
+                    const dateA = new Date(a. createdAt || 0).getTime();
+                    const dateB = new Date(b.createdAt || 0).getTime();
+                    return dateA - dateB;
+                });
+
+                setMessages(normalized);
+
+                chatSocket.joinConversation(conv.id);
+
+                const unseen = normalized
+                    .filter((m: MsgWithMeta) => m.senderId !== user?.id && m.id !== undefined)
+                    .map((m: MsgWithMeta) => m.id as number);
+
+                if (unseen.length > 0 && user?.id) {
+                    chatSocket.markAsSeen(conv.id, unseen, user.id);
+                }
+            } catch (err) {
+                console.error('[Chat] Error loading messages:', err);
             }
+        },
+        [socket, user?. id, normalizeIncoming]
+    );
 
-            setActiveConversation(conv);
-            prevConversationRef.current = conv.id;
-            activeConvIdRef.current = conv.id;
+    // Send message
+    const handleSend = useCallback(
+        (text: string, image?: string | File) => {
+            if (!activeConversation || !user || !socket) return;
 
-            const raw = await getMessages(conv.id, 1, MESSAGES_LIMIT);
-            const msgs = Array.isArray(raw) ? raw : raw.messages ??  [];
+            const tempId = `temp-${Date.now()}-${Math.random(). toString(36).slice(2, 8)}`;
 
-            msgs.sort((a: any, b: any) => new Date(a.createdAt ??  0). getTime() - new Date(b.createdAt ?? 0). getTime());
+            const tempMessage: MsgWithMeta = {
+                id: Date.now(),
+                text,
+                imageUrl: image instanceof File ? URL.createObjectURL(image) : image ??  null,
+                createdAt: new Date().toISOString(),
+                senderId: user.id,
+                conversationId: activeConversation.id,
+                sending: true,
+                tempId,
+                seenBy: [],
+            };
 
-            const normalized = msgs.map((m: any) => {
-                const nm = normalizeIncoming(m);
-                nm.conversationId = Number(conv.id);
-                nm.seenBy = nm.seenBy ?? [];
-                return nm;
-            }) as MsgWithMeta[];
+            setMessages((prev) => [...prev, tempMessage]);
 
-            setMessages(normalized);
+            chatSocket.sendMessage(
+                activeConversation.id,
+                user.id,
+                text,
+                typeof image === 'string' ? image : undefined,
+                tempId
+            );
+        },
+        [activeConversation, user, socket]
+    );
 
-            socket.emit('joinConversation', { conversationId: String(conv.id) });
-
-            const unseenIds = normalized
-                .filter((m) => Number(m.senderId) !== Number(user?.id))
-                . map((m) => m.id)
-                .filter((id): id is number => typeof id === 'number');
-
-            if (unseenIds. length > 0) {
-                console.debug('[chat] emitting messageSeen for loaded messages', { conversationId: conv.id, messageIds: unseenIds, userId: user?.id });
-                socket.emit('messageSeen', { conversationId: String(conv.id), messageIds: unseenIds, userId: user?.id });
-            }
-        } catch (err) {
-            console.error('[chat] Error cargando mensajes', err);
-        }
-    }, [socket, user?.id, normalizeIncoming]);
-
-    // Send message (optimistic)
-    const handleSend = useCallback((text: string, image?: string | File) => {
-        if (!activeConversation || !user || !socket) return;
-
-        const tempId = `temp-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-        let imageUrl: string | null = null;
-
-        if (image instanceof File) {
-            imageUrl = URL.createObjectURL(image);
-        } else if (typeof image === 'string') {
-            imageUrl = image;
-        }
-
-        const tempMessage: MsgWithMeta = {
-            id: Date.now(),
-            text,
-            imageUrl,
-            createdAt: new Date().toISOString(),
-            senderId: Number(user.id),
-            conversationId: activeConversation.id,
-            sending: true,
-            tempId,
-            seenBy: [],
-        };
-
-        setMessages((prev) => [...prev, tempMessage]);
-
-        console.debug('[chat] emitting sendMessage', { conversationId: activeConversation.id, senderId: user.id, text, tempId, imageUrl });
-        socket.emit('sendMessage', {
-            conversationId: String(activeConversation.id),
-            senderId: String(user.id),
-            text,
-            imageUrl,
-            tempId,
-        });
-    }, [activeConversation, user, socket]);
-
-    // Load more messages (pagination)
+    // Load older messages
     const handleLoadMore = useCallback(async (): Promise<number> => {
         if (!activeConversation) return 0;
 
         try {
-            const raw = await getMessages(activeConversation.id);
-            const all: Message[] = Array.isArray(raw) ? raw : raw.messages ??  [];
+            const response = await getMessages(activeConversation.id);
+            const all = Array.isArray(response) ? response : (response. messages ?? []);
 
-            const normalized = all.map((m: any) => {
-                const nm = normalizeIncoming(m);
-                nm.conversationId = activeConversation.id;
-                nm.seenBy = nm. seenBy ?? [];
-                return nm;
-            }) as MsgWithMeta[];
+            const normalized = all.map((m: unknown) => normalizeIncoming(m as NewMessagePayload));
 
-            normalized.sort((a, b) => +new Date(a.createdAt ?? 0) - +new Date(b.createdAt ??  0));
+            normalized.sort((a: MsgWithMeta, b: MsgWithMeta) => {
+                const dateA = new Date(a. createdAt || 0).getTime();
+                const dateB = new Date(b.createdAt || 0).getTime();
+                return dateA - dateB;
+            });
 
             const earliest = messages[0];
-            if (!earliest) {
+            if (! earliest) {
                 setMessages(normalized);
                 return normalized.length;
             }
 
-            const older = normalized.filter((m) => new Date(m.createdAt ?? 0). getTime() < new Date(earliest.createdAt ??  0).getTime());
+            const older = normalized.filter((m: MsgWithMeta) => {
+                const msgDate = new Date(m.createdAt || 0).getTime();
+                const earliestDate = new Date(earliest. createdAt || 0).getTime();
+                return msgDate < earliestDate;
+            });
+
             if (older.length === 0) return 0;
 
             setMessages((prev) => [...older, ...prev]);
             return older.length;
         } catch (err) {
-            console.error('[chat] Error cargando mensajes antiguos', err);
+            console.error('[Chat] Error loading more messages:', err);
             return 0;
         }
     }, [activeConversation, messages, normalizeIncoming]);
 
     return (
-        <div className="grid grid-cols-[300px_1fr] min-h-screen bg-gray-100">
+        <div className="grid grid-cols-[350px_1fr] h-screen bg-gray-100">
             <ChatSidebar
                 conversations={conversations}
-                currentUserId={user?.id}
+                currentUserId={user?.id ??  null}
+                activeConversationId={activeConversation?.id ?? null}
                 onSelect={openConversation}
+                unreadCounts={unreadCounts}
             />
 
-            <div className="bg-white border-l flex flex-col">
+            <div className="bg-white flex flex-col">
                 {activeConversation ? (
                     <ChatWindow
                         activeConversation={activeConversation}
@@ -354,10 +301,31 @@ const ChatPage: React. FC = () => {
                         onSend={handleSend}
                         currentUserId={user?.id ?? null}
                         onLoadMore={handleLoadMore}
+                        typingUsers={typingUsers}
                     />
                 ) : (
-                    <div className="flex items-center justify-center flex-1 text-gray-500">
-                        Selecciona una conversación
+                    <div className="flex flex-col items-center justify-center flex-1 text-gray-500 bg-gradient-to-br from-gray-50 to-white">
+                        <div className="w-32 h-32 bg-gradient-to-br from-blue-600 to-purple-600 rounded-full flex items-center justify-center mb-6 shadow-2xl">
+                            <svg
+                                className="w-16 h-16 text-white"
+                                fill="none"
+                                stroke="currentColor"
+                                viewBox="0 0 24 24"
+                            >
+                                <path
+                                    strokeLinecap="round"
+                                    strokeLinejoin="round"
+                                    strokeWidth={2}
+                                    d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4. 03 8-9 8a9.863 9.863 0 01-4.255-. 949L3 20l1. 395-3.72C3. 512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"
+                                />
+                            </svg>
+                        </div>
+                        <h3 className="text-xl font-semibold text-gray-700 mb-2">
+                            Selecciona una conversación
+                        </h3>
+                        <p className="text-sm text-gray-500">
+                            Elige un chat de la lista para comenzar a conversar
+                        </p>
                     </div>
                 )}
             </div>

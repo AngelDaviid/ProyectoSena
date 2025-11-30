@@ -34,3 +34,28 @@ export interface Conversation {
     createdAt?: string;
     updatedAt?: string;
 }
+
+// src/types/chat.ts
+
+export interface RawMessage {
+    _id: string;
+    text: string;
+    senderId: string;
+    conversationId: string;
+    createdAt: string;
+}
+
+export interface NewMessagePayload {
+    conversationId: string;
+    text: string;
+}
+
+export interface ServerToClientEvents {
+    newMessage: (msg: RawMessage) => void;
+    connected: () => void;
+}
+
+export interface ClientToServerEvents {
+    sendMessage: (payload: NewMessagePayload) => void;
+    joinConversation: (conversationId: string) => void;
+}

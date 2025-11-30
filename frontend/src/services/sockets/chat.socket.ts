@@ -1,112 +1,213 @@
-import api from '../api.ts';
-import type { Conversation, Message } from '../../types/chat.ts';
+import { socketService } from './socket';
+import axios from 'axios';
 
-/**
- * Cache corto para /conversations para evitar ráfagas.
- * In-flight promise para evitar duplicar requests concurrentes.
- */
-let _conversationsCache: { ts: number; data: Conversation[] } | null = null;
-let _conversationsInFlight: Promise<Conversation[]> | null = null;
-const CONVERSATIONS_CACHE_TTL = 5000; // 5 segundos
+const API_URL = import.meta.env.VITE_SENA_API_URL || 'http://localhost:3001';
 
-export async function getConversations(): Promise<Conversation[]> {
-    // Si hay cache reciente, devuelve
-    if (_conversationsCache && (Date.now() - _conversationsCache.ts) < CONVERSATIONS_CACHE_TTL) {
-        return _conversationsCache.data;
-    }
+// ==================== TYPES ====================
 
-    // Si ya hay una petición en vuelo, devuelve la misma promesa
-    if (_conversationsInFlight) {
-        return _conversationsInFlight;
-    }
-
-    _conversationsInFlight = (async () => {
-        try {
-            const res = await api.get<Conversation[]>('/conversations');
-            _conversationsCache = { ts: Date.now(), data: res.data };
-            return res.data;
-        } finally {
-            // reset inFlight después de que termine (success o error)
-            _conversationsInFlight = null;
-        }
-    })();
-
-    return _conversationsInFlight;
+export interface NewMessagePayload {
+    id: number;
+    text: string;
+    imageUrl: string | null;
+    createdAt: string;
+    senderId: number;
+    conversationId: number;
+    tempId?: string | null;
 }
 
-/**
- * getConversation sin cambios
- */
-export async function getConversation(id: number): Promise<Conversation> {
-    const res = await api.get<Conversation>(`/conversations/${id}`);
-    return res.data;
+export interface MessageSeenPayload {
+    conversationId: number;
+    messageIds: number[];
+    userId: number;
+    timestamp: string;
 }
 
-/**
- * getMessages: paginación + in-flight por conversationId para evitar varios requests iguales simultáneos.
- */
-const messagesInFlight: Record<number, Promise<{ messages: Message[]; hasMore: boolean }> | null> = {};
+export interface UserTypingPayload {
+    conversationId: number;
+    userId: number;
+    typing: boolean;
+    timestamp: string;
+}
 
-export async function getMessages(conversationId: number, page = 1, limit = 20, maxRetries = 3): Promise<{ messages: Message[]; hasMore: boolean; }> {
-    // Si ya hay una petición en vuelo para la misma conv + página -> devolverla
-    // (opcionalmente podrías indexar también por page si quieres)
-    if (messagesInFlight[conversationId]) {
-        return messagesInFlight[conversationId]!;
+export interface NewMessageNotificationPayload {
+    conversationId: number;
+    message: NewMessagePayload;
+    timestamp: string;
+}
+
+// ==================== API CALLS ====================
+
+export async function getConversations() {
+    try {
+        const token = localStorage.getItem('access_token');
+        const response = await axios.get(`${API_URL}/chat/conversations`, {
+            headers: { Authorization: `Bearer ${token}` },
+        });
+        return response.data;
+    } catch (err) {
+        console.error('[ChatSocket] Error getting conversations:', err);
+        throw err;
     }
+}
 
-    let attempt = 0;
-
-    const doRequest = async (): Promise<{ messages: Message[]; hasMore: boolean; }> => {
-        try {
-            console.debug(`[chat.service] getMessages conv=${conversationId} page=${page} attempt=${attempt}`);
-            const res = await api.get(`/messages/conversation/${conversationId}`, {
+export async function getMessages(conversationId: number, page = 1, limit = 50) {
+    try {
+        const token = localStorage.getItem('access_token');
+        const response = await axios.get(
+            `${API_URL}/chat/conversations/${conversationId}/messages`,
+            {
                 params: { page, limit },
-            });
-            const data = res.data as any;
-            if (Array.isArray(data)) {
-                return {
-                    messages: data,
-                    hasMore: data.length === limit,
-                };
-            }
-            return {
-                messages: data.messages ?? [],
-                hasMore: data.hasMore ?? false,
-            };
-        } catch (err: any) {
-            attempt++;
-            const status = err?.response?.status;
-            if (status === 429 && attempt <= maxRetries) {
-                const backoffMs = 300 * Math.pow(2, attempt - 1);
-                await new Promise((r) => setTimeout(r, backoffMs));
-                return doRequest();
-            }
-            throw err;
-        }
-    };
-
-    // Guard: marcar inFlight por conversationId (para evitar duplicados simultáneos)
-    const p = doRequest().finally(() => {
-        messagesInFlight[conversationId] = null;
-    });
-    messagesInFlight[conversationId] = p;
-    return p;
+                headers: { Authorization: `Bearer ${token}` },
+            },
+        );
+        return response.data;
+    } catch (err) {
+        console.error('[ChatSocket] Error getting messages:', err);
+        throw err;
+    }
 }
 
 /**
- * POST a message (subida de archivos por FormData)
- */
-export async function postMessage(formData: FormData) {
-    const res = await api.post('/messages', formData, {
-        headers: { 'Content-Type': 'multipart/form-data' },
-    });
-    return res.data;
-}
-
-/**
- * Create conversation via REST
+ * Create conversation via REST API
  */
 export async function createConversation(participantIds: number[]) {
-    const res = await api.post('/conversations', { participantIds });
-    return res.data;
+    try {
+        const token = localStorage.getItem('access_token');
+        const response = await axios.post(
+            `${API_URL}/chat/conversations`,
+            { participantIds },
+            {
+                headers: { Authorization: `Bearer ${token}` },
+            }
+        );
+        return response.data;
+    } catch (err) {
+        console.error('[ChatSocket] Error creating conversation:', err);
+        throw err;
+    }
 }
+
+// ==================== CHAT SOCKET SERVICE ====================
+
+export class ChatSocketService {
+    /**
+     * Unirse a una conversación
+     */
+    joinConversation(conversationId: number): void {
+        console.log('[ChatSocket] 👥 Joining conversation:', conversationId);
+        socketService.emit('joinConversation', { conversationId: String(conversationId) });
+    }
+
+    /**
+     * Salir de una conversación
+     */
+    leaveConversation(conversationId: number): void {
+        console.log('[ChatSocket] 👋 Leaving conversation:', conversationId);
+        socketService.emit('leaveConversation', { conversationId: String(conversationId) });
+    }
+
+    /**
+     * Enviar un mensaje
+     */
+    sendMessage(
+        conversationId: number,
+        senderId: number,
+        text: string,
+        imageUrl?: string,
+        tempId?: string,
+    ): void {
+        console.log('[ChatSocket] 💬 Sending message to conversation:', conversationId);
+        socketService.emit('sendMessage', {
+            conversationId: String(conversationId),
+            senderId: String(senderId),
+            text,
+            imageUrl,
+            tempId,
+        });
+    }
+
+    /**
+     * Marcar mensajes como vistos
+     */
+    markAsSeen(conversationId: number, messageIds: number[], userId: number): void {
+        console.log('[ChatSocket] 👁️ Marking messages as seen:', messageIds. length);
+        socketService.emit('messageSeen', {
+            conversationId: String(conversationId),
+            messageIds,
+            userId,
+        });
+    }
+
+    /**
+     * Notificar que estás escribiendo
+     */
+    sendTypingIndicator(conversationId: number, userId: number, typing: boolean): void {
+        socketService.emit('typing', {
+            conversationId: String(conversationId),
+            senderId: String(userId),
+            typing,
+        });
+    }
+
+    // ==================== LISTENERS ====================
+
+    /**
+     * Escuchar nuevos mensajes
+     */
+    onNewMessage(callback: (payload: NewMessagePayload) => void): void {
+        socketService.on('newMessage', callback);
+    }
+
+    offNewMessage(callback?: (payload: NewMessagePayload) => void): void {
+        socketService.off('newMessage', callback);
+    }
+
+    /**
+     * Escuchar notificaciones de mensajes (GLOBALES)
+     */
+    onNewMessageNotification(callback: (payload: NewMessageNotificationPayload) => void): void {
+        socketService.on('newMessageNotification', callback);
+    }
+
+    offNewMessageNotification(callback?: (payload: NewMessageNotificationPayload) => void): void {
+        socketService.off('newMessageNotification', callback);
+    }
+
+    /**
+     * Escuchar cuando alguien marca mensajes como vistos
+     */
+    onMessageSeen(callback: (payload: MessageSeenPayload) => void): void {
+        socketService.on('messageSeen', callback);
+    }
+
+    offMessageSeen(callback?: (payload: MessageSeenPayload) => void): void {
+        socketService.off('messageSeen', callback);
+    }
+
+    /**
+     * Escuchar cuando alguien está escribiendo
+     */
+    onUserTyping(callback: (payload: UserTypingPayload) => void): void {
+        socketService. on('userTyping', callback);
+    }
+
+    offUserTyping(callback?: (payload: UserTypingPayload) => void): void {
+        socketService.off('userTyping', callback);
+    }
+
+
+
+    /**
+     * Escuchar confirmación de unirse
+     */
+    onJoinedConversation(callback: (data: any) => void): void {
+        socketService.on('joinedConversation', callback);
+    }
+
+    offJoinedConversation(callback?: (data: any) => void): void {
+        socketService.off('joinedConversation', callback);
+    }
+}
+
+// Exportar instancia única
+export const chatSocket = new ChatSocketService();
