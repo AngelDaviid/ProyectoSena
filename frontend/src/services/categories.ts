@@ -1,5 +1,5 @@
 import api from './api';
-import { Category } from '../types/post';
+import type { Category } from '../types/event';
 
 let _categoriesCache: { ts: number; data: Category[] } | null = null;
 let _categoriesInFlight: Promise<Category[]> | null = null;

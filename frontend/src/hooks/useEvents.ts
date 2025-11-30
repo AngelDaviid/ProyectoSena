@@ -1,104 +1,69 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
-import type { Event, FilterEventsParams } from '../types/event';
-import { getEvents, invalidateEventsCache } from '../services/events';
-import  type { EventPublishedPayload} from '../services/sockets/evento.socket';
-import { eventsSocket } from '../services/sockets/evento.socket';
+import { useEffect, useState, useRef, useCallback, useMemo } from "react";
+import { getEvents } from "../services/events";
+import type { Event } from "../types/event";
+import type { FilterEventsParams } from "../types/event";
 
-
-export function useEvents(filters?: FilterEventsParams) {
+export function useEvents(filters: FilterEventsParams) {
     const [events, setEvents] = useState<Event[]>([]);
-    const [total, setTotal] = useState(0);
+    const [total, setTotal] = useState<number>(0);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
-    const isMounted = useRef(true);
 
-    const loadEvents = useCallback(async () => {
+    // AbortController persistente por request
+    const abortRef = useRef<AbortController | null>(null);
+
+    // Memo de filtros para que solo dispare fetch cuando cambian
+    const memoFilters = useMemo(() => filters, [
+        filters.search,
+        filters.eventType,
+        filters.categoryId,
+    ]);
+
+    const fetchEvents = useCallback(async () => {
         try {
+            // cancelar request previa
+            if (abortRef.current) {
+                abortRef.current.abort();
+            }
+
+            const controller = new AbortController();
+            abortRef.current = controller;
+
             setLoading(true);
             setError(null);
-            const data = await getEvents(filters);
 
-            if (isMounted.current) {
-                setEvents(data.events);
-                setTotal(data. total);
+            const res = await getEvents(memoFilters);
+
+            if (!controller.signal.aborted) {
+                setEvents(res.events);
+                setTotal(res.total);
             }
         } catch (err: any) {
-            console.error('[useEvents] Error loading Events:', err);
-            if (isMounted.current) {
-                setError(err.message || 'Error al cargar eventos');
-            }
+            if (err.name === "AbortError") return;
+
+            console.error("Error loading events:", err);
+            setError("No se pudieron cargar los eventos");
         } finally {
-            if (isMounted.current) {
-                setLoading(false);
-            }
+            setLoading(false);
         }
-    }, [filters]);
+    }, [memoFilters]);
 
+    // Ejecutar al montar y cada vez que cambien los filtros
     useEffect(() => {
-        isMounted.current = true;
-        loadEvents();
+        fetchEvents();
 
         return () => {
-            isMounted.current = false;
+            if (abortRef.current) abortRef.current.abort();
         };
-    }, [loadEvents]);
+    }, [fetchEvents]);
 
-    // Escuchar eventos de WebSocket
-    useEffect(() => {
-        const handleEventPublished = (payload: EventPublishedPayload) => {
-            console.log('[useEvents] New event published:', payload. event);
-
-            if (! isMounted.current) return;
-
-            // Agregar el nuevo evento al inicio de la lista
-            setEvents(prev => {
-                // Evitar duplicados
-                if (prev.some(e => e.id === payload.event.id)) {
-                    return prev;
-                }
-                return [payload.event, ...prev];
-            });
-            setTotal(prev => prev + 1);
-
-            // Invalidar cache para próximas requests
-            invalidateEventsCache();
-        };
-
-        const handleEventUpdated = (event: Event) => {
-            console.log('[useEvents] Event updated:', event);
-
-            if (!isMounted.current) return;
-
-            setEvents(prev => prev.map(e => e.id === event.id ? event : e));
-            invalidateEventsCache();
-        };
-
-        const handleEventDeleted = (data: { eventId: number }) => {
-            console.log('[useEvents] Event deleted:', data.eventId);
-
-            if (!isMounted.current) return;
-
-            setEvents(prev => prev.filter(e => e.id !== data. eventId));
-            setTotal(prev => Math.max(0, prev - 1));
-            invalidateEventsCache();
-        };
-
-        eventsSocket.onEventPublished(handleEventPublished);
-        eventsSocket.onEventUpdated(handleEventUpdated);
-        eventsSocket.onEventDeleted(handleEventDeleted);
-
-        return () => {
-            eventsSocket.offEventPublished(handleEventPublished);
-            eventsSocket.offEventUpdated(handleEventUpdated);
-            eventsSocket.offEventDeleted(handleEventDeleted);
-        };
-    }, []);
+    const reload = () => fetchEvents();
 
     return {
         events,
         total,
         loading,
         error,
-        reload: loadEvents,
+        reload,
     };
 }

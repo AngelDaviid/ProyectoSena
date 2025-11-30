@@ -160,9 +160,19 @@ class SocketService {
 // Exportar instancia única (singleton)
 export const socketService = new SocketService();
 
-// Exportar también funciones individuales para compatibilidad
 export const connectSocket = (token?: string) => socketService.connect(token);
-export const disconnectSocket = () => socketService.disconnect();
+export const disconnectSocket = () => socketService. disconnect();
 export const getSocket = () => socketService.getSocket();
 export const registerUser = (userId: number) => socketService.registerUser(userId);
 export const isSocketConnected = () => socketService. isConnected();
+
+// ✨ Agregar estos exports para compatibilidad
+export const releaseSocket = () => socketService.disconnect();
+export const forceDisconnectSocket = () => {
+    const socket = socketService.getSocket();
+    if (socket) {
+        socket. removeAllListeners();
+        socket. disconnect();
+    }
+    socketService.disconnect();
+};

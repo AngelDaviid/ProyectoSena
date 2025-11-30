@@ -10,7 +10,7 @@ import {
     offFriendRequestSent,
     onFriendRequestAccepted,
     offFriendRequestAccepted,
-} from '../../services/sockets/socket.ts';
+} from '../../services/sockets/friend-request.socket';
 
 export default function NavbarNotifications() {
     const [incomingCount, setIncomingCount] = useState(0);

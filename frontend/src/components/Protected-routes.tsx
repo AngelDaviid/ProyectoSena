@@ -14,10 +14,12 @@ const ProtectedRoute = ({ children }: Props) => {
         if (!user && !token) return;
 
         try {
-            // Pasamos token ?? undefined para evitar error de tipos si token es null
+            // Conectar el socket primero (el socket usa el token inter|mente)
             connectSocket(token ?? undefined);
+
+            // Registrar usuario solo con el userId (el token ya está en el socket)
             if (user?.id) {
-                registerUser(user.id, token ?? undefined);
+                registerUser(user.id);
                 console.debug('[ProtectedRoute] socket registered for user', user.id);
             } else {
                 console.debug('[ProtectedRoute] socket connected but user id not available yet');
@@ -30,13 +32,25 @@ const ProtectedRoute = ({ children }: Props) => {
             try {
                 releaseSocket();
             } catch (err) {
-                console.warn('[ProtectedRoute] releaseSocket failed, forcing disconnect', err);
-                try { forceDisconnectSocket(); } catch {}
+                console. warn('[ProtectedRoute] releaseSocket failed, forcing disconnect', err);
+                try {
+                    forceDisconnectSocket();
+                } catch {}
             }
         };
     }, [token, user?.id]);
 
-    if (loading) return <div>Cargando...</div>;
+    if (loading) {
+        return (
+            <div className="min-h-screen flex items-center justify-center bg-gray-50">
+                <div className="text-center">
+                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-green-600 mx-auto mb-4"></div>
+                    <p className="text-gray-600">Cargando...</p>
+                </div>
+            </div>
+        );
+    }
+
     if (!token) return <Navigate to="/login" replace />;
 
     return <>{children}</>;

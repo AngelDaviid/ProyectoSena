@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { Plus, Search, Filter, Calendar as CalendarIcon } from 'lucide-react';
 import { useEvents } from '../hooks/useEvents.ts';
 import { useAuth } from '../hooks/useAuth';
-import EventList from '../components/Events/EventList';
+import EventList from "../components/Events/Event-list.tsx";
 import { EventType, EventTypeLabels } from '../types/event';
 import type {FilterEventsParams} from '../types/event';
 import { getCategories } from '../services/categories';

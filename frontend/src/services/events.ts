@@ -9,19 +9,20 @@ let _eventsCache: { ts: number; data: { events: Event[]; total: number } } | nul
 let _eventsInFlight: Promise<{ events: Event[]; total: number }> | null = null;
 const EVENTS_CACHE_TTL = 5000; // 5 segundos
 
-const getAuthToken = () => localStorage.getItem('token');
+const getAuthToken = () => localStorage.getItem('access_token');
 
 /**
  * Obtener lista de eventos con filtros (paginado)
  */
 export async function getEvents(filters?: FilterEventsParams): Promise<{ events: Event[]; total: number }> {
-    // Si no hay filtros y hay cache reciente, devuelve
-    if (! filters && _eventsCache && (Date.now() - _eventsCache.ts) < EVENTS_CACHE_TTL) {
+
+    // Si no hay filtros y hay cache reciente
+    if (!filters && _eventsCache && (Date.now() - _eventsCache.ts) < EVENTS_CACHE_TTL) {
         return _eventsCache.data;
     }
 
-    // Si ya hay una petición en vuelo sin filtros, devuelve la misma promesa
-    if (! filters && _eventsInFlight) {
+    // Si ya hay una petición en vuelo sin filtros
+    if (!filters && _eventsInFlight) {
         return _eventsInFlight;
     }
 
@@ -50,15 +51,15 @@ export async function getEvents(filters?: FilterEventsParams): Promise<{ events:
                 _eventsCache = { ts: Date.now(), data: res.data };
             }
 
-            return res.data;
+            return res.data; // <-- AHORA DEVUELVE EXACTAMENTE { events, total }
         } finally {
-            if (! filters) {
+            if (!filters) {
                 _eventsInFlight = null;
             }
         }
     };
 
-    if (! filters) {
+    if (!filters) {
         _eventsInFlight = doRequest();
         return _eventsInFlight;
     }
@@ -91,8 +92,7 @@ export async function createEvent(formData: FormData): Promise<Event> {
         },
     });
 
-    // Invalidar cache
-    _eventsCache = null;
+    invalidateEventsCache();
 
     return res.data;
 }
@@ -111,8 +111,7 @@ export async function updateEvent(id: number, formData: FormData): Promise<Event
         },
     });
 
-    // Invalidar cache
-    _eventsCache = null;
+    invalidateEventsCache();
 
     return res.data;
 }
@@ -122,18 +121,17 @@ export async function updateEvent(id: number, formData: FormData): Promise<Event
  */
 export async function deleteEvent(id: number): Promise<void> {
     const token = getAuthToken();
-    if (! token) throw new Error('No autenticado');
+    if (!token) throw new Error('No autenticado');
 
-    await api. delete(`/events/${id}`, {
+    await api.delete(`/events/${id}`, {
         headers: { Authorization: `Bearer ${token}` },
     });
 
-    // Invalidar cache
-    _eventsCache = null;
+    invalidateEventsCache();
 }
 
 /**
- * Publicar evento (cambiar de borrador a público)
+ * Publicar evento
  */
 export async function publishEvent(id: number): Promise<Event> {
     const token = getAuthToken();
@@ -143,10 +141,9 @@ export async function publishEvent(id: number): Promise<Event> {
         headers: { Authorization: `Bearer ${token}` },
     });
 
-    // Invalidar cache
-    _eventsCache = null;
+    invalidateEventsCache();
 
-    return res. data;
+    return res.data;
 }
 
 /**
@@ -161,23 +158,22 @@ export async function registerToEvent(id: number, maxRetries = 3): Promise<{ mes
     const doRequest = async (): Promise<{ message: string }> => {
         try {
             console.debug(`[events.service] registerToEvent id=${id} attempt=${attempt}`);
-            const res = await api. post<{ message: string }>(
+            const res = await api.post<{ message: string }>(
                 `/events/${id}/register`,
                 {},
                 {
                     headers: { Authorization: `Bearer ${token}` },
                 }
             );
-            return res. data;
+
+            return res.data;
         } catch (err: any) {
             attempt++;
-            const status = err?.response?.status;
 
-            // Retry en caso de 429 (Too Many Requests)
-            if (status === 429 && attempt <= maxRetries) {
+            if (err?.response?.status === 429 && attempt <= maxRetries) {
                 const backoffMs = 300 * Math.pow(2, attempt - 1);
-                console.warn(`[events.service] Rate limited, retrying in ${backoffMs}ms... `);
-                await new Promise((r) => setTimeout(r, backoffMs));
+                console.warn(`[events.service] Rate limited, retrying in ${backoffMs}ms...`);
+                await new Promise(r => setTimeout(r, backoffMs));
                 return doRequest();
             }
 
@@ -189,7 +185,7 @@ export async function registerToEvent(id: number, maxRetries = 3): Promise<{ mes
 }
 
 /**
- * Desregistrarse de un evento
+ * Desregistrarse
  */
 export async function unregisterFromEvent(id: number): Promise<{ message: string }> {
     const token = getAuthToken();
@@ -203,21 +199,17 @@ export async function unregisterFromEvent(id: number): Promise<{ message: string
 }
 
 /**
- * Obtener eventos creados por el usuario actual
+ * Mis eventos
  */
 let _myEventsCache: { ts: number; data: Event[] } | null = null;
 let _myEventsInFlight: Promise<Event[]> | null = null;
 
 export async function getMyEvents(): Promise<Event[]> {
-    // Cache
     if (_myEventsCache && (Date.now() - _myEventsCache.ts) < EVENTS_CACHE_TTL) {
         return _myEventsCache.data;
     }
 
-    // In-flight
-    if (_myEventsInFlight) {
-        return _myEventsInFlight;
-    }
+    if (_myEventsInFlight) return _myEventsInFlight;
 
     _myEventsInFlight = (async () => {
         try {
@@ -239,21 +231,17 @@ export async function getMyEvents(): Promise<Event[]> {
 }
 
 /**
- * Obtener eventos a los que el usuario está inscrito
+ * Eventos donde estoy inscrito
  */
 let _registeredEventsCache: { ts: number; data: Event[] } | null = null;
 let _registeredEventsInFlight: Promise<Event[]> | null = null;
 
 export async function getRegisteredEvents(): Promise<Event[]> {
-    // Cache
     if (_registeredEventsCache && (Date.now() - _registeredEventsCache.ts) < EVENTS_CACHE_TTL) {
         return _registeredEventsCache.data;
     }
 
-    // In-flight
-    if (_registeredEventsInFlight) {
-        return _registeredEventsInFlight;
-    }
+    if (_registeredEventsInFlight) return _registeredEventsInFlight;
 
     _registeredEventsInFlight = (async () => {
         try {
@@ -264,7 +252,7 @@ export async function getRegisteredEvents(): Promise<Event[]> {
                 headers: { Authorization: `Bearer ${token}` },
             });
 
-            _registeredEventsCache = { ts: Date. now(), data: res.data };
+            _registeredEventsCache = { ts: Date.now(), data: res.data };
             return res.data;
         } finally {
             _registeredEventsInFlight = null;
@@ -275,7 +263,7 @@ export async function getRegisteredEvents(): Promise<Event[]> {
 }
 
 /**
- * Invalidar todos los caches de eventos (útil después de crear/actualizar/eliminar)
+ * Invalidar todos los caches
  */
 export function invalidateEventsCache(): void {
     _eventsCache = null;
