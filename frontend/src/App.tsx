@@ -9,6 +9,7 @@ import NotificationsPage from "./components/Notifications.tsx";
 import FriendsPage from "./pages/Friends.tsx";
 import EventsPage from "./pages/Events.tsx";
 import EventForm from "./components/Events/Event-form.tsx";
+import EventDetail from "./components/Events/Event-details.tsx";
 
 function App() {
     return (
