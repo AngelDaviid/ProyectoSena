@@ -52,7 +52,7 @@ export default function EventToast({ event, onClose, duration = 8000 }: EventToa
     };
 
     const handleClick = () => {
-        console. log('🖱️ Toast clicked, navigating to event');
+        console.log('🖱️ Toast clicked, navigating to event');
         navigate(`/events/${event.id}`);
         handleClose();
     };
@@ -83,7 +83,7 @@ export default function EventToast({ event, onClose, duration = 8000 }: EventToa
                             alt={event.title}
                             className="w-full h-full object-cover"
                             onError={(e) => {
-                                e.currentTarget.src = '/default-event. png';
+                                e.currentTarget.src = '/default-event.png';
                             }}
                         />
                         <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
@@ -109,10 +109,10 @@ export default function EventToast({ event, onClose, duration = 8000 }: EventToa
                                 <span className="font-medium">{formatEventDateShort(event.startDate)}</span>
                             </div>
                             <div className="flex items-center gap-2 text-xs text-gray-700">
-                                <MapPin className="w-3. 5 h-3.5 text-green-600" />
-                                <span className="line-clamp-1">{event. location}</span>
+                                <MapPin className="w-3.5 h-3.5 text-green-600" />
+                                <span className="line-clamp-1">{event.location}</span>
                             </div>
-                            {event. maxAttendees && (
+                            {event.maxAttendees && (
                                 <div className="flex items-center gap-2 text-xs text-gray-700">
                                     <span>👥</span>
                                     <span className="font-medium">{event.maxAttendees} cupos</span>
@@ -121,7 +121,7 @@ export default function EventToast({ event, onClose, duration = 8000 }: EventToa
                         </div>
 
                         <div className="mt-4 pt-3 border-t">
-                            <button className="w-full bg-gradient-to-r from-green-600 to-green-500 hover:from-green-700 hover:to-green-600 text-white py-2.5 px-4 rounded-lg text-sm font-semibold">
+                            <button className="w-full bg-gradient-to-r from-green-600 to-green-500 hover:from-green-700 hover:to-green-600 text-white py-2. 5 px-4 rounded-lg text-sm font-semibold">
                                 Ver Detalles →
                             </button>
                         </div>
