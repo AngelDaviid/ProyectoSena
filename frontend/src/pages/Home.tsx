@@ -90,9 +90,6 @@ const Home: React.FC = () => {
     // === Socket chat: conectar/desconectar cuando se abre/cierra el panel de chat ===
     useEffect(() => {
         if (!chatOpen) {
-            // cerrar socket cuando se cierra el chat
-            disconnectSocket();
-            socketRef.current = null;
             return;
         }
 

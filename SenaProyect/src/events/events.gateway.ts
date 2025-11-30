@@ -23,17 +23,29 @@ export class EventsGateway implements OnGatewayConnection, OnGatewayDisconnect, 
   }
 
   handleConnection(client: Socket) {
-    console.log(`[EventsGateway] Client connected: ${client. id}`);
+    console.log(`[EventsGateway] Client connected: ${client.id}`);
 
     // Espera que el cliente haga 'register' con userId después de conectar
     client.on('register', (payload: { userId: number }) => {
       const { userId } = payload;
-      if (!userId) return;
+      if (! userId) {
+        console.warn(`[EventsGateway] Invalid userId in register from ${client.id}`);
+        return;
+      }
+
       const set = this.clients.get(userId) ??  new Set<string>();
       set.add(client.id);
       this.clients.set(userId, set);
-      console.log(`[EventsGateway] User ${userId} registered with socket ${client.id}`);
+
+      console.log(`[EventsGateway] ✅ User ${userId} registered with socket ${client.id}`);
       console.log(`[EventsGateway] Total registered users: ${this.clients.size}`);
+
+      // 🆕 NUEVO: Confirmar al cliente que se registró exitosamente
+      client.emit('registered', {
+        userId,
+        socketId: client. id,
+        timestamp: new Date().toISOString()
+      });
     });
   }
 
