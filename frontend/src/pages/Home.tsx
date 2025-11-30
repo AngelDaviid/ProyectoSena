@@ -1,18 +1,18 @@
-import React, { useState, useRef, useEffect, useCallback } from "react";
-import { useNavigate } from "react-router-dom";
-import { useAuth } from "../hooks/useAuth";
+import React, {useState, useRef, useEffect, useCallback} from "react";
+import {useNavigate} from "react-router-dom";
+import {useAuth} from "../hooks/useAuth";
 import PostList from "../components/Posts/PostList.tsx";
 import ChatWindow from "../components/Chat/ChatWindow.tsx";
-import { connectSocket, disconnectSocket, getSocket } from "../services/socket";
-import { getConversations, getMessages } from "../services/chat";
-import type { Conversation, Message } from "../types/chat";
+import {connectSocket, disconnectSocket, getSocket} from "../services/socket";
+import {getConversations, getMessages} from "../services/chat";
+import type {Conversation, Message} from "../types/chat";
 import NavbarSearch from "../components/Navbar/NavbarSearch.tsx";
 import NavbarNotifications from '../components/Navbar/NavbarNotifications.tsx';
 
 const API_BASE = import.meta.env.VITE_SENA_API_URL || "http://localhost:3001";
 
 const Home: React.FC = () => {
-    const { user, logout } = useAuth();
+    const {user, logout} = useAuth();
     const navigate = useNavigate();
 
     const [dropdownOpen, setDropdownOpen] = useState(false);
@@ -75,7 +75,7 @@ const Home: React.FC = () => {
                 const raw = await getMessages(conv.id);
                 const msgs = normalizeMessagesResponse(raw);
                 // Normalizar senderId a number para consistencia en cliente
-                const normalized = msgs.map((m) => ({ ...m, senderId: Number((m as any).senderId) })) as Message[];
+                const normalized = msgs.map((m) => ({...m, senderId: Number((m as any).senderId)})) as Message[];
                 // orden ascendente por fecha
                 const sorted = normalized.sort((a, b) => +new Date(a.createdAt ?? 0) - +new Date(b.createdAt ?? 0));
                 setMessages(sorted);
@@ -103,7 +103,7 @@ const Home: React.FC = () => {
 
         const handleNewMessage = (msg: any) => {
             // normalizar senderId a number
-            const normalizedMsg: Message = { ...msg, senderId: Number((msg as any).senderId) };
+            const normalizedMsg: Message = {...msg, senderId: Number((msg as any).senderId)};
             if (normalizedMsg.conversationId === activeConversation?.id) {
                 setMessages((prev) => [...prev, normalizedMsg]);
             } else {
@@ -126,7 +126,7 @@ const Home: React.FC = () => {
         const socket = getSocket();
         // Unir al room de la conversación
         try {
-            socket.emit("joinConversation", { conversationId: String(activeConversation.id) });
+            socket.emit("joinConversation", {conversationId: String(activeConversation.id)});
         } catch (err) {
             // ignore if socket not ready
         }
@@ -168,7 +168,7 @@ const Home: React.FC = () => {
             try {
                 const raw = await getMessages(activeConversation.id);
                 const allRaw = normalizeMessagesResponse(raw);
-                const all = allRaw.map((m) => ({ ...m, senderId: Number((m as any).senderId) })) as Message[];
+                const all = allRaw.map((m) => ({...m, senderId: Number((m as any).senderId)})) as Message[];
                 all.sort((a, b) => +new Date(a.createdAt ?? 0) - +new Date(b.createdAt ?? 0));
 
                 const earliest = messages[0];
@@ -203,18 +203,19 @@ const Home: React.FC = () => {
 
                 {/* NavbarSearch reemplaza la input anterior */}
                 <div className="w-2/4">
-                    <NavbarSearch />
+                    <NavbarSearch/>
                 </div>
 
                 <div className="flex items-center gap-4">
-                    <NavbarNotifications />
+                    <NavbarNotifications/>
 
                     <div ref={dropdownRef} className="relative">
                         <button onClick={() => setDropdownOpen(!dropdownOpen)} className="flex items-center gap-3">
                             {avatarSrc ? (
-                                <img src={avatarSrc} alt={displayName} className="w-10 h-10 rounded-full object-cover" />
+                                <img src={avatarSrc} alt={displayName} className="w-10 h-10 rounded-full object-cover"/>
                             ) : (
-                                <div className="w-10 h-10 rounded-full bg-green-200 flex items-center justify-center text-green-700 font-semibold">
+                                <div
+                                    className="w-10 h-10 rounded-full bg-green-200 flex items-center justify-center text-green-700 font-semibold">
                                     {displayName.charAt(0).toUpperCase()}
                                 </div>
                             )}
@@ -225,14 +226,15 @@ const Home: React.FC = () => {
                             <div className="absolute right-0 mt-2 w-44 bg-white border rounded-md shadow-lg">
                                 <button
                                     onClick={() => {
-                                        navigate("/profile", { state: { user } });
+                                        navigate("/profile", {state: {user}});
                                         setDropdownOpen(false);
                                     }}
                                     className="block w-full text-left px-4 py-2 hover:bg-green-50"
                                 >
                                     Ver perfil
                                 </button>
-                                <button onClick={() => logout()} className="block w-full text-left px-4 py-2 text-red-600 hover:bg-red-50">
+                                <button onClick={() => logout()}
+                                        className="block w-full text-left px-4 py-2 text-red-600 hover:bg-red-50">
                                     Cerrar sesión
                                 </button>
                             </div>
@@ -241,47 +243,68 @@ const Home: React.FC = () => {
                 </div>
             </header>
 
-            {/* MAIN GRID */}
-            <main className="grid grid-cols-[280px_1fr] gap-8 px-8 py-6">
-                {/* SIDEBAR */}
-                <aside className="bg-white rounded-lg shadow p-6 h-fit self-start sticky top-24">
+            <main className="grid grid-cols-[320px_1fr_1fr_1fr] gap-8 px-8 py-6">
+                    <aside className="
+                        col-start-1 col-end-2
+                        bg-white rounded-xl shadow-lg
+                        p-6 h-fit self-start sticky top-24
+                        border border-gray-200
+                        relative overflow-hidden
+">
+                    <div className="absolute left-0 top-0 h-full w-2 bg-green-600 rounded-l-xl"/>
+
                     <div className="flex items-center gap-4 mb-6">
                         {avatarSrc ? (
-                            <img src={avatarSrc} alt={displayName} className="w-16 h-16 rounded-full object-cover" />
+                            <img src={avatarSrc} alt={displayName}
+                                 className="w-16 h-16 rounded-full object-cover ring-2 ring-green-300"/>
                         ) : (
-                            <div className="w-16 h-16 rounded-full bg-green-200 flex items-center justify-center text-green-700 font-semibold text-xl">
+                            <div
+                                className="w-16 h-16 rounded-full bg-green-100 flex items-center justify-center text-green-700 font-semibold text-xl ring-2 ring-green-300">
                                 {displayName.charAt(0).toUpperCase()}
                             </div>
                         )}
+
                         <div>
-                            <strong className="text-lg block">{displayName}</strong>
-                            <span className="text-gray-500 text-sm">{user?.role ?? "Aprendiz"}</span>
+                            <strong className="text-lg font-semibold text-gray-800">{displayName}</strong>
+                            <span className="text-gray-500 text-sm block mt-1">{user?.role ?? "Aprendiz"}</span>
                         </div>
                     </div>
 
-                    <div className="grid gap-3">
-                        <button onClick={() => navigate("/friends")} className="w-full text-left cursor-pointer px-4 py-2 hover:bg-green-50 transition">
+                    <div className="grid gap-2 mt-4">
+                        <button
+                            onClick={() => navigate("/friends")}
+                            className="
+                                w-full text-left px-4 py-3 rounded-lg
+                                hover:bg-green-50 transition shadow-sm
+                                font-medium text-gray-700 border border-gray-200 cursor-pointer
+                            "
+                        >
                             Amigos
                         </button>
-                        <button onClick={() => navigate("/groups")} className="w-full text-left cursor-pointer px-4 py-2 hover:bg-green-50 transition">
+
+                        <button
+                            onClick={() => navigate("/groups")}
+                            className="
+                                w-full text-left px-4 py-3 rounded-lg
+                                hover:bg-green-50 transition shadow-sm
+                                font-medium text-gray-700 border border-gray-200 cursor-pointer
+                            "
+                        >
                             Grupos
                         </button>
                     </div>
                 </aside>
 
-                {/* POSTS */}
-                <section className="bg-white rounded-lg shadow p-6">
-                    <PostList />
+                <section className="bg-white rounded-lg shadow p-6 col-start-2 col-end-5">
+                    <PostList/>
                 </section>
             </main>
 
-            {/* FOOTER */}
-            <footer className="bg-green-600 text-white text-center py-4 font-medium">© {new Date().getFullYear()} Sena Conecta</footer>
 
-            {/* CHAT FLOAT */}
             <div className="fixed left-6 bottom-6 z-50">
                 {!chatOpen ? (
-                    <button onClick={() => setChatOpen(true)} className="bg-green-600 w-[180px] text-white cursor-pointer px-6 py-2 rounded-full shadow-lg hover:bg-green-700 transition">
+                    <button onClick={() => setChatOpen(true)}
+                            className="bg-green-600 w-[180px] text-white cursor-pointer px-6 py-2 rounded-full shadow-lg hover:bg-green-700 transition">
                         Chat
                     </button>
                 ) : (
@@ -289,10 +312,12 @@ const Home: React.FC = () => {
                         <div className="flex items-center justify-between p<3 border-b">
                             <span className="font-medium">Chat</span>
                             <div className="flex gap-2">
-                                <button onClick={() => navigate("/chat")} className="text-xs text-gray-600 px-2 py-1 hover:bg-gray-100 rounded">
+                                <button onClick={() => navigate("/chat")}
+                                        className="text-xs text-gray-600 px-2 py-1 hover:bg-gray-100 rounded">
                                     Abrir
                                 </button>
-                                <button onClick={() => setChatOpen(false)} className="text-xs text-red-600 px-2 py-1 hover:bg-red-50 rounded">
+                                <button onClick={() => setChatOpen(false)}
+                                        className="text-xs text-red-600 px-2 py-1 hover:bg-red-50 rounded">
                                     Cerrar
                                 </button>
                             </div>

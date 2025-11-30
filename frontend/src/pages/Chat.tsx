@@ -4,10 +4,22 @@ import { connectSocket, disconnectSocket, getSocket, registerUser } from '../ser
 import { getConversations, getMessages } from '../services/chat';
 import type { Conversation, Message } from '../types/chat';
 import ChatSidebar from '../components/Chat/ChatSidebar';
+import ChatWindow from '../components/Chat/ChatWindow';
 
-type MsgWithMeta = Message & { sending?: boolean; tempId?: string };
+/**
+ * Local message type that allows id to be optional because incoming socket payloads
+ * or optimistic messages may not have the final numeric id yet.
+ */
+type MsgWithMeta = Omit<Message, 'id'> & {
+    id?: number;
+    sending?: boolean;
+    tempId?: string;
+    seenBy?: number[];
+    _inferred?: boolean;
+};
 
 const MESSAGES_LIMIT = 20;
+const REPORT_SEEN_DEBOUNCE_MS = 500;
 
 const ChatPage: React.FC = () => {
     const { user, token } = useAuth();
@@ -15,36 +27,110 @@ const ChatPage: React.FC = () => {
     const [activeConversation, setActiveConversation] = useState<Conversation | null>(null);
     const [messages, setMessages] = useState<MsgWithMeta[]>([]);
 
-    // pagination state and guards
+    // pagination / guards
     const pagesRef = useRef<Record<number, { page: number; hasMore: boolean }>>({});
     const loadingByConv = useRef<Record<number, boolean>>({});
     const conversationsLoadedRef = useRef(false);
 
+    // socket refs
     const socketRef = useRef<any>(null);
     const prevConversationRef = useRef<number | null>(null);
 
-    // Cargar conversaciones con guard para evitar múltiples fetches
+    // seen batching refs
+    const seenBufferRef = useRef<Set<number>>(new Set());
+    const seenTimerRef = useRef<number | null>(null);
+
+    // Keep a ref to activeConversation.id to use inside callbacks without re-registering listeners
+    const activeConvIdRef = useRef<number | null>(null);
+    useEffect(() => {
+        activeConvIdRef.current = activeConversation?.id ?? null;
+    }, [activeConversation]);
+
+    // Load conversations once
     const loadConversations = useCallback(async () => {
-        if (conversationsLoadedRef.current) {
-            console.debug('[chat] loadConversations: cached/skip');
-            return;
-        }
+        if (conversationsLoadedRef.current) return;
         try {
-            console.debug('[chat] loadConversations: fetching /conversations');
             const data = await getConversations();
             setConversations(data ?? []);
             conversationsLoadedRef.current = true;
         } catch (err) {
-            console.error('No se pudieron cargar conversaciones', err);
+            console.error('[chat] No se pudieron cargar conversaciones', err);
         }
     }, []);
 
-    // Solo cargar conversaciones al montar este componente
     useEffect(() => {
         void loadConversations();
     }, [loadConversations]);
 
-    // Conectar socket y listeners globales (solo depende de user/token)
+    // Helper: normalize messages returned by API or socket
+    const normalizeIncoming = (m: any): MsgWithMeta => {
+        const msg: Partial<MsgWithMeta> = { ...m };
+        // ensure id is numeric if present
+        if (typeof m.id !== 'undefined' && m.id !== null) {
+            const n = Number(m.id);
+            if (!Number.isNaN(n)) msg.id = n;
+        }
+        // map sender object to senderId if necessary
+        if ((typeof m.senderId === 'undefined' || m.senderId === null) && m.sender && typeof m.sender.id !== 'undefined') {
+            msg.senderId = Number(m.sender.id);
+        } else if (typeof m.senderId !== 'undefined' && m.senderId !== null) {
+            msg.senderId = Number(m.senderId);
+        }
+        // conversation id
+        if (typeof m.conversationId !== 'undefined' && m.conversationId !== null) {
+            msg.conversationId = Number(m.conversationId);
+        }
+        msg.text = m.text ?? '';
+        msg.imageUrl = m.imageUrl ?? null;
+        msg.createdAt = m.createdAt ? String(m.createdAt) : new Date().toISOString();
+        msg.tempId = m.tempId ?? undefined;
+        msg.sending = !!m.sending;
+        msg.seenBy = Array.isArray(m.seenBy) ? m.seenBy.slice() : [];
+        // Keep _inferred flag if provided
+        if (m._inferred) msg._inferred = true;
+        return msg as MsgWithMeta;
+    };
+
+    // Utility: report seen in batch (debounced)
+    const scheduleReportSeenIfNeeded = useCallback(
+        (m: MsgWithMeta | null) => {
+            try {
+                if (!m || typeof m.id === 'undefined' || m.id === null) return;
+                if (!user?.id) return;
+                const isMine = Number(m.senderId) === Number(user.id) || !!m._inferred;
+                if (isMine) return;
+                const activeId = activeConvIdRef.current;
+                if (!activeId || Number(activeId) !== Number(m.conversationId)) return;
+
+                seenBufferRef.current.add(Number(m.id));
+                if (seenTimerRef.current) {
+                    window.clearTimeout(seenTimerRef.current);
+                }
+                seenTimerRef.current = window.setTimeout(() => {
+                    const ids = Array.from(seenBufferRef.current);
+                    if (ids.length === 0) return;
+                    try {
+                        const sock = getSocket();
+                        console.debug('[chat] emitting messageSeen', { conversationId: activeId, messageIds: ids, userId: user?.id });
+                        sock.emit('messageSeen', { conversationId: String(activeId), messageIds: ids, userId: user?.id });
+                    } catch (e) {
+                        console.warn('[chat] could not emit messageSeen', e);
+                    } finally {
+                        seenBufferRef.current.clear();
+                        if (seenTimerRef.current) {
+                            window.clearTimeout(seenTimerRef.current);
+                            seenTimerRef.current = null;
+                        }
+                    }
+                }, REPORT_SEEN_DEBOUNCE_MS) as unknown as number;
+            } catch (err) {
+                console.error('[chat] scheduleReportSeenIfNeeded error', err);
+            }
+        },
+        [user?.id],
+    );
+
+    // Socket setup: register listeners once, use refs for active conversation access
     useEffect(() => {
         if (!user) return;
 
@@ -52,137 +138,227 @@ const ChatPage: React.FC = () => {
         socketRef.current = s;
         registerUser(user.id, token ?? undefined);
 
+        console.debug('[chat] socket setup, id maybe', s?.id);
+
         const handleNotification = (payload: any) => {
             console.debug('[socket] notification', payload);
         };
 
-        const handleNewMessage = (msg: Message & { tempId?: string }) => {
-            if (activeConversation && msg.conversationId === activeConversation.id) {
-                setMessages((prev) => {
-                    if (msg.tempId) {
-                        const idx = prev.findIndex((m) => m.tempId === msg.tempId);
-                        if (idx !== -1) {
-                            const copy = [...prev];
-                            copy[idx] = msg;
-                            return copy;
-                        }
+        const handleNewMessage = (rawMsg: any) => {
+            console.debug('[socket] newMessage raw', rawMsg);
+            const normalized = normalizeIncoming(rawMsg);
+
+            setMessages((prev) => {
+                // replace optimistic by tempId if present
+                if (normalized.tempId) {
+                    const idx = prev.findIndex((m) => String(m.tempId) === String(normalized.tempId));
+                    if (idx !== -1) {
+                        const copy = [...prev];
+                        // merge: prefer server fields but preserve senderId if server omitted it
+                        copy[idx] = {
+                            ...copy[idx],
+                            ...normalized,
+                            senderId: normalized.senderId ?? copy[idx].senderId,
+                            sending: false,
+                        };
+                        console.debug('[chat] replaced optimistic message with server message', copy[idx]);
+                        // schedule seen for replaced message (if needed)
+                        scheduleReportSeenIfNeeded(copy[idx]);
+                        return copy;
                     }
-                    return [...prev, msg];
-                });
-            } else {
-                console.debug('[socket] newMessage for other conversation', msg.conversationId);
-            }
+                }
+
+                // avoid duplicates by id
+                if (typeof normalized.id !== 'undefined' && prev.some((m) => m.id === normalized.id)) {
+                    scheduleReportSeenIfNeeded(normalized);
+                    return prev;
+                }
+
+                // if belongs to another conversation, ignore for current UI (could update conversation badge)
+                if (typeof normalized.conversationId !== 'undefined' && activeConversation && normalized.conversationId !== activeConversation.id) {
+                    console.debug('[socket] newMessage for different conversation', normalized.conversationId);
+                    scheduleReportSeenIfNeeded(normalized);
+                    return prev;
+                }
+
+                // schedule seen if applicable
+                scheduleReportSeenIfNeeded(normalized);
+
+                return [...prev, normalized];
+            });
+        };
+
+        const handleMessageSeen = (payload: { conversationId: string | number; messageIds: number[]; userId: number }) => {
+            console.debug('[socket] messageSeen', payload);
+            setMessages((prev) =>
+                prev.map((m) => {
+                    if (payload.messageIds.includes(m.id as number)) {
+                        const seenSet = new Set<number>(m.seenBy ?? []);
+                        seenSet.add(payload.userId);
+                        return { ...m, seenBy: Array.from(seenSet) };
+                    }
+                    return m;
+                }),
+            );
         };
 
         s.on('notification', handleNotification);
         s.on('newMessage', handleNewMessage);
+        s.on('messageSeen', handleMessageSeen);
 
         return () => {
             try {
                 s.off('notification', handleNotification);
                 s.off('newMessage', handleNewMessage);
-            } catch {}
+                s.off('messageSeen', handleMessageSeen);
+            } catch (e) {
+                console.warn('[chat] error removing socket listeners', e);
+            }
             disconnectSocket();
             socketRef.current = null;
+            // cleanup seen timer/buffer
+            if (seenTimerRef.current) {
+                window.clearTimeout(seenTimerRef.current);
+                seenTimerRef.current = null;
+            }
+            seenBufferRef.current.clear();
         };
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [user?.id, token]); // solo depende de usuario/token
+    }, [user?.id, token]); // deliberately NOT depending on activeConversation to avoid re-registering socket listeners
 
-    // Abrir conversación: carga pagina 1 y prepara paginación
-    const openConversation = (conv: Conversation) => {
+    // Open conversation: load first page, join room and report seen for loaded messages
+    const openConversation = useCallback((conv: Conversation) => {
         (async () => {
-            const s = getSocket();
-            if (prevConversationRef.current) {
-                s.emit('leaveConversation', { conversationId: String(prevConversationRef.current) });
-            }
-
-            setActiveConversation(conv);
-            prevConversationRef.current = conv.id;
-
-            // inicializa estado de paginación
-            pagesRef.current[conv.id] = { page: 1, hasMore: true };
-            loadingByConv.current[conv.id] = false;
-
             try {
-                const { messages: msgs } = await getMessages(conv.id, 1, MESSAGES_LIMIT);
-                msgs.sort((a, b) => new Date(a.createdAt || 0).getTime() - new Date(b.createdAt || 0).getTime());
-                setMessages(msgs as MsgWithMeta[]);
-                pagesRef.current[conv.id].hasMore = (msgs.length === MESSAGES_LIMIT);
-                pagesRef.current[conv.id].page = 1;
+                const s = getSocket();
+                if (prevConversationRef.current) {
+                    s.emit('leaveConversation', { conversationId: String(prevConversationRef.current) });
+                }
+
+                setActiveConversation(conv);
+                prevConversationRef.current = conv.id;
+                activeConvIdRef.current = conv.id;
+
+                pagesRef.current[conv.id] = { page: 1, hasMore: true };
+                loadingByConv.current[conv.id] = false;
+
+                // getMessages can return array or { messages, hasMore }
+                const raw = await getMessages(conv.id, 1, MESSAGES_LIMIT);
+                const msgs = Array.isArray(raw) ? raw : raw.messages ?? [];
+
+                msgs.sort((a, b) => new Date(a.createdAt ?? 0).getTime() - new Date(b.createdAt ?? 0).getTime());
+
+                const normalized = msgs.map((m: any) => {
+                    const nm = normalizeIncoming(m);
+                    // ensure conversationId and seenBy
+                    nm.conversationId = Number(conv.id);
+                    nm.seenBy = nm.seenBy ?? [];
+                    // if server doesn't include senderId and we have a sender object, normalizeIncoming handled it already
+                    return nm;
+                }) as MsgWithMeta[];
+
+                setMessages(normalized);
+
+                // Join WS room and report seen for non-owned messages loaded
+                try {
+                    s.emit('joinConversation', { conversationId: String(conv.id) });
+                } catch (e) {
+                    console.warn('[chat] joinConversation emit failed', e);
+                }
+
+                const unseenIds = normalized.filter((m) => Number(m.senderId) !== Number(user?.id)).map((m) => m.id).filter(Boolean) as number[];
+                if (unseenIds.length > 0) {
+                    console.debug('[chat] emitting messageSeen for loaded messages', { conversationId: conv.id, messageIds: unseenIds, userId: user?.id });
+                    try {
+                        s.emit('messageSeen', { conversationId: String(conv.id), messageIds: unseenIds, userId: user?.id });
+                    } catch (e) {
+                        console.warn('[chat] could not emit initial messageSeen', e);
+                    }
+                }
             } catch (err) {
-                console.error('Error al cargar mensajes', err);
-                setMessages([]);
-                pagesRef.current[conv.id].hasMore = false;
+                console.error('[chat] Error cargando mensajes', err);
             }
+        })();
+    }, [user?.id]);
 
-            s.emit('joinConversation', { conversationId: String(conv.id) });
-        })().catch((e) => console.error('openConversation error', e));
-    };
-
-    // Cargar más mensajes
-    const handleLoadMore = async (): Promise<number> => {
-        if (!activeConversation) return 0;
-        const convId = activeConversation.id;
-        const pageState = pagesRef.current[convId] ?? { page: 1, hasMore: true };
-
-        if (!pageState.hasMore) return 0;
-        if (loadingByConv.current[convId]) return 0;
-
-        loadingByConv.current[convId] = true;
-        const nextPage = pageState.page + 1;
-
+    // Emit leave/join when activeConversation changes (handles reconnection edge cases)
+    useEffect(() => {
+        if (!activeConversation) return;
+        const s = getSocket();
         try {
-            const { messages: newMsgs } = await getMessages(convId, nextPage, MESSAGES_LIMIT);
-            newMsgs.sort((a, b) => new Date(a.createdAt || 0).getTime() - new Date(b.createdAt || 0).getTime());
-            if (newMsgs.length === 0) {
-                pagesRef.current[convId].hasMore = false;
-                return 0;
-            }
-            setMessages((prev) => [...newMsgs, ...prev]);
-            pagesRef.current[convId].page = nextPage;
-            pagesRef.current[convId].hasMore = (newMsgs.length === MESSAGES_LIMIT);
-            return newMsgs.length;
-        } catch (err) {
-            console.error('Error cargando mensajes antiguos', err);
-            return 0;
-        } finally {
-            loadingByConv.current[convId] = false;
+            s.emit('joinConversation', { conversationId: String(activeConversation.id) });
+        } catch (e) {
+            console.warn('[chat] joinConversation emit failed', e);
         }
-    };
+    }, [activeConversation]);
 
-    // Enviar mensaje (tempId)
-    const handleSend = (text: string, imageFile?: File) => {
+    // Send message (optimistic)
+    const handleSend = useCallback((text: string, image?: string | File) => {
         if (!activeConversation || !user) return;
         const s = getSocket();
+
         const tempId = `temp-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-
         let imageUrl: string | null = null;
-        if (imageFile) imageUrl = URL.createObjectURL(imageFile);
+        if (image instanceof File) {
+            imageUrl = URL.createObjectURL(image);
+        } else if (typeof image === 'string') {
+            imageUrl = image;
+        }
 
-        const payload = {
+        const tempMessage: MsgWithMeta = {
+            id: Date.now(), // temporary id to render in UI; final id will come from server via socket
+            text,
+            imageUrl,
+            createdAt: new Date().toISOString(),
+            senderId: Number(user.id),
+            conversationId: activeConversation.id,
+            sending: true,
+            tempId,
+            seenBy: [],
+        };
+
+        setMessages((prev) => [...prev, tempMessage]);
+
+        console.debug('[chat] emitting sendMessage', { conversationId: activeConversation.id, senderId: user.id, text, tempId, imageUrl });
+        s.emit('sendMessage', {
             conversationId: String(activeConversation.id),
             senderId: String(user.id),
             text,
-            imageFilePresent: !!imageFile,
+            imageUrl,
             tempId,
-        };
+        });
+    }, [activeConversation, user?.id]);
 
-        s.emit('sendMessage', payload);
+    // Load more messages (pagination)
+    const handleLoadMore = useCallback(async (): Promise<number> => {
+        if (!activeConversation) return 0;
+        try {
+            const raw = await getMessages(activeConversation.id);
+            const all: Message[] = Array.isArray(raw) ? raw : raw.messages ?? [];
+            const normalized = all.map((m: any) => {
+                const nm = normalizeIncoming(m);
+                nm.conversationId = activeConversation.id;
+                nm.seenBy = nm.seenBy ?? [];
+                return nm;
+            }) as MsgWithMeta[];
+            normalized.sort((a, b) => +new Date(a.createdAt ?? 0) - +new Date(b.createdAt ?? 0));
 
-        setMessages((prev) => [
-            ...prev,
-            {
-                id: Date.now(),
-                text,
-                imageUrl,
-                createdAt: new Date().toISOString(),
-                senderId: user.id,
-                conversationId: activeConversation.id,
-                sending: true,
-                tempId,
-            },
-        ]);
-    };
+            const earliest = messages[0];
+            if (!earliest) {
+                setMessages(normalized);
+                return normalized.length;
+            }
+
+            const older = normalized.filter((m) => new Date(m.createdAt ?? 0).getTime() < new Date(earliest.createdAt ?? 0).getTime());
+            if (older.length === 0) return 0;
+
+            setMessages((prev) => [...older, ...prev]);
+            return older.length;
+        } catch (err) {
+            console.error('[chat] Error cargando mensajes antiguos', err);
+            return 0;
+        }
+    }, [activeConversation, messages]);
 
     return (
         <div className="grid grid-cols-[300px_1fr] min-h-screen bg-gray-100">
@@ -190,35 +366,13 @@ const ChatPage: React.FC = () => {
 
             <div className="bg-white border-l flex flex-col">
                 {activeConversation ? (
-                    <div className="flex-1 flex flex-col">
-                        <div className="px-4 py-3 border-b flex items-center justify-between">
-                            <div className="font-semibold">
-                                {activeConversation.participants?.map((p) => p.profile?.name ?? `#${p.id}`).join(', ') || 'Conversación'}
-                            </div>
-                            <div className="text-sm text-gray-500">Miembro(s): {activeConversation.participants?.length ?? 0}</div>
-                        </div>
-
-                        <div className="flex-1 overflow-auto p-4 flex flex-col gap-3">
-                            <button className="text-sm text-blue-600 self-center" onClick={handleLoadMore}>
-                                Cargar más mensajes
-                            </button>
-
-                            <div>
-                                {messages.map((m) => (
-                                    <div key={(m as any).tempId ?? m.id} className={`max-w-[70%] p-2 rounded ${m.senderId === user?.id ? 'ml-auto bg-blue-100 text-right' : 'mr-auto bg-gray-100'}`}>
-                                        {m.imageUrl && <img src={m.imageUrl} alt="img" className="max-h-48 mb-2 rounded" />}
-                                        <div className="text-sm break-words">{m.text}</div>
-                                        <div className="text-xs text-gray-500 mt-1">{m.createdAt ? new Date(m.createdAt).toLocaleString() : ''}</div>
-                                        {m.sending && <div className="text-xs text-gray-400">Enviando...</div>}
-                                    </div>
-                                ))}
-                            </div>
-                        </div>
-
-                        <div className="border-t p-3">
-                            <ChatInput onSend={handleSend} />
-                        </div>
-                    </div>
+                    <ChatWindow
+                        activeConversation={activeConversation}
+                        messages={messages}
+                        onSend={handleSend}
+                        currentUserId={user?.id ?? null}
+                        onLoadMore={handleLoadMore}
+                    />
                 ) : (
                     <div className="flex items-center justify-center flex-1 text-gray-500">Selecciona una conversación</div>
                 )}
@@ -228,24 +382,3 @@ const ChatPage: React.FC = () => {
 };
 
 export default ChatPage;
-
-function ChatInput({ onSend }: { onSend: (text: string, file?: File) => void }) {
-    const [text, setText] = useState('');
-    const [file, setFile] = useState<File | undefined>(undefined);
-
-    const submit = (e?: React.FormEvent) => {
-        if (e) e.preventDefault();
-        if (!text.trim() && !file) return;
-        onSend(text.trim(), file);
-        setText('');
-        setFile(undefined);
-    };
-
-    return (
-        <form onSubmit={submit} className="flex gap-2 items-center">
-            <input type="file" onChange={(ev) => { const f = ev.target.files?.[0]; if (f) setFile(f); }} />
-            <input className="flex-1 border rounded px-3 py-2" value={text} onChange={(e) => setText(e.target.value)} placeholder="Escribe un mensaje..." />
-            <button type="submit" className="px-4 py-2 bg-blue-600 text-white rounded">Enviar</button>
-        </form>
-    );
-}
