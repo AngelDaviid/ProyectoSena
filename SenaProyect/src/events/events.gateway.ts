@@ -84,12 +84,19 @@ export class EventsGateway implements OnGatewayConnection, OnGatewayDisconnect, 
    * Notificar a TODOS cuando se publica un evento (isDraft: false)
    */
   notifyEventPublished(event: Event) {
-    console.log(`[EventsGateway] Broadcasting event published: ${event.title}`);
+    console.log('========== 🚀 GATEWAY PUBLISH ==========');
+    console.log('📢 Broadcasting event published:', event.title);
+    console.log('📢 Connected clients:', this.server.sockets.sockets.size);
+    console. log('📢 Event ID:', event.id);
+    console.log('========================================');
+
     this.emitToAll('eventPublished', {
       event,
       message: `Nuevo evento publicado: ${event.title}`,
       timestamp: new Date().toISOString(),
     });
+
+    console.log('✅ Event broadcasted successfully');
   }
 
   /**

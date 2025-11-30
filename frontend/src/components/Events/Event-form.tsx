@@ -119,10 +119,18 @@ export default function EventForm({ event, onSuccess }: EventFormProps) {
             const data = new FormData();
             data.append('title', formData.title);
             data.append('description', formData.description);
-            data.append('location', formData. location);
+            data. append('location', formData.location);
             data.append('startDate', new Date(formData.startDate). toISOString());
-            data.append('endDate', new Date(formData.endDate).toISOString());
+            data. append('endDate', new Date(formData.endDate).toISOString());
             data.append('eventType', formData.eventType);
+
+// ✅ LOGS DE DEBUG
+            console.log('========== 🔍 FRONTEND SUBMIT ==========');
+            console. log('📤 isDraft parameter:', isDraft);
+            console.log('📤 typeof isDraft:', typeof isDraft);
+            console.log('📤 String(isDraft):', String(isDraft));
+            console.log('=========================================');
+
             data.append('isDraft', String(isDraft));
 
             if (formData.maxAttendees) {

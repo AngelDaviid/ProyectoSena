@@ -24,6 +24,13 @@ export class EventsService {
    * Crear un nuevo evento
    */
   async create(createEventDto: CreateEventDto, userId: number, imageUrl?: string): Promise<Event> {
+    // ✅ LOGS DE DEBUG
+    console.log('========== 🔍 DEBUG CREATE EVENT ==========');
+    console.log('📥 createEventDto:', JSON.stringify(createEventDto, null, 2));
+    console. log('📥 createEventDto.isDraft:', createEventDto.isDraft);
+    console.log('📥 typeof createEventDto.isDraft:', typeof createEventDto.isDraft);
+    console.log('==========================================');
+
     // Validar fechas
     const startDate = new Date(createEventDto.startDate);
     const endDate = new Date(createEventDto.endDate);
@@ -37,10 +44,15 @@ export class EventsService {
       throw new BadRequestException('La fecha de fin debe ser posterior a la fecha de inicio');
     }
 
-    const isDraft = createEventDto.isDraft !== true; // Por defecto es borrador
+    const isDraft = createEventDto.isDraft !== false;
 
-    const event = this.eventsRepository. create({
-      ...createEventDto,
+    // ✅ LOG DESPUÉS DE CALCULAR
+    console.log('🎯 isDraft calculado:', isDraft);
+    console.log('🎯 Lógica: createEventDto.isDraft !== false');
+    console.log('🎯 Resultado:', createEventDto.isDraft, '! ==', false, '=', isDraft);
+
+    const event = this.eventsRepository.create({
+      ... createEventDto,
       startDate,
       endDate,
       user: { id: userId } as any,
@@ -51,7 +63,6 @@ export class EventsService {
 
     const savedEvent = await this.eventsRepository.save(event);
 
-    // ✅ CORRECCIÓN: Obtener el evento completo primero
     const fullEvent = await this.eventsRepository.findOne({
       where: { id: savedEvent.id },
       relations: ['user', 'user.profile', 'categories', 'attendees', 'attendees.profile'],
@@ -61,17 +72,22 @@ export class EventsService {
       throw new NotFoundException('Error al crear el evento');
     }
 
+    // ✅ LOGS ANTES DE NOTIFICAR
+    console.log('📊 fullEvent.isDraft:', fullEvent. isDraft);
+    console.log('📊 ! isDraft (should publish?):', !isDraft);
+    console.log('📊 fullEvent.title:', fullEvent.title);
+
     // Notificar según el estado
     if (! isDraft) {
+      console.log('🚀 ✅ PUBLISHING EVENT:', fullEvent.title);
       this.eventsGateway.notifyEventPublished(fullEvent);
     } else {
+      console.log('📝 ⚠️ CREATING DRAFT:', fullEvent.title);
       this.eventsGateway.notifyEventCreated(fullEvent);
     }
 
-    // ✅ Retornar con datos enriquecidos
     return this.enrichEventWithUserData(fullEvent, userId) as Event;
   }
-
   /**
    * Listar eventos (solo públicos, no borradores)
    */

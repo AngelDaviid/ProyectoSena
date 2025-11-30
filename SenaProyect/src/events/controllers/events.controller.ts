@@ -72,8 +72,15 @@ export class EventsController {
     @Request() req,
     @UploadedFile() file?: Express.Multer.File,
   ) {
+    console.log('========== 🔍 CONTROLLER CREATE ==========');
+    console.log('📥 Body:', createEventDto);
+    console.log('📥 isDraft:', createEventDto.isDraft);
+    console.log('📥 typeof isDraft:', typeof createEventDto.isDraft);
+    console.log('📥 user:', req.user. id);
+    console.log('==========================================');
+
     const imageUrl = file ? `/uploads/events/${file.filename}` : undefined;
-    return this.eventsService.create(createEventDto, req.user.id, imageUrl);
+    return this.eventsService.create(createEventDto, req.user. id, imageUrl);
   }
 
   @Get()
