@@ -14,7 +14,7 @@ import { Conversation } from '../chat/entities/conversations.entity';
 @WebSocketGateway({
   namespace: '/ws',
   cors: {
-    origin: process.env.FRONTEND_URL || 'http://localhost:5173',
+    origin: process.env. FRONTEND_URL || 'http://localhost:5173',
     credentials: true,
   },
 })
@@ -32,13 +32,13 @@ export class FriendsGateway implements OnGatewayConnection, OnGatewayDisconnect,
   private readonly MAX_CONN_PER_IP = 20;
 
   afterInit(server: Server) {
-    this.logger.log('FriendsGateway initialized (namespace /ws)');
+    this.logger. log('FriendsGateway initialized (namespace /ws)');
   }
 
   handleConnection(client: Socket) {
     const ip = this.getClientIp(client);
-    const count = (this. connectionCounts.get(ip) || 0) + 1;
-    this.connectionCounts. set(ip, count);
+    const count = (this.connectionCounts. get(ip) || 0) + 1;
+    this. connectionCounts.set(ip, count);
 
     (client as any).__remoteIp = ip;
 
@@ -60,9 +60,9 @@ export class FriendsGateway implements OnGatewayConnection, OnGatewayDisconnect,
   handleDisconnect(client: Socket) {
     const ip = (client as any).__remoteIp;
     if (ip) {
-      const c = (this.connectionCounts.get(ip) || 1) - 1;
-      if (c <= 0) this. connectionCounts.delete(ip);
-      else this.connectionCounts.set(ip, c);
+      const c = (this. connectionCounts.get(ip) || 1) - 1;
+      if (c <= 0) this.connectionCounts.delete(ip);
+      else this. connectionCounts.set(ip, c);
     }
 
     // Eliminar de la lista de clientes
@@ -81,9 +81,9 @@ export class FriendsGateway implements OnGatewayConnection, OnGatewayDisconnect,
 
     // TODO: Opcionalmente verificar que el userId existe en la base de datos
 
-    const set = this.clients. get(userId) || new Set<string>();
+    const set = this.clients.get(userId) || new Set<string>();
     set.add(client.id);
-    this. clients.set(userId, set);
+    this.clients.set(userId, set);
 
     (client as any).__userId = userId;
     this.logger.debug(`Client ${client.id} registered as user ${userId}`);
@@ -104,8 +104,8 @@ export class FriendsGateway implements OnGatewayConnection, OnGatewayDisconnect,
 
   private getClientIp(client: Socket): string {
     return (
-      (client. handshake?.address as string) ||
-      (client.conn?. remoteAddress as string) ||
+      (client. handshake?. address as string) ||
+      (client.conn?.remoteAddress as string) ||
       'unknown'
     );
   }
@@ -121,7 +121,7 @@ export class FriendsGateway implements OnGatewayConnection, OnGatewayDisconnect,
     }
 
     sockets.forEach(socketId => {
-      this. server.to(socketId).emit(event, payload);
+      this.server.to(socketId).emit(event, payload);
     });
 
     this.logger.debug(`Emitted '${event}' to user ${userId} (${sockets.size} connection(s))`);
@@ -131,8 +131,8 @@ export class FriendsGateway implements OnGatewayConnection, OnGatewayDisconnect,
    * Notificaciones de solicitudes de amistad
    */
   notifyRequestSent(request: FriendRequest) {
-    const receiverId = request.receiver?. id;
-    if (!receiverId) {
+    const receiverId = request.receiver?.id;
+    if (! receiverId) {
       this.logger.warn('notifyRequestSent: receiver ID missing');
       return;
     }

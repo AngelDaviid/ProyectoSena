@@ -22,7 +22,7 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect, On
   @WebSocketServer()
   server: Server;
 
-  // Simple rate limit por IP (memoria). Para producción usar Redis o store compartida.
+  // Simple rate limit por IP (memoria).  Para producción usar Redis o store compartida.
   private connectionCounts = new Map<string, number>();
   private readonly MAX_CONN_PER_IP = 20;
 
@@ -51,14 +51,14 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect, On
     if (count > this.MAX_CONN_PER_IP) {
       console.warn(`[WS] Too many connections from ${ip} (${count}), disconnecting ${client.id}`);
       client.emit('error', 'too_many_connections');
-      client.disconnect(true);
+      client. disconnect(true);
       return;
     }
 
     console.log(`[WS] client connected: ${client.id} (ip=${ip})`);
 
-    if (client.handshake?.auth?.token) {
-      console.log(`[WS] client ${client.id} provided token (length=${String(client.handshake.auth.token).length})`);
+    if (client.handshake?. auth?.token) {
+      console.log(`[WS] client ${client.id} provided token (length=${String(client.handshake.auth.token). length})`);
     }
   }
 
@@ -73,7 +73,7 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect, On
     // limpiar lastJoinAt para este socket
     this.lastJoinAt.delete(client.id);
 
-    console.log(`[WS] client disconnected: ${client.id}`);
+    console.log(`[WS] client disconnected: ${client. id}`);
   }
 
   /**
@@ -94,14 +94,14 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect, On
 
       // 2) Rate-limit simple por socket+room (protege de bursts)
       const socketId = client.id;
-      const perSocket = this.lastJoinAt.get(socketId) ?? new Map<string, number>();
+      const perSocket = this.lastJoinAt.get(socketId) ??  new Map<string, number>();
       const now = Date.now();
       const last = perSocket.get(room) ?? 0;
       if (now - last < this.JOIN_COOLDOWN_MS) {
         client.emit('error', { event: 'joinConversation', message: 'too_many_joins' });
         return;
       }
-      perSocket.set(room, now);
+      perSocket. set(room, now);
       this.lastJoinAt.set(socketId, perSocket);
 
       // 3) Realizar el join
@@ -121,8 +121,8 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect, On
     @ConnectedSocket() client: Socket,
   ) {
     try {
-      console.log(`[WS] sendMessage -> conv ${data.conversationId} sender ${data.senderId} tempId=${data.tempId ?? 'none'}`);
-      const message = await this.messagesService.create(
+      console.log(`[WS] sendMessage -> conv ${data.conversationId} sender ${data.senderId} tempId=${data.tempId ??  'none'}`);
+      const message = await this.messagesService. create(
         +data.conversationId,
         +data.senderId,
         data.text,
@@ -133,11 +133,11 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect, On
       const payload = {
         id: message.id,
         text: message.text,
-        imageUrl: message.imageUrl ?? null,
-        createdAt: (message.createdAt as Date)?.toISOString ? (message.createdAt as Date).toISOString() : message.createdAt,
-        senderId: (message as any).sender?.id ?? +data.senderId,
-        conversationId: (message as any).conversation?.id ?? +data.conversationId,
-        tempId: data.tempId ?? undefined,
+        imageUrl: message.imageUrl ??  null,
+        createdAt: (message.createdAt as Date)?.toISOString ?  (message.createdAt as Date).toISOString() : message.createdAt,
+        senderId: (message as any).sender?. id ??  +data.senderId,
+        conversationId: (message as any).conversation?.id ??  +data.conversationId,
+        tempId: data.tempId ??  undefined,
       };
 
       console.log('[WS] emitting newMessage', payload);
@@ -161,10 +161,10 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect, On
     @ConnectedSocket() client: Socket,
   ) {
     try {
-      console.log('[WS] messageSeen', data);
+      console. log('[WS] messageSeen', data);
       // Reenviar la información a la room, para que otros clientes la actualicen en UI
       this.server.to(String(data.conversationId)).emit('messageSeen', {
-        conversationId: data.conversationId,
+        conversationId: data. conversationId,
         messageIds: data.messageIds,
         userId: data.userId,
         timestamp: new Date().toISOString(),

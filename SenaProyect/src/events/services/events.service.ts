@@ -37,7 +37,7 @@ export class EventsService {
       throw new BadRequestException('La fecha de fin debe ser posterior a la fecha de inicio');
     }
 
-    const isDraft = createEventDto.isDraft !== false; // Por defecto es borrador
+    const isDraft = createEventDto.isDraft !== true; // Por defecto es borrador
 
     const event = this.eventsRepository. create({
       ...createEventDto,
@@ -81,10 +81,14 @@ export class EventsService {
     const qb = this.eventsRepository
       .createQueryBuilder('event')
       .leftJoinAndSelect('event.user', 'user')
-      . leftJoinAndSelect('user.profile', 'profile')
+      .leftJoinAndSelect('user.profile', 'userProfile')
       .leftJoinAndSelect('event.categories', 'category')
       .leftJoinAndSelect('event.attendees', 'attendees')
-      .where('event.isDraft = :isDraft', { isDraft: false });
+      .where(userId
+          ? '(event.isDraft = :isDraft OR event. userId = :userId)'
+          : 'event.isDraft = :isDraft',
+        { isDraft: false, userId }
+      );
 
     if (eventType) {
       qb.andWhere('event. eventType = :eventType', { eventType });
@@ -118,7 +122,6 @@ export class EventsService {
 
     return { events: enrichedEvents, total };
   }
-
   /**
    * Obtener un evento por ID
    */

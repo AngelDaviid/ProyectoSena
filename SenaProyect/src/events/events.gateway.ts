@@ -38,9 +38,9 @@ export class EventsGateway implements OnGatewayConnection, OnGatewayDisconnect, 
 
   handleDisconnect(client: Socket) {
     // Eliminar client. id de todos los sets
-    for (const [userId, set] of this.clients.entries()) {
+    for (const [userId, set] of this.clients. entries()) {
       if (set.has(client.id)) {
-        set. delete(client.id);
+        set.delete(client.id);
         if (set.size === 0) this.clients.delete(userId);
         else this.clients.set(userId, set);
         console.log(`[EventsGateway] User ${userId} disconnected socket ${client.id}`);
@@ -114,7 +114,7 @@ export class EventsGateway implements OnGatewayConnection, OnGatewayDisconnect, 
    */
   notifyEventDeleted(eventId: number, attendeeIds: number[] = []) {
     if (attendeeIds.length > 0) {
-      this. emitToUsers(attendeeIds, 'eventDeleted', { eventId });
+      this.emitToUsers(attendeeIds, 'eventDeleted', { eventId });
     }
   }
 
@@ -122,7 +122,7 @@ export class EventsGateway implements OnGatewayConnection, OnGatewayDisconnect, 
    * Notificar al creador del evento cuando alguien se registra
    */
   notifyEventRegistration(event: Event, newAttendee: { id: number; name?: string; email?: string }) {
-    const creatorId = event.user?. id;
+    const creatorId = event.user?.id;
     if (creatorId) {
       this.emitToUser(creatorId, 'eventRegistration', {
         event,

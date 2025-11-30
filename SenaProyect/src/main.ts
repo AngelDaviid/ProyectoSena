@@ -51,8 +51,11 @@ async function bootstrap() {
 
   app.use(
     rateLimit({
-      windowMs: 15 * 60 * 1000,
-      max: 100,
+      windowMs: 1 * 60 * 1000, // 1 minuto
+      max: 200, // 200 requests por minuto
+      message: 'Demasiadas peticiones, intenta de nuevo más tarde',
+      standardHeaders: true,
+      legacyHeaders: false,
     }),
   );
 
