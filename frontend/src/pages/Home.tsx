@@ -27,11 +27,11 @@ const Home: React.FC = () => {
 
     const displayName =
         user?.profile?.name || user?.profile?.lastName
-            ? `${user?. profile?.name ??  ""} ${user?.profile?.lastName ??  ""}`.trim()
-            : user?.email ??  "Usuario";
+            ? `${user?.profile?.name ?? ""} ${user?.profile?.lastName ?? ""}`.trim()
+            : user?.email ?? "Usuario";
 
     const avatarSrc = user?.profile?.avatar
-        ? user.profile.avatar. startsWith("/")
+        ? user.profile.avatar.startsWith("/")
             ? `${API_BASE}${user.profile.avatar}`
             : user.profile.avatar
         : null;
@@ -47,10 +47,10 @@ const Home: React.FC = () => {
 
     // Helper: normaliza la respuesta de getMessages a un array de Message
     const normalizeMessagesResponse = (res: any): Message[] => {
-        if (! res) return [];
+        if (!res) return [];
         if (Array.isArray(res)) return res;
         if (res.messages && Array.isArray(res.messages)) return res.messages;
-        if (res.data && Array.isArray(res. data)) return res.data;
+        if (res.data && Array.isArray(res.data)) return res.data;
         return [];
     };
 
@@ -58,24 +58,27 @@ const Home: React.FC = () => {
     const loadConversations = useCallback(async () => {
         try {
             const data = await getConversations();
-            setConversations(data ??  []);
-            if (! activeConversation && data?. length > 0) {
+            setConversations(data ?? []);
+            if (!activeConversation && data?.length > 0) {
                 setActiveConversation(data[0]);
             }
         } catch (err) {
             console.error("No se pudieron cargar conversaciones", err);
         }
+        // intentionally not depending on activeConversation to avoid loop
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
-    // === Cargar mensajes ===
+    // === Cargar mensajes (carga inicial / refresco de la conversación activa) ===
     const loadMessages = useCallback(
         async (conv: Conversation) => {
             try {
                 const raw = await getMessages(conv.id);
                 const msgs = normalizeMessagesResponse(raw);
+                // Normalizar senderId a number para consistencia en cliente
                 const normalized = msgs.map((m) => ({ ...m, senderId: Number((m as any).senderId) })) as Message[];
-                const sorted = normalized.sort((a, b) => +new Date(a.createdAt ??  0) - +new Date(b.createdAt ?? 0));
+                // orden ascendente por fecha
+                const sorted = normalized.sort((a, b) => +new Date(a.createdAt ?? 0) - +new Date(b.createdAt ?? 0));
                 setMessages(sorted);
             } catch (err) {
                 console.error("Error al cargar mensajes", err);
@@ -84,23 +87,28 @@ const Home: React.FC = () => {
         []
     );
 
-    // === Socket chat ===
+    // === Socket chat: conectar/desconectar cuando se abre/cierra el panel de chat ===
     useEffect(() => {
         if (!chatOpen) {
+            // cerrar socket cuando se cierra el chat
             disconnectSocket();
             socketRef.current = null;
             return;
         }
 
+        // cargar conversaciones al abrir chat
         (async () => await loadConversations())();
 
         const socket = connectSocket();
         socketRef.current = socket;
 
         const handleNewMessage = (msg: any) => {
+            // normalizar senderId a number
             const normalizedMsg: Message = { ...msg, senderId: Number((msg as any).senderId) };
-            if (normalizedMsg.conversationId === activeConversation?. id) {
+            if (normalizedMsg.conversationId === activeConversation?.id) {
                 setMessages((prev) => [...prev, normalizedMsg]);
+            } else {
+                // opcional: podrías actualizar un badge/unread counter en conversations
             }
         };
 
@@ -113,10 +121,9 @@ const Home: React.FC = () => {
         };
     }, [chatOpen, activeConversation, loadConversations]);
 
-    // ✅ CORREGIDO: Verificar que socket no sea null
+    // Cuando cambia la conversación activa y el chat está abierto:
     useEffect(() => {
         if (!chatOpen || !activeConversation) return;
-
         const socket = getSocket();
         if (!socket) {
             console. warn('[Home] Socket not available');
@@ -124,7 +131,7 @@ const Home: React.FC = () => {
         }
 
         try {
-            socket.emit("joinConversation", { conversationId: String(activeConversation.id) });
+            socket.emit("joinConversation", {conversationId: String(activeConversation.id)});
         } catch (err) {
             console.error('[Home] Error joining conversation:', err);
         }
@@ -132,7 +139,7 @@ const Home: React.FC = () => {
         loadMessages(activeConversation);
     }, [chatOpen, activeConversation, loadMessages]);
 
-    // ✅ CORREGIDO: Verificar que socket no sea null
+    // Envío de mensaje (optimistic UI + socket emit)
     const handleSend = (text: string, imageUrl?: string | File) => {
         if (!activeConversation || !user) return;
 
@@ -145,7 +152,7 @@ const Home: React.FC = () => {
         const image = imageUrl instanceof File ? URL.createObjectURL(imageUrl) : imageUrl ?? null;
 
         const tempMessage: Message = {
-            id: Date. now(),
+            id: Date.now(),
             text,
             imageUrl: image,
             createdAt: new Date().toISOString(),
@@ -153,9 +160,11 @@ const Home: React.FC = () => {
             conversationId: activeConversation.id,
         };
 
+        // Mostrar mensaje optimista (verde)
         setMessages((prev) => [...prev, tempMessage]);
 
-        socket. emit("sendMessage", {
+        // Emitir al servidor (envío consistente: senderId como number, conversationId como number)
+        socket.emit("sendMessage", {
             conversationId: activeConversation.id,
             senderId: Number(user.id),
             text,
@@ -163,6 +172,7 @@ const Home: React.FC = () => {
         });
     };
 
+    // Cargar más mensajes antiguos: devuelve cuántos mensajes se agregaron
     const handleLoadMore = useCallback(
         async () => {
             if (!activeConversation) return 0;
@@ -173,13 +183,14 @@ const Home: React.FC = () => {
                 all.sort((a, b) => +new Date(a.createdAt ??  0) - +new Date(b.createdAt ?? 0));
 
                 const earliest = messages[0];
-                if (! earliest) {
+                if (!earliest) {
+                    // si no hay mensajes cargados, cargamos la página completa y la seteamos
                     setMessages(all);
                     return all.length;
                 }
 
                 const older = all.filter(
-                    (m) => new Date(m.createdAt ??  0). getTime() < new Date(earliest.createdAt ??  0).getTime()
+                    (m) => new Date(m.createdAt ?? 0).getTime() < new Date(earliest.createdAt ?? 0).getTime()
                 );
                 if (older.length === 0) return 0;
 
@@ -201,6 +212,7 @@ const Home: React.FC = () => {
                     Sena Conecta
                 </h1>
 
+                {/* NavbarSearch reemplaza la input anterior */}
                 <div className="w-2/4">
                     <NavbarSearch />
                 </div>
@@ -316,6 +328,8 @@ const Home: React.FC = () => {
                 </section>
             </main>
 
+            {/* FOOTER */}
+            <footer className="bg-green-600 text-white text-center py-4 font-medium">© {new Date().getFullYear()} Sena Conecta</footer>
 
             {/* CHAT FLOAT */}
             <div className="fixed left-6 bottom-6 z-50">

@@ -64,3 +64,8 @@ export async function getFriends() {
     const res = await api.get('/friends');
     return res.data;
 }
+
+export const getBlockedUsers = async () => {
+    const res = await api.get('/friends/blocked');
+    return res.data;
+};
