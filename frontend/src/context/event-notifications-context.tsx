@@ -28,14 +28,17 @@ export function EventNotificationsProvider({ children }: { children: ReactNode }
 
     useEffect(() => {
         if (! isConnected) {
-            console.log('[EventNotifications] ⏸️ Socket not connected, waiting.. .');
+            console.log('[EventNotifications] ⏸️ Socket not connected');
             return;
         }
 
-        console.log('[EventNotifications] 🎧 Setting up event listeners');
+        console.log('[EventNotifications] 🎧 Setting up listeners');
 
         const handleEventPublished = (payload: EventPublishedPayload) => {
-            console.log('[EventNotifications] 📢 New event published:', payload);
+            console.log('========== 🔔 EVENT RECEIVED ==========');
+            console.log('Event:', payload.event. title);
+            console.log('Message:', payload.message);
+            console.log('=======================================');
 
             const notification: EventNotification = {
                 id: `event-${payload.event.id}-${Date.now()}`,
@@ -44,46 +47,60 @@ export function EventNotificationsProvider({ children }: { children: ReactNode }
                 timestamp: Date.now(),
             };
 
-            setNotifications(prev => [...prev, notification]);
+            setNotifications(prev => {
+                const updated = [...prev, notification];
+                console.log('📊 Total notifications:', updated.length);
+                return updated;
+            });
 
+            // Sonido
             try {
-                const audio = new Audio('/notification-sound.mp3');
-                audio.volume = 0.5;
-                audio.play(). catch(err => console.warn('Could not play sound:', err));
+                const audio = new Audio('/Notidficacion-sound.mp3');
+                audio. volume = 0.5;
+                audio.play()
+                    .then(() => console.log('🔊 Sound played'))
+                    .catch(err => console.warn('🔇 Sound failed:', err));
             } catch (err) {
-                console.warn('Audio not available:', err);
+                console.warn('🔇 Audio error:', err);
             }
         };
 
-        eventsSocket. onEventPublished(handleEventPublished);
+        eventsSocket.onEventPublished(handleEventPublished);
 
         return () => {
-            console.log('[EventNotifications] 🔌 Cleaning up event listeners');
+            console.log('[EventNotifications] 🔌 Cleanup');
             eventsSocket.offEventPublished(handleEventPublished);
         };
     }, [isConnected]);
 
     const removeNotification = (id: string) => {
+        console.log('🗑️ Removing notification:', id);
         setNotifications(prev => prev.filter(n => n.id !== id));
     };
 
     const clearNotifications = () => {
+        console.log('🗑️ Clearing all notifications');
         setNotifications([]);
     };
+
+    console.log('🎨 Rendering provider, notifications:', notifications.length);
 
     return (
         <EventNotificationsContext.Provider value={{ notifications, removeNotification, clearNotifications }}>
             {children}
-
-            <div className="fixed top-20 right-4 z-50 space-y-2">
-                {notifications.map(notification => (
-                    <EventToast
-                        key={notification.id}
-                        event={notification.event}
-                        message={notification.message}
-                        onClose={() => removeNotification(notification.id)}
-                    />
-                ))}
+            <div className="fixed top-20 right-4 z-[99999] pointer-events-none" style={{ maxWidth: '400px' }}>
+                {notifications.map(notification => {
+                    console.log('🎨 Rendering toast:', notification.event.title);
+                    return (
+                        <div key={notification.id} className="pointer-events-auto">
+                            <EventToast
+                                event={notification.event}
+                                message={notification.message}
+                                onClose={() => removeNotification(notification.id)}
+                            />
+                        </div>
+                    );
+                })}
             </div>
         </EventNotificationsContext.Provider>
     );

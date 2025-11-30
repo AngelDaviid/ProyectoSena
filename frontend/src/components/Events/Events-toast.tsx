@@ -13,121 +13,115 @@ interface EventToastProps {
 
 export default function EventToast({ event, onClose, duration = 8000 }: EventToastProps) {
     const navigate = useNavigate();
-    const [isVisible, setIsVisible] = useState(false);
     const [progress, setProgress] = useState(100);
 
     useEffect(() => {
-        // Animación de entrada
-        setTimeout(() => setIsVisible(true), 10);
+        console.log('🎨 EventToast mounted for:', event.title);
 
-        // Barra de progreso
-        const progressInterval = setInterval(() => {
-            setProgress(prev => {
-                const newProgress = prev - (100 / (duration / 100));
-                if (newProgress <= 0) {
-                    clearInterval(progressInterval);
-                    return 0;
-                }
-                return newProgress;
-            });
-        }, 100);
+        const startTime = performance.now();
+        let animationId: number;
 
-        // Auto-cerrar
-        const timer = setTimeout(() => {
-            handleClose();
-        }, duration);
+        const updateProgress = (currentTime: number) => {
+            const elapsed = currentTime - startTime;
+            const remaining = Math.max(0, duration - elapsed);
+            const newProgress = (remaining / duration) * 100;
+
+            setProgress(newProgress);
+
+            if (remaining > 0) {
+                animationId = requestAnimationFrame(updateProgress);
+            } else {
+                console.log('⏰ Toast time expired, closing');
+                onClose();
+            }
+        };
+
+        animationId = requestAnimationFrame(updateProgress);
 
         return () => {
-            clearTimeout(timer);
-            clearInterval(progressInterval);
+            console.log('🗑️ EventToast unmounting');
+            if (animationId) {
+                cancelAnimationFrame(animationId);
+            }
         };
-    }, [duration]);
+    }, [duration, event.title, onClose]);
 
     const handleClose = () => {
-        setIsVisible(false);
-        setTimeout(onClose, 300);
+        console. log('❌ Manual close');
+        onClose();
     };
 
     const handleClick = () => {
+        console. log('🖱️ Toast clicked, navigating to event');
         navigate(`/events/${event.id}`);
         handleClose();
     };
 
     return (
-        <div
-            className={`fixed top-4 right-4 z-50 transition-all duration-300 transform ${
-                isVisible ? 'translate-x-0 opacity-100' : 'translate-x-full opacity-0'
-            }`}
-            style={{ maxWidth: '400px' }}
-        >
-            <div className="bg-white rounded-lg shadow-2xl overflow-hidden border-2 border-green-500">
-                {/* Header con gradiente */}
-                <div className="bg-gradient-to-r from-green-500 to-blue-500 px-4 py-2 flex items-center justify-between">
+        <div className="w-full max-w-md mb-2 toast-slide-in">
+            <div className="bg-white rounded-xl shadow-2xl overflow-hidden border-2 border-green-500">
+                {/* Header */}
+                <div className="bg-gradient-to-r from-green-500 to-blue-500 px-4 py-2. 5 flex items-center justify-between">
                     <div className="flex items-center gap-2 text-white">
-                        <div className="bg-white/20 p-1 rounded-full animate-pulse">
-                            <Calendar className="w-5 h-5" />
-                        </div>
+                        <Calendar className="w-5 h-5" />
                         <span className="font-bold text-sm">🎉 Nuevo Evento Publicado</span>
                     </div>
                     <button
                         onClick={handleClose}
-                        className="text-white hover:bg-white/20 p-1 rounded-full transition-colors"
+                        className="text-white hover:bg-white/20 p-1. 5 rounded-full transition-all"
                     >
                         <X className="w-4 h-4" />
                     </button>
                 </div>
 
-                {/* Contenido clickeable */}
-                <div
-                    onClick={handleClick}
-                    className="cursor-pointer hover:bg-gray-50 transition-colors"
-                >
-                    {/* Imagen del evento */}
+                {/* Contenido */}
+                <div onClick={handleClick} className="cursor-pointer hover:bg-gray-50 transition-colors">
+                    {/* Imagen */}
                     <div className="relative h-32 bg-gray-200">
                         <img
                             src={getEventImageUrl(event)}
                             alt={event.title}
                             className="w-full h-full object-cover"
                             onError={(e) => {
-                                e.currentTarget.src = '/default-event.png';
+                                e.currentTarget.src = '/default-event. png';
                             }}
                         />
-                        <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent" />
+                        <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
+                        <div className="absolute top-2 left-2">
+                            <span className="bg-green-500 text-white text-xs font-bold px-2 py-1 rounded-full shadow-lg">
+                                ✨ Nuevo
+                            </span>
+                        </div>
                     </div>
 
-                    {/* Información del evento */}
+                    {/* Info */}
                     <div className="p-4">
                         <h3 className="font-bold text-gray-900 text-lg mb-2 line-clamp-2">
                             {event.title}
                         </h3>
-
                         <p className="text-sm text-gray-600 mb-3 line-clamp-2">
                             {event.description}
                         </p>
 
-                        {/* Detalles */}
-                        <div className="space-y-1">
+                        <div className="space-y-2">
                             <div className="flex items-center gap-2 text-xs text-gray-700">
-                                <Clock className="w-3 h-3 text-green-600" />
-                                <span>{formatEventDateShort(event.startDate)}</span>
+                                <Clock className="w-3. 5 h-3.5 text-green-600" />
+                                <span className="font-medium">{formatEventDateShort(event.startDate)}</span>
                             </div>
-
                             <div className="flex items-center gap-2 text-xs text-gray-700">
-                                <MapPin className="w-3 h-3 text-green-600" />
-                                <span className="line-clamp-1">{event.location}</span>
+                                <MapPin className="w-3. 5 h-3.5 text-green-600" />
+                                <span className="line-clamp-1">{event. location}</span>
                             </div>
-
-                            {event.maxAttendees && (
+                            {event. maxAttendees && (
                                 <div className="flex items-center gap-2 text-xs text-gray-700">
                                     <span>👥</span>
-                                    <span>{event.maxAttendees} cupos disponibles</span>
+                                    <span className="font-medium">{event.maxAttendees} cupos</span>
                                 </div>
                             )}
                         </div>
 
-                        {/* Botón de acción */}
-                        <div className="mt-3 pt-3 border-t">
-                            <button className="w-full bg-green-600 hover:bg-green-700 text-white py-2 px-4 rounded-lg text-sm font-medium transition-colors">
+                        <div className="mt-4 pt-3 border-t">
+                            <button className="w-full bg-gradient-to-r from-green-600 to-green-500 hover:from-green-700 hover:to-green-600 text-white py-2.5 px-4 rounded-lg text-sm font-semibold">
                                 Ver Detalles →
                             </button>
                         </div>

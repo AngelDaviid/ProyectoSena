@@ -31,14 +31,15 @@ export class EventsGateway implements OnGatewayConnection, OnGatewayDisconnect, 
       if (!userId) return;
       const set = this.clients.get(userId) ??  new Set<string>();
       set.add(client.id);
-      this. clients.set(userId, set);
+      this.clients.set(userId, set);
       console.log(`[EventsGateway] User ${userId} registered with socket ${client.id}`);
+      console.log(`[EventsGateway] Total registered users: ${this.clients.size}`);
     });
   }
 
   handleDisconnect(client: Socket) {
     // Eliminar client. id de todos los sets
-    for (const [userId, set] of this.clients. entries()) {
+    for (const [userId, set] of this.clients.entries()) {
       if (set.has(client.id)) {
         set.delete(client.id);
         if (set.size === 0) this.clients.delete(userId);
@@ -52,16 +53,33 @@ export class EventsGateway implements OnGatewayConnection, OnGatewayDisconnect, 
   // Helper para emitir a un usuario específico
   private emitToUser(userId: number, event: string, payload: any) {
     const sockets = this.clients.get(userId);
-    if (! sockets) return;
+    if (!sockets) return;
     sockets.forEach(socketId => {
       this.server.to(socketId).emit(event, payload);
     });
   }
 
-  // Helper para emitir a todos los usuarios conectados
   private emitToAll(event: string, payload: any) {
-    this.server.emit(event, payload);
+    console.log('[EventsGateway] 📡 Broadcasting event:', event);
+
+    const allSocketIds: string[] = [];
+    this.clients.forEach((socketSet, userId) => {
+      socketSet. forEach(socketId => {
+        allSocketIds.push(socketId);
+        console.log(`[EventsGateway]   → User ${userId}, Socket ${socketId}`);
+      });
+    });
+
+    console.log('[EventsGateway] 📡 Total sockets to notify:', allSocketIds.length);
+
+    // Emitir a cada socket individualmente
+    allSocketIds.forEach(socketId => {
+      this.server.to(socketId). emit(event, payload);
+    });
+
+    console.log('[EventsGateway] ✅ Broadcast sent to all sockets');
   }
+
 
   // Helper para emitir a múltiples usuarios
   private emitToUsers(userIds: number[], event: string, payload: any) {
@@ -85,14 +103,13 @@ export class EventsGateway implements OnGatewayConnection, OnGatewayDisconnect, 
    */
   notifyEventPublished(event: Event) {
     console.log('========== 🚀 GATEWAY PUBLISH ==========');
-    console.log('📢 Broadcasting event published:', event.title);
-    console.log('📢 Connected clients:', this.server.sockets.sockets.size);
-    console. log('📢 Event ID:', event.id);
+    console.log('📢 Broadcasting event published:', event. title);
+    console.log('📢 Event ID:', event.id);
     console.log('========================================');
 
     this.emitToAll('eventPublished', {
       event,
-      message: `Nuevo evento publicado: ${event.title}`,
+      message: `Nuevo evento publicado: ${event. title}`,
       timestamp: new Date().toISOString(),
     });
 
@@ -121,7 +138,7 @@ export class EventsGateway implements OnGatewayConnection, OnGatewayDisconnect, 
    */
   notifyEventDeleted(eventId: number, attendeeIds: number[] = []) {
     if (attendeeIds.length > 0) {
-      this.emitToUsers(attendeeIds, 'eventDeleted', { eventId });
+      this. emitToUsers(attendeeIds, 'eventDeleted', { eventId });
     }
   }
 
@@ -129,7 +146,7 @@ export class EventsGateway implements OnGatewayConnection, OnGatewayDisconnect, 
    * Notificar al creador del evento cuando alguien se registra
    */
   notifyEventRegistration(event: Event, newAttendee: { id: number; name?: string; email?: string }) {
-    const creatorId = event.user?.id;
+    const creatorId = event.user?. id;
     if (creatorId) {
       this.emitToUser(creatorId, 'eventRegistration', {
         event,

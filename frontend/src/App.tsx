@@ -1,4 +1,4 @@
-import {Routes, Route, Navigate} from 'react-router-dom';
+import { Routes, Route, Navigate } from 'react-router-dom';
 import Login from './pages/Logins';
 import Register from './pages/Register';
 import ProtectedRoute from './components/Protected-routes.tsx';
@@ -20,14 +20,14 @@ function App() {
             <SocketProvider>
                 <EventNotificationsProvider>
                     <Routes>
-                        <Route path="/login" element={<Login/>}/>
-                        <Route path="/register" element={<Register/>}/>
+                        <Route path="/login" element={<Login />} />
+                        <Route path="/register" element={<Register />} />
 
                         <Route
                             path="/"
                             element={
                                 <ProtectedRoute>
-                                    <Home/>
+                                    <Home />
                                 </ProtectedRoute>
                             }
                         />
@@ -36,7 +36,7 @@ function App() {
                             path="/profile"
                             element={
                                 <ProtectedRoute>
-                                    <Profile/>
+                                    <Profile />
                                 </ProtectedRoute>
                             }
                         />
@@ -45,7 +45,7 @@ function App() {
                             path="/chat"
                             element={
                                 <ProtectedRoute>
-                                    <ChatPage/>
+                                    <ChatPage />
                                 </ProtectedRoute>
                             }
                         />
@@ -54,14 +54,14 @@ function App() {
                             path="/events"
                             element={
                                 <ProtectedRoute>
-                                    <EventsPage/>
+                                    <EventsPage />
                                 </ProtectedRoute>
-                            }/>
+                            } />
                         <Route
                             path="/events/:id"
                             element={
                                 <ProtectedRoute>
-                                    <EventDetail/>
+                                    <EventDetail />
                                 </ProtectedRoute>}
                         />
 
@@ -69,21 +69,21 @@ function App() {
                             path="/events/create"
                             element={
                                 <ProtectedRoute>
-                                    <EventForm/>
+                                    <EventForm />
                                 </ProtectedRoute>}
                         />
                         <Route
                             path="/events/edit/:id"
                             element={
                                 <ProtectedRoute>
-                                    <EventForm/>
+                                    <EventForm />
                                 </ProtectedRoute>}
                         />
 
-                        <Route path="/notifications" element={<NotificationsPage/>}/>
-                        <Route path="/friends" element={<FriendsPage/>}/>
+                        <Route path="/notifications" element={<NotificationsPage />} />
+                        <Route path="/friends" element={<FriendsPage />} />
 
-                        <Route path="*" element={<Navigate to="/" replace/>}/>
+                        <Route path="*" element={<Navigate to="/" replace />} />
                     </Routes>
                 </EventNotificationsProvider>
             </SocketProvider>

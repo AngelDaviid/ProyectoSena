@@ -44,7 +44,7 @@ export class EventsService {
       throw new BadRequestException('La fecha de fin debe ser posterior a la fecha de inicio');
     }
 
-    const isDraft = createEventDto.isDraft !== false;
+    const isDraft = createEventDto.isDraft ?? false;
 
     // ✅ LOG DESPUÉS DE CALCULAR
     console.log('🎯 isDraft calculado:', isDraft);
@@ -73,7 +73,7 @@ export class EventsService {
     }
 
     // ✅ LOGS ANTES DE NOTIFICAR
-    console.log('📊 fullEvent.isDraft:', fullEvent. isDraft);
+    console.log('📊 fullEvent.isDraft:', fullEvent.isDraft);
     console.log('📊 ! isDraft (should publish?):', !isDraft);
     console.log('📊 fullEvent.title:', fullEvent.title);
 
