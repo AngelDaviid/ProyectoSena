@@ -11,7 +11,7 @@ import {
     blockUser,
     unblockUser,
 } from '../services/friends';
-import { createConversation } from '../services/chat';
+import { createConversation } from '../services/sockets/chat.socket.ts';
 import { useAuth } from '../hooks/useAuth';
 import {
     connectSocket,
