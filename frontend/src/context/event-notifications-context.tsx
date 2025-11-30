@@ -3,7 +3,7 @@ import type { ReactNode } from 'react';
 import { eventsSocket } from '../services/sockets/evento.socket.ts';
 import type { EventPublishedPayload } from '../services/sockets/evento.socket.ts';
 import { useSocket } from '../hooks/useSocket';
-import EventToast from '../components/events/Events-toast.tsx';
+import EventToast from '../components/Events/Events-toast.tsx';
 import type { Event } from '../types/event';
 
 interface EventNotification {

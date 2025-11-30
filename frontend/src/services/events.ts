@@ -2,7 +2,7 @@ import api from './api';
 import type { Event, FilterEventsParams } from '../types/event';
 
 /**
- * Cache corto para /events para evitar ráfagas.
+ * Cache corto para /Events para evitar ráfagas.
  * In-flight promise para evitar duplicar requests concurrentes.
  */
 let _eventsCache: { ts: number; data: { events: Event[]; total: number } } | null = null;

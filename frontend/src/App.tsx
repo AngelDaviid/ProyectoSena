@@ -8,6 +8,7 @@ import ChatPage from "./pages/Chat.tsx";
 import NotificationsPage from "./components/Notifications.tsx";
 import FriendsPage from "./pages/Friends.tsx";
 import EventsPage from "./pages/Events.tsx";
+import EventForm from "./components/Events/Event-form.tsx";
 
 function App() {
     return (

@@ -12,7 +12,7 @@ import type { Category } from '../types/post';
 export default function EventsPage() {
     const navigate = useNavigate();
     const { user } = useAuth();
-    const [activeTab, setActiveTab] = useState<'all' | 'my-events' | 'registered'>('all');
+    const [activeTab, setActiveTab] = useState<'all' | 'my-Events' | 'registered'>('all');
     const [searchTerm, setSearchTerm] = useState('');
     const [selectedType, setSelectedType] = useState<EventType | ''>('');
     const [selectedCategory, setSelectedCategory] = useState<number | ''>('');
@@ -97,9 +97,9 @@ export default function EventsPage() {
                         {user && (
                             <>
                                 <button
-                                    onClick={() => setActiveTab('my-events')}
+                                    onClick={() => setActiveTab('my-Events')}
                                     className={`px-4 py-2 font-medium transition-colors border-b-2 ${
-                                        activeTab === 'my-events'
+                                        activeTab === 'my-Events'
                                             ? 'text-green-600 border-green-600'
                                             : 'text-gray-600 border-transparent hover:text-gray-900'
                                     }`}

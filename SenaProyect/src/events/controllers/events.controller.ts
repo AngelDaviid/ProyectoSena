@@ -34,7 +34,7 @@ export class EventsController {
   @UseInterceptors(
     FileInterceptor('image', {
       storage: diskStorage({
-        destination: './uploads/events',
+        destination: './uploads/Events',
         filename: (req, file, cb) => {
           const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
           cb(null, `event-${uniqueSuffix}${extname(file.originalname)}`);
@@ -82,7 +82,7 @@ export class EventsController {
     return this.eventsService.findAll(filters, userId);
   }
 
-  @Get('user/my-events')
+  @Get('user/my-Events')
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth()
   getMyEvents(@Request() req) {
@@ -108,7 +108,7 @@ export class EventsController {
   @UseInterceptors(
     FileInterceptor('image', {
       storage: diskStorage({
-        destination: './uploads/events',
+        destination: './uploads/Events',
         filename: (req, file, cb) => {
           const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
           cb(null, `event-${uniqueSuffix}${extname(file.originalname)}`);

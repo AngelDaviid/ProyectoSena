@@ -23,7 +23,7 @@ export function useEvents(filters?: FilterEventsParams) {
                 setTotal(data. total);
             }
         } catch (err: any) {
-            console.error('[useEvents] Error loading events:', err);
+            console.error('[useEvents] Error loading Events:', err);
             if (isMounted.current) {
                 setError(err.message || 'Error al cargar eventos');
             }
