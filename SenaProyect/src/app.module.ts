@@ -30,7 +30,7 @@ import { FriendModule } from './friend/friend.module';
         database: configService.get('POSTGRES_DB', {infer: true}),
         username: configService.get('POSTGRES_USER', {infer: true}),
         password: configService.get('POSTGRES_PASSWORD', {infer: true}),
-        synchronize: false, // Set to false in production
+        synchronize: true, // Set to false in production
         autoLoadEntities: true,
       }),
       inject: [ConfigService]
