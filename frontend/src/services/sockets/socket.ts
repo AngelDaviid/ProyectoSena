@@ -6,6 +6,8 @@ class SocketService {
     private socket: Socket | null = null;
     private reconnectAttempts = 0;
     private maxReconnectAttempts = 5;
+    private eventQueue: Array<{ event: string; data: any }> = [];
+    private isProcessingQueue = false;
 
     /**
      * Conectar al servidor WebSocket
@@ -19,7 +21,7 @@ class SocketService {
         console.log('[Socket] Connecting to:', `${SOCKET_URL}/ws`);
 
         this.socket = io(`${SOCKET_URL}/ws`, {
-            auth: token ?  { token } : undefined,
+            auth: token ? { token } : undefined,
             transports: ['websocket', 'polling'],
             reconnection: true,
             reconnectionDelay: 1000,
@@ -39,8 +41,9 @@ class SocketService {
         if (!this.socket) return;
 
         this.socket.on('connect', () => {
-            console.log('[Socket] ✅ Connected:', this.socket?. id);
+            console. log('[Socket] ✅ Connected:', this.socket?. id);
             this.reconnectAttempts = 0;
+            this.processEventQueue();
         });
 
         this.socket.on('disconnect', (reason) => {
@@ -54,19 +57,20 @@ class SocketService {
 
         this.socket.on('connect_error', (error) => {
             console.error('[Socket] ⚠️ Connection error:', error);
-            this. reconnectAttempts++;
+            this.reconnectAttempts++;
 
             if (this.reconnectAttempts >= this.maxReconnectAttempts) {
                 console.error('[Socket] Max reconnection attempts reached');
             }
         });
 
-        this. socket.on('error', (error) => {
+        this.socket. on('error', (error) => {
             console.error('[Socket] 🔴 Error:', error);
         });
 
         this.socket.on('reconnect', (attemptNumber) => {
             console.log('[Socket] 🔄 Reconnected after', attemptNumber, 'attempts');
+            this.processEventQueue();
         });
 
         this.socket.on('reconnect_attempt', (attemptNumber) => {
@@ -83,6 +87,29 @@ class SocketService {
     }
 
     /**
+     * Procesar cola de eventos pendientes
+     */
+    private async processEventQueue(): Promise<void> {
+        if (this.isProcessingQueue || !this.socket?. connected || this.eventQueue.length === 0) {
+            return;
+        }
+
+        this.isProcessingQueue = true;
+
+        while (this.eventQueue.length > 0 && this.socket?.connected) {
+            const { event, data } = this.eventQueue.shift()!;
+            try {
+                this.socket.emit(event, data);
+                console.log(`[Socket] ✅ Queued event '${event}' sent`);
+            } catch (error) {
+                console.error(`[Socket] ❌ Error sending queued event '${event}':`, error);
+            }
+        }
+
+        this.isProcessingQueue = false;
+    }
+
+    /**
      * Desconectar del servidor
      */
     disconnect(): void {
@@ -91,6 +118,7 @@ class SocketService {
             this.socket. disconnect();
             this.socket = null;
             this.reconnectAttempts = 0;
+            this.eventQueue = [];
         }
     }
 
@@ -112,11 +140,13 @@ class SocketService {
      * Registrar usuario en el socket
      */
     registerUser(userId: number): void {
-        if (this.socket && this.socket. connected) {
+        if (this.socket && this.socket.connected) {
             this.socket.emit('register', { userId });
             console.log('[Socket] 👤 User registered:', userId);
         } else {
             console.warn('[Socket] Cannot register user: socket not connected');
+            // Agregar a la cola para enviar cuando se conecte
+            this.eventQueue.push({ event: 'register', data: { userId } });
         }
     }
 
@@ -124,10 +154,11 @@ class SocketService {
      * Emitir evento personalizado
      */
     emit(event: string, data?: any): void {
-        if (this. socket && this.socket.connected) {
+        if (this.socket && this.socket.connected) {
             this.socket.emit(event, data);
         } else {
-            console.warn(`[Socket] Cannot emit '${event}': socket not connected`);
+            console.warn(`[Socket] Cannot emit '${event}': socket not connected, adding to queue`);
+            this. eventQueue.push({ event, data });
         }
     }
 
@@ -161,7 +192,7 @@ class SocketService {
 export const socketService = new SocketService();
 
 export const connectSocket = (token?: string) => socketService.connect(token);
-export const disconnectSocket = () => socketService. disconnect();
+export const disconnectSocket = () => socketService.disconnect();
 export const getSocket = () => socketService.getSocket();
 export const registerUser = (userId: number) => socketService.registerUser(userId);
 export const isSocketConnected = () => socketService. isConnected();
@@ -171,7 +202,7 @@ export const releaseSocket = () => socketService.disconnect();
 export const forceDisconnectSocket = () => {
     const socket = socketService.getSocket();
     if (socket) {
-        socket. removeAllListeners();
+        socket.removeAllListeners();
         socket. disconnect();
     }
     socketService.disconnect();

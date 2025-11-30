@@ -48,7 +48,7 @@ export class EventsSocketService {
      * Escuchar cuando se actualiza un evento
      */
     onEventUpdated(callback: (event: Event) => void): void {
-        socketService. on('eventUpdated', callback);
+        socketService.on('eventUpdated', callback);
     }
 
     /**
@@ -62,21 +62,21 @@ export class EventsSocketService {
      * Escuchar cuando se elimina un evento
      */
     onEventDeleted(callback: (payload: EventDeletedPayload) => void): void {
-        socketService. on('eventDeleted', callback);
+        socketService.on('eventDeleted', callback);
     }
 
     /**
      * Dejar de escuchar evento eliminado
      */
     offEventDeleted(callback?: (payload: EventDeletedPayload) => void): void {
-        socketService.off('eventDeleted', callback);
+        socketService. off('eventDeleted', callback);
     }
 
     /**
      * Escuchar cuando alguien se registra a tu evento
      */
     onEventRegistration(callback: (payload: EventRegistrationPayload) => void): void {
-        socketService. on('eventRegistration', callback);
+        socketService.on('eventRegistration', callback);
     }
 
     /**
@@ -90,7 +90,7 @@ export class EventsSocketService {
      * Escuchar cuando te desregistran de un evento
      */
     onEventUnregistration(callback: (payload: EventUnregistrationPayload) => void): void {
-        socketService. on('eventUnregistration', callback);
+        socketService.on('eventUnregistration', callback);
     }
 
     /**
