@@ -47,4 +47,10 @@ export class FriendsController {
   async getFriends(@Req() req: any) {
     return this.friendsService.getFriends(req.user.id);
   }
+
+  @UseGuards(AuthGuard('jwt'))
+  @Get('blocked')
+  async getBlocked(@Req() req: any) {
+    return this.friendsService.getBlockedUsers(req.user.id);
+  }
 }

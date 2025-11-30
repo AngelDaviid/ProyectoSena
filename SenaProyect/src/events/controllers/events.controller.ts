@@ -3,83 +3,162 @@ import {
   Get,
   Post,
   Body,
+  Patch,
   Param,
   Delete,
-  Put,
-  ParseIntPipe,
   UseGuards,
-  Req,
-  UseInterceptors, BadRequestException, UploadedFile,
+  Request,
+  UseInterceptors,
+  UploadedFile,
+  Query,
+  ParseIntPipe,
 } from '@nestjs/common';
-import { AuthGuard } from '@nestjs/passport';
-import { ApiOperation, ApiResponse } from '@nestjs/swagger';
-import type { Request } from 'express';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { diskStorage } from 'multer';
 import { extname } from 'path';
-import { v4 as uuidv4 } from 'uuid';
 import { EventsService } from '../services/events.service';
-import { CreateEventDto, UpdateEventDto } from '../dto/events.dto';
-import { Event } from '../entities/events.entity';
-import { Payload } from '../../auth/models/payload.model';
+import { CreateEventDto } from '../dto/events.dto';
+import { UpdateEventDto } from '../dto/update-event.dto';
+import { FilterEventsDto } from '../dto/filter-events.dto';
+import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
+import { ApiBearerAuth, ApiTags, ApiConsumes, ApiBody } from '@nestjs/swagger';
 
+@ApiTags('events')
 @Controller('events')
 export class EventsController {
   constructor(private readonly eventsService: EventsService) {}
 
-  @ApiOperation({ summary: 'Crear un nuevo evento' })
-  @UseGuards(AuthGuard('jwt'))
   @Post()
-  @UseInterceptors(FileInterceptor('image', {
-    storage: diskStorage({
-      destination: './uploads',
-      filename: (req, file, cb) => {
-        const filename = `${uuidv4()}${extname(file.originalname)}`;
-        cb(null, filename);
-      }
-    }),
-    fileFilter: (req, file, cb) => {
-      if (!file.mimetype.match(/\/(jpg|jpeg|png|gif)$/)) {
-        cb(new BadRequestException('Solo imágenes permitidas (jpg, png, gif)'), false);
-      } else {
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @UseInterceptors(
+    FileInterceptor('image', {
+      storage: diskStorage({
+        destination: './uploads/Events',
+        filename: (req, file, cb) => {
+          const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
+          cb(null, `event-${uniqueSuffix}${extname(file.originalname)}`);
+        },
+      }),
+      fileFilter: (req, file, cb) => {
+        if (!file.mimetype.match(/\/(jpg|jpeg|png|gif|webp)$/)) {
+          return cb(new Error('Solo se permiten imágenes'), false);
+        }
         cb(null, true);
-      }
+      },
+      limits: { fileSize: 5 * 1024 * 1024 }, // 5MB
+    }),
+  )
+  @ApiConsumes('multipart/form-data')
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: {
+        title: { type: 'string' },
+        description: { type: 'string' },
+        location: { type: 'string' },
+        startDate: { type: 'string', format: 'date-time' },
+        endDate: { type: 'string', format: 'date-time' },
+        maxAttendees: { type: 'number' },
+        eventType: { type: 'string', enum: ['conference', 'workshop', 'seminar', 'social', 'sports', 'cultural', 'other'] },
+        categoryIds: { type: 'array', items: { type: 'number' } },
+        isDraft: { type: 'boolean' },
+        image: { type: 'string', format: 'binary' },
+      },
     },
-    limits: { fileSize: 8 * 1024 * 1024 },
-  }))
-  create(@Body() createEventDto: CreateEventDto, @Req() req: Request, @UploadedFile() file?: Express.Multer.File) {
-    const user = req.user as any;
-    const userId = user.id;
-
-    const ImageUrl = file ? `/uploads/${file.filename}` : createEventDto.imageUrl;
-    return this.eventsService.create(createEventDto, userId, ImageUrl);
+  })
+  create(
+    @Body() createEventDto: CreateEventDto,
+    @Request() req,
+    @UploadedFile() file?: Express.Multer.File,
+  ) {
+    const imageUrl = file ? `/uploads/events/${file.filename}` : undefined;
+    return this.eventsService.create(createEventDto, req.user.id, imageUrl);
   }
 
-  @ApiResponse({ status: 201, description: 'Eventos obtenidos correctamente.' })
-  @ApiOperation({ summary: 'Obtener todos los eventos' })
   @Get()
-  findAll() {
-    return this.eventsService.findAll();
+  findAll(@Query() filters: FilterEventsDto, @Request() req) {
+    const userId = req.user?. id;
+    return this.eventsService.findAll(filters, userId);
   }
 
-  @ApiResponse({ status: 200, description: 'Evento encontrado correctamente.', type: Event })
-  @ApiOperation({ summary: 'Obtener un evento por ID' })
+  @Get('user/my-Events')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  getMyEvents(@Request() req) {
+    return this.eventsService.getMyEvents(req.user.id);
+  }
+
+  @Get('user/registered')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  getRegisteredEvents(@Request() req) {
+    return this.eventsService.getRegisteredEvents(req.user.id);
+  }
+
   @Get(':id')
-  findOne(@Param('id', ParseIntPipe) id: number) {
-    return this.eventsService.findOne(id);
+  findOne(@Param('id', ParseIntPipe) id: number, @Request() req) {
+    const userId = req. user?.id;
+    return this.eventsService.findOne(id, userId);
   }
 
-  @ApiOperation({ summary: 'Actualizar un evento por ID' })
-  @UseGuards(AuthGuard('jwt'))
-  @Put(':id')
-  update(@Param('id', ParseIntPipe) id: number, @Body() updateEventDto: UpdateEventDto) {
-    return this.eventsService.update(id, updateEventDto);
+  @Patch(':id')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @UseInterceptors(
+    FileInterceptor('image', {
+      storage: diskStorage({
+        destination: './uploads/Events',
+        filename: (req, file, cb) => {
+          const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
+          cb(null, `event-${uniqueSuffix}${extname(file.originalname)}`);
+        },
+      }),
+      fileFilter: (req, file, cb) => {
+        if (!file.mimetype.match(/\/(jpg|jpeg|png|gif|webp)$/)) {
+          return cb(new Error('Solo se permiten imágenes'), false);
+        }
+        cb(null, true);
+      },
+      limits: { fileSize: 5 * 1024 * 1024 },
+    }),
+  )
+  @ApiConsumes('multipart/form-data')
+  update(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() updateEventDto: UpdateEventDto,
+    @Request() req,
+    @UploadedFile() file?: Express.Multer.File,
+  ) {
+    const imageUrl = file ? `/uploads/events/${file.filename}` : undefined;
+    return this.eventsService.update(id, updateEventDto, req.user.id, imageUrl);
   }
 
-  @ApiOperation({ summary: 'Eliminar un evento por ID' })
-  @UseGuards(AuthGuard('jwt'))
   @Delete(':id')
-  remove(@Param('id', ParseIntPipe) id: number) {
-    return this.eventsService.remove(id);
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  remove(@Param('id', ParseIntPipe) id: number, @Request() req) {
+    return this.eventsService.remove(id, req.user.id);
+  }
+
+  @Post(':id/publish')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  publish(@Param('id', ParseIntPipe) id: number, @Request() req) {
+    return this.eventsService.publish(id, req.user.id);
+  }
+
+  @Post(':id/register')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  register(@Param('id', ParseIntPipe) id: number, @Request() req) {
+    return this.eventsService. register(id, req.user. id);
+  }
+
+  @Delete(':id/unregister')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  unregister(@Param('id', ParseIntPipe) id: number, @Request() req) {
+    return this.eventsService. unregister(id, req. user.id);
   }
 }

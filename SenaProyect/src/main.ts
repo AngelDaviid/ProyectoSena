@@ -42,15 +42,10 @@ async function bootstrap() {
   );
 
   app.enableCors({
-<<<<<<< Updated upstream
     origin: ['http://localhost:5173'],
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-=======
-    origin: 'http://localhost:5173',
     credentials: true,
->>>>>>> Stashed changes
     allowedHeaders: ['Content-Type', 'Authorization'],
-    credentials: true,
   });
 
 
