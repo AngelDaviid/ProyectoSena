@@ -219,4 +219,11 @@ export class FriendsService {
     const user = await this.usersRepo.findOne({ where: { id: userId }, relations: ['friends'] });
     return user?.friends || [];
   }
+
+  async getBlockedUsers(userId: number) {
+    const user = await this.usersRepo.findOne({ where: { id: userId }, relations: ['blockedUsers'] });
+    return user?.blockedUsers || [];
+  }
+
+
 }

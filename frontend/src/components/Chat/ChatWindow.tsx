@@ -1,9 +1,9 @@
 import React, { useEffect, useRef, useState, useCallback } from 'react';
-import type { Conversation, Message } from '../../types/chat.ts';
+import type { Conversation, Message } from '../../types/chat';
 
 type Props = {
-    conversation: Conversation | null;
-    messages: Array<Message & { sending?: boolean; tempId?: string }>;
+    activeConversation: Conversation; // CAMBIO: era 'conversation'
+    messages: Array<Message & { sending?: boolean; tempId?: string; seenBy?: number[] }>;
     currentUserId?: number | null;
     onSend: (text: string, imageUrl?: string | File) => void;
     onLoadMore?: () => Promise<number>;
@@ -25,7 +25,7 @@ function debounce<T extends (...args: any[]) => void>(fn: T, wait = 150) {
 }
 
 const ChatWindow: React.FC<Props> = ({
-                                         conversation,
+                                         activeConversation, // CAMBIO: era 'conversation'
                                          messages,
                                          currentUserId,
                                          onSend,
@@ -42,72 +42,63 @@ const ChatWindow: React.FC<Props> = ({
     useEffect(() => {
         loadingMoreRef.current = false;
         wasNearBottomRef.current = true;
-        // small delay to allow messages to mount
         setTimeout(() => {
             if (messagesEndRef.current && isNearBottom(containerRef.current)) {
                 messagesEndRef.current.scrollIntoView({ behavior: 'auto' });
             }
         }, 0);
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [conversation?.id]);
+    }, [activeConversation?. id]); // CAMBIO: era 'conversation?. id'
 
     // Mantener valor de si el usuario estaba cerca del bottom antes del cambio de mensajes
     useEffect(() => {
         const container = containerRef.current;
         if (!container) return;
 
-        // Si estaba cerca del final, hacemos scroll al final cuando llegue un nuevo mensaje
         if (wasNearBottomRef.current) {
             messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
         }
-        // si no estaba cerca, no tocar la posición (usuario revisando historial)
-    }, [messages.length]); // solo cuando cambia número de mensajes
+    }, [messages.length]);
 
-    // Actualiza wasNearBottomRef en cada scroll rápidamente (sin debounce) para saber si se debe autoscrollear
+    // Actualiza wasNearBottomRef en cada scroll
     useEffect(() => {
         const el = containerRef.current;
-        if (!el) return;
+        if (! el) return;
 
         const updateNearBottom = () => {
             wasNearBottomRef.current = isNearBottom(el);
         };
 
-        // also update when container size changes
         const ro = new ResizeObserver(() => updateNearBottom());
-        ro.observe(el);
+        ro. observe(el);
 
         el.addEventListener('scroll', updateNearBottom, { passive: true });
-        // initialize
         updateNearBottom();
 
         return () => {
-            ro.disconnect();
+            ro. disconnect();
             el.removeEventListener('scroll', updateNearBottom);
         };
     }, []);
 
     const handleSubmit = (e?: React.FormEvent) => {
         if (e) e.preventDefault();
-        if (!text.trim()) return;
+        if (! text.trim()) return;
         onSend(text.trim());
         setText('');
-        // after sending, scroll to bottom optimistically
         setTimeout(() => {
             messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
         }, 50);
     };
 
-    // Scroll handler con debounce para evitar llamadas rápidas que causen 429
     const handleScrollInner = useCallback(
         async (el: HTMLElement) => {
-            if (!onLoadMore || loadingMoreRef.current) return;
+            if (! onLoadMore || loadingMoreRef.current) return;
             if (el.scrollTop <= 80) {
                 loadingMoreRef.current = true;
                 const prevScrollHeight = el.scrollHeight;
                 try {
                     const loaded = await onLoadMore();
                     if (loaded > 0) {
-                        // mantener posición relativa del usuario
                         requestAnimationFrame(() => {
                             const newScrollHeight = el.scrollHeight;
                             el.scrollTop = newScrollHeight - prevScrollHeight + el.scrollTop;
@@ -123,15 +114,13 @@ const ChatWindow: React.FC<Props> = ({
         [onLoadMore]
     );
 
-    // attach scroll listener con debounce que usa containerRef en tiempo de ejecución
     useEffect(() => {
         const el = containerRef.current;
         if (!el) return;
 
-        // Creamos el debounce aquí para que capture la última versión de handleScrollInner
         const debounced = debounce(() => {
             const container = containerRef.current;
-            if (!container) return;
+            if (! container) return;
             handleScrollInner(container);
         }, 150);
 
@@ -142,7 +131,6 @@ const ChatWindow: React.FC<Props> = ({
     const formatDate = (iso?: string) =>
         iso ? new Date(iso).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '';
 
-    // teclado: Enter para enviar, Shift+Enter para nueva línea
     const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
         if (e.key === 'Enter' && !e.shiftKey) {
             e.preventDefault();
@@ -155,30 +143,29 @@ const ChatWindow: React.FC<Props> = ({
             {/* Header */}
             <div className="p-4 border-b bg-white shadow-sm">
                 <h2 className="font-semibold text-gray-800">
-                    {conversation?.participants?.map((p) => p.profile?.name || p.email).join(', ') || 'Chat'}
+                    {activeConversation?. participants?. map((p) => p.profile?. name || p.email). join(', ') || 'Chat'}
                 </h2>
             </div>
 
             {/* Mensajes */}
             <div ref={containerRef} className="flex-1 overflow-auto bg-gray-50 p-4">
                 {messages.map((m, i) => {
-                    // comparo como string para evitar mismatch number/string
                     const mine = String(m.senderId) === String(currentUserId);
                     return (
                         <div
-                            key={m.id ?? m.tempId ?? i}
+                            key={m.id ??  m.tempId ??  i}
                             className={`flex mb-3 ${mine ? 'justify-end' : 'justify-start'}`}
                         >
                             <div
                                 className={`rounded-lg px-4 py-2 max-w-[75%] shadow-sm ${
-                                    mine ? 'bg-green-600 text-white' : 'bg-white border'
+                                    mine ?  'bg-green-600 text-white' : 'bg-white border'
                                 }`}
                             >
                                 {m.text && <div>{m.text}</div>}
                                 {m.imageUrl && (
                                     <img
                                         src={
-                                            m.imageUrl.startsWith('/')
+                                            m.imageUrl. startsWith('/')
                                                 ? `${import.meta.env.VITE_SENA_API_URL || 'http://localhost:3001'}${m.imageUrl}`
                                                 : m.imageUrl
                                         }
@@ -197,7 +184,7 @@ const ChatWindow: React.FC<Props> = ({
             </div>
 
             {/* Indicador de escritura */}
-            {typingUsers.length > 0 && (
+            {typingUsers && typingUsers.length > 0 && (
                 <div className="absolute left-4 bottom-24 text-xs text-gray-500 animate-pulse">
                     {typingUsers.length === 1 ? 'Está escribiendo...' : 'Varios están escribiendo...'}
                 </div>
@@ -210,7 +197,7 @@ const ChatWindow: React.FC<Props> = ({
                     placeholder="Escribe un mensaje..."
                     className="flex-1 border rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-green-500"
                     value={text}
-                    onChange={(e) => setText(e.target.value)}
+                    onChange={(e) => setText(e.target. value)}
                     onKeyDown={handleKeyDown}
                 />
                 <button

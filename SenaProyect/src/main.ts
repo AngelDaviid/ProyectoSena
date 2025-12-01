@@ -44,15 +44,18 @@ async function bootstrap() {
   app.enableCors({
     origin: ['http://localhost:5173'],
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization'],
     credentials: true,
+    allowedHeaders: ['Content-Type', 'Authorization'],
   });
 
 
   app.use(
     rateLimit({
-      windowMs: 15 * 60 * 1000,
-      max: 100,
+      windowMs: 1 * 60 * 1000, // 1 minuto
+      max: 200, // 200 requests por minuto
+      message: 'Demasiadas peticiones, intenta de nuevo más tarde',
+      standardHeaders: true,
+      legacyHeaders: false,
     }),
   );
 

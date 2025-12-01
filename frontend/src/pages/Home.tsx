@@ -3,11 +3,12 @@ import { useNavigate } from "react-router-dom";
 import { useAuth } from "../hooks/useAuth";
 import PostList from "../components/Posts/PostList.tsx";
 import ChatWindow from "../components/Chat/ChatWindow.tsx";
-import { connectSocket, disconnectSocket, getSocket } from "../services/socket";
-import { getConversations, getMessages } from "../services/chat";
+import { connectSocket, disconnectSocket, getSocket } from "../services/sockets/socket.ts";
+import { getConversations, getMessages } from "../services/sockets/chat.socket.ts";
 import type { Conversation, Message } from "../types/chat";
 import NavbarSearch from "../components/Navbar/NavbarSearch.tsx";
 import NavbarNotifications from '../components/Navbar/NavbarNotifications.tsx';
+import { Calendar, ArrowRight, Sparkles } from 'lucide-react';
 
 const API_BASE = import.meta.env.VITE_SENA_API_URL || "http://localhost:3001";
 
@@ -124,19 +125,29 @@ const Home: React.FC = () => {
     useEffect(() => {
         if (!chatOpen || !activeConversation) return;
         const socket = getSocket();
-        // Unir al room de la conversación
-        try {
-            socket.emit("joinConversation", { conversationId: String(activeConversation.id) });
-        } catch (err) {
-            // ignore if socket not ready
+        if (!socket) {
+            console. warn('[Home] Socket not available');
+            return;
         }
+
+        try {
+            socket.emit("joinConversation", {conversationId: String(activeConversation.id)});
+        } catch (err) {
+            console.error('[Home] Error joining conversation:', err);
+        }
+
         loadMessages(activeConversation);
     }, [chatOpen, activeConversation, loadMessages]);
 
     // Envío de mensaje (optimistic UI + socket emit)
     const handleSend = (text: string, imageUrl?: string | File) => {
         if (!activeConversation || !user) return;
+
         const socket = getSocket();
+        if (!socket) {
+            console.error('[Home] Cannot send message: socket not connected');
+            return;
+        }
 
         const image = imageUrl instanceof File ? URL.createObjectURL(imageUrl) : imageUrl ?? null;
 
@@ -169,7 +180,7 @@ const Home: React.FC = () => {
                 const raw = await getMessages(activeConversation.id);
                 const allRaw = normalizeMessagesResponse(raw);
                 const all = allRaw.map((m) => ({ ...m, senderId: Number((m as any).senderId) })) as Message[];
-                all.sort((a, b) => +new Date(a.createdAt ?? 0) - +new Date(b.createdAt ?? 0));
+                all.sort((a, b) => +new Date(a.createdAt ??  0) - +new Date(b.createdAt ?? 0));
 
                 const earliest = messages[0];
                 if (!earliest) {
@@ -215,7 +226,7 @@ const Home: React.FC = () => {
                                 <img src={avatarSrc} alt={displayName} className="w-10 h-10 rounded-full object-cover" />
                             ) : (
                                 <div className="w-10 h-10 rounded-full bg-green-200 flex items-center justify-center text-green-700 font-semibold">
-                                    {displayName.charAt(0).toUpperCase()}
+                                    {displayName.charAt(0). toUpperCase()}
                                 </div>
                             )}
                             <span className="font-medium">{displayName}</span>
@@ -244,32 +255,74 @@ const Home: React.FC = () => {
             {/* MAIN GRID */}
             <main className="grid grid-cols-[280px_1fr] gap-8 px-8 py-6">
                 {/* SIDEBAR */}
-                <aside className="bg-white rounded-lg shadow p-6 h-fit self-start sticky top-24">
-                    <div className="flex items-center gap-4 mb-6">
-                        {avatarSrc ? (
-                            <img src={avatarSrc} alt={displayName} className="w-16 h-16 rounded-full object-cover" />
-                        ) : (
-                            <div className="w-16 h-16 rounded-full bg-green-200 flex items-center justify-center text-green-700 font-semibold text-xl">
-                                {displayName.charAt(0).toUpperCase()}
+                <aside className="space-y-6">
+                    {/* Profile Card */}
+                    <div className="bg-white rounded-lg shadow p-6 h-fit sticky top-24">
+                        <div className="flex items-center gap-4 mb-6">
+                            {avatarSrc ? (
+                                <img src={avatarSrc} alt={displayName} className="w-16 h-16 rounded-full object-cover" />
+                            ) : (
+                                <div className="w-16 h-16 rounded-full bg-green-200 flex items-center justify-center text-green-700 font-semibold text-xl">
+                                    {displayName.charAt(0).toUpperCase()}
+                                </div>
+                            )}
+                            <div>
+                                <strong className="text-lg block">{displayName}</strong>
+                                <span className="text-gray-500 text-sm">{user?.role ??  "Aprendiz"}</span>
                             </div>
-                        )}
-                        <div>
-                            <strong className="text-lg block">{displayName}</strong>
-                            <span className="text-gray-500 text-sm">{user?.role ?? "Aprendiz"}</span>
+                        </div>
+
+                        <div className="grid gap-3">
+                            <button
+                                onClick={() => navigate("/friends")}
+                                className="w-full text-left cursor-pointer px-4 py-2 hover:bg-green-50 transition rounded-md"
+                            >
+                                Amigos
+                            </button>
+                            <button
+                                onClick={() => navigate("/groups")}
+                                className="w-full text-left cursor-pointer px-4 py-2 hover:bg-green-50 transition rounded-md"
+                            >
+                                Grupos
+                            </button>
                         </div>
                     </div>
 
-                    <div className="grid gap-3">
-                        <button onClick={() => navigate("/friends")} className="w-full text-left cursor-pointer px-4 py-2 hover:bg-green-50 transition">
-                            Amigos
-                        </button>
-                        <button onClick={() => navigate("/groups")} className="w-full text-left cursor-pointer px-4 py-2 hover:bg-green-50 transition">
-                            Grupos
-                        </button>
+                    {/* EVENTOS CARD */}
+                    <div className="bg-gradient-to-br from-green-500 to-emerald-600 rounded-2xl shadow-xl p-6 text-white relative overflow-hidden">
+                        <div className="absolute top-0 right-0 w-32 h-32 bg-white opacity-10 rounded-full -mr-10 -mt-10"></div>
+                        <div className="absolute bottom-0 left-0 w-24 h-24 bg-white opacity-10 rounded-full -ml-8 -mb-8"></div>
+
+                        <div className="relative z-10">
+                            <div className="flex items-center justify-center w-16 h-16 bg-white bg-opacity-20 rounded-full mb-4 backdrop-blur-sm">
+                                <Calendar className="w-8 h-8 text-white animate-pulse" />
+                            </div>
+
+                            <h3 className="text-xl font-bold mb-2 flex items-center gap-2">
+                                Eventos SENA
+                                <Sparkles className="w-5 h-5 animate-pulse" />
+                            </h3>
+
+                            <p className="text-green-50 text-sm mb-5 leading-relaxed">
+                                Descubre talleres, conferencias y actividades exclusivas para la comunidad
+                            </p>
+
+                            <button
+                                onClick={() => navigate("/events")}
+                                className="w-full bg-white text-green-600 font-semibold py-3 px-4 rounded-xl hover:bg-green-50 transition-all transform hover:scale-105 hover:shadow-lg flex items-center justify-center gap-2 group"
+                            >
+                                <span>Explorar Eventos</span>
+                                <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
+                            </button>
+
+                            <div className="mt-4 flex items-center justify-center gap-2 text-xs text-green-100">
+                                <span className="w-2 h-2 bg-green-300 rounded-full animate-pulse"></span>
+                                <span>Nuevos eventos disponibles</span>
+                            </div>
+                        </div>
                     </div>
                 </aside>
 
-                {/* POSTS */}
                 <section className="bg-white rounded-lg shadow p-6">
                     <PostList />
                 </section>
@@ -280,34 +333,43 @@ const Home: React.FC = () => {
 
             {/* CHAT FLOAT */}
             <div className="fixed left-6 bottom-6 z-50">
-                {!chatOpen ? (
-                    <button onClick={() => setChatOpen(true)} className="bg-green-600 w-[180px] text-white cursor-pointer px-6 py-2 rounded-full shadow-lg hover:bg-green-700 transition">
+                {! chatOpen ?  (
+                    <button
+                        onClick={() => setChatOpen(true)}
+                        className="bg-green-600 w-[180px] text-white cursor-pointer px-6 py-3 rounded-full shadow-lg hover:bg-green-700 transition-all hover:shadow-xl transform hover:scale-105"
+                    >
                         Chat
                     </button>
                 ) : (
                     <div className="w-80 h-96 bg-white rounded-lg shadow-xl flex flex-col overflow-hidden">
-                        <div className="flex items-center justify-between p<3 border-b">
+                        <div className="flex items-center justify-between p-3 border-b bg-green-600 text-white">
                             <span className="font-medium">Chat</span>
                             <div className="flex gap-2">
-                                <button onClick={() => navigate("/chat")} className="text-xs text-gray-600 px-2 py-1 hover:bg-gray-100 rounded">
+                                <button
+                                    onClick={() => navigate("/chat")}
+                                    className="text-xs bg-white text-green-600 px-3 py-1 hover:bg-green-50 rounded-md font-medium"
+                                >
                                     Abrir
                                 </button>
-                                <button onClick={() => setChatOpen(false)} className="text-xs text-red-600 px-2 py-1 hover:bg-red-50 rounded">
+                                <button
+                                    onClick={() => setChatOpen(false)}
+                                    className="text-xs bg-red-500 text-white px-3 py-1 hover:bg-red-600 rounded-md font-medium"
+                                >
                                     Cerrar
                                 </button>
                             </div>
                         </div>
 
-                        {activeConversation ? (
+                        {activeConversation ?  (
                             <ChatWindow
                                 conversation={activeConversation}
                                 messages={messages}
                                 onSend={handleSend}
-                                currentUserId={user?.id ?? null}
+                                currentUserId={user?. id ??  null}
                                 onLoadMore={handleLoadMore}
                             />
                         ) : (
-                            <div className="p-4 text-sm text-gray-500">No hay conversaciones disponibles.</div>
+                            <div className="p-4 text-sm text-gray-500">No hay conversaciones disponibles. </div>
                         )}
                     </div>
                 )}

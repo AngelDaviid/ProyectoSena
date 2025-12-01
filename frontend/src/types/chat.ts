@@ -13,13 +13,18 @@ export interface SimpleUser {
     role?: Role;
 }
 
+// Message type basado en tu entidad de backend
 export interface Message {
-    id: number;
+    id?: number; // Opcional porque mensajes optimistas no tienen id aún
     text: string;
     imageUrl?: string | null;
     createdAt?: string;
     senderId?: number;
     conversationId?: number;
+    // Propiedades adicionales para el frontend
+    sending?: boolean;
+    tempId?: string;
+    seenBy?: number[];
 }
 
 export interface Conversation {
