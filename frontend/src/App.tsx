@@ -13,12 +13,16 @@ import EventDetail from "./components/Events/Events-details.tsx";
 import AuthProvider from "./context/auth-provider.tsx";
 import {SocketProvider} from "./context/socket-provider.tsx";
 import {EventNotificationsProvider} from "./context/event-notifications-context.tsx";
+import {ChatNotificationsProvider} from "./context/chat-notifications-context.tsx";
+import ChatNotificationToast from "./components/Chat/Chat-notification-toast.tsx";
 
 function App() {
     return (
         <AuthProvider>
             <SocketProvider>
                 <EventNotificationsProvider>
+                    <ChatNotificationsProvider>
+                        <ChatNotificationToast/>
                     <Routes>
                         <Route path="/login" element={<Login/>}/>
                         <Route path="/register" element={<Register/>}/>
@@ -85,6 +89,7 @@ function App() {
 
                         <Route path="*" element={<Navigate to="/" replace/>}/>
                     </Routes>
+                    </ChatNotificationsProvider>
                 </EventNotificationsProvider>
             </SocketProvider>
         </AuthProvider>

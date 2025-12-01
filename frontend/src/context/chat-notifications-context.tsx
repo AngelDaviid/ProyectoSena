@@ -1,139 +1,102 @@
-import { createContext, useState, useEffect } from 'react';
-import { createPortal } from 'react-dom';
-import type { ReactNode } from 'react';
-import { chatSocket, type NewMessageNotificationPayload } from '../services/sockets/chat.socket';
-import { useSocketContext } from './socket-provider';
-import ChatNotificationToast from "../components/Chat/Chat-notification-toast.tsx";
+import React, { createContext, useContext, useEffect, useState, useCallback } from 'react';
+import { useAuth } from '../hooks/useAuth';
+import { useSocketContext } from '../hooks/useSocketContext';
 
-export interface ChatNotification {
-    id: string;
+interface ChatNotification {
     conversationId: number;
     message: {
         id: number;
         text: string;
         senderId: number;
-        senderName?: string;
+        createdAt: string;
     };
-    timestamp: number;
+    timestamp: string;
 }
 
-export interface ChatNotificationsContextType {
+interface ChatNotificationsContextType {
     notifications: ChatNotification[];
-    removeNotification: (id: string) => void;
-    clearNotifications: () => void;
+    unreadCount: number;
+    clearNotification: (conversationId: number) => void;
+    clearAllNotifications: () => void;
 }
 
-// eslint-disable-next-line react-refresh/only-export-components
-export const ChatNotificationsContext = createContext<
-    ChatNotificationsContextType | undefined
->(undefined);
+const ChatNotificationsContext = createContext<ChatNotificationsContextType | undefined>(undefined);
 
-export function ChatNotificationsProvider({ children }: { children: ReactNode }) {
-    const { isConnected } = useSocketContext();
+export const ChatNotificationsProvider: React.FC<{ children: React. ReactNode }> = ({ children }) => {
+    const { user } = useAuth();
+    const { socket, isConnected } = useSocketContext();
     const [notifications, setNotifications] = useState<ChatNotification[]>([]);
 
     useEffect(() => {
-        if (! isConnected) {
-            console.log('[ChatNotifications] ⏸️ Socket not connected');
+        if (! socket || !isConnected || !user) {
+            console.log('[ChatNotifications] Socket not connected or user not authenticated');
             return;
         }
 
-        console.log('[ChatNotifications] 🎧 Setting up listeners');
+        console.log('[ChatNotifications] Setting up notification listener');
 
-        const handleNewMessageNotification = (payload: NewMessageNotificationPayload) => {
-            console.log('========== 💬 NEW MESSAGE NOTIFICATION ==========');
-            console.log('📍 Current page:', window.location.pathname);
-            console.log('💬 Conversation:', payload.conversationId);
-            console.log('💬 Message:', payload.message. text);
-            console.log('================================================');
+        const handleNewMessageNotification = (payload: ChatNotification) => {
+            console.log('[ChatNotifications] New message notification received:', payload);
 
-            // No mostrar notificación si estás en la página de chat
-            if (window.location.pathname === '/chat') {
-                console.log('[ChatNotifications] ⏭️ User is on chat page, skipping notification');
+            // No notificar mensajes propios
+            if (payload.message.senderId === user.id) {
+                console.log('[ChatNotifications] Ignoring own message');
                 return;
             }
 
-            const notification: ChatNotification = {
-                id: `chat-${payload.message.id}-${Date.now()}`,
-                conversationId: payload.conversationId,
-                message: {
-                    id: payload.message. id,
-                    text: payload. message.text,
-                    senderId: payload.message.senderId,
-                },
-                timestamp: Date.now(),
-            };
+            setNotifications((prev) => {
+                // Evitar duplicados
+                const exists = prev.some(
+                    (n) => n. conversationId === payload.conversationId && n.message.id === payload.message.id
+                );
+                if (exists) {
+                    console. log('[ChatNotifications] Notification already exists');
+                    return prev;
+                }
 
-            setNotifications((prev) => [... prev, notification]);
-
-            // Sonido
-            try {
-                const audio = new Audio('/Notidficacion-sound.mp3');
-                audio. volume = 0.5;
-                audio
-                    .play()
-                    .then(() => console.log('🔊 Sound played'))
-                    .catch((err) => console.warn('🔇 Could not play sound:', err));
-            } catch (err) {
-                console.warn('🔇 Audio error:', err);
-            }
+                console.log('[ChatNotifications] Adding new notification');
+                return [...prev, payload];
+            });
         };
 
-        chatSocket.onNewMessageNotification(handleNewMessageNotification);
+        socket.on('newMessageNotification', handleNewMessageNotification);
 
         return () => {
-            console. log('[ChatNotifications] 🔌 Cleanup');
-            chatSocket.offNewMessageNotification(handleNewMessageNotification);
+            console.log('[ChatNotifications] Cleaning up notification listener');
+            socket. off('newMessageNotification', handleNewMessageNotification);
         };
-    }, [isConnected]);
+    }, [socket, isConnected, user]);
 
-    const removeNotification = (id: string) => {
-        console.log('🗑️ Removing notification:', id);
-        setNotifications((prev) => prev.filter((n) => n.id !== id));
-    };
+    const clearNotification = useCallback((conversationId: number) => {
+        console.log('[ChatNotifications] Clearing notifications for conversation:', conversationId);
+        setNotifications((prev) => prev.filter((n) => n.conversationId !== conversationId));
+    }, []);
 
-    const clearNotifications = () => {
-        console.log('🗑️ Clearing all notifications');
+    const clearAllNotifications = useCallback(() => {
+        console.log('[ChatNotifications] Clearing all notifications');
         setNotifications([]);
-    };
+    }, []);
 
-    // Renderizar toasts usando Portal
-    const toastsPortal =
-        typeof document !== 'undefined'
-            ? createPortal(
-                <div
-                    className="chat-toasts-container"
-                    style={{
-                        position: 'fixed',
-                        top: '80px',
-                        right: '16px',
-                        zIndex: 999999,
-                        pointerEvents: 'none',
-                        maxWidth: '400px',
-                        display: 'flex',
-                        flexDirection: 'column',
-                        gap: '8px',
-                    }}
-                >
-                    {notifications.map((notification) => (
-                        <div key={notification.id} style={{ pointerEvents: 'auto' }}>
-                            <ChatNotificationToast
-                                notification={notification}
-                                onClose={() => removeNotification(notification. id)}
-                            />
-                        </div>
-                    ))}
-                </div>,
-                document.body,
-            )
-            : null;
+    const unreadCount = notifications.length;
 
     return (
         <ChatNotificationsContext.Provider
-            value={{ notifications, removeNotification, clearNotifications }}
+            value={{
+                notifications,
+                unreadCount,
+                clearNotification,
+                clearAllNotifications,
+            }}
         >
             {children}
-            {toastsPortal}
         </ChatNotificationsContext.Provider>
     );
-}
+};
+
+export const useChatNotifications = () => {
+    const context = useContext(ChatNotificationsContext);
+    if (context === undefined) {
+        throw new Error('useChatNotifications must be used within a ChatNotificationsProvider');
+    }
+    return context;
+};

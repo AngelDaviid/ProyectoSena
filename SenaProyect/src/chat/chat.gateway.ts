@@ -20,11 +20,13 @@ import { MessagesService } from './services/message.service';
     credentials: true,
   },
 })
-export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect, OnGatewayInit {
+export class ChatGateway
+  implements OnGatewayConnection, OnGatewayDisconnect, OnGatewayInit
+{
   @WebSocketServer()
   server: Server;
 
-  private readonly logger = new Logger(ChatGateway.name);
+  private readonly logger = new Logger(ChatGateway. name);
 
   // Map userId -> Set<socketId> (múltiples conexiones por usuario)
   private clients = new Map<number, Set<string>>();
@@ -68,8 +70,8 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect, On
 
       // Remover de todas las conversaciones y notificar
       for (const [convId, socketSet] of this.conversations. entries()) {
-        if (socketSet.has(client. id)) {
-          socketSet. delete(client.id);
+        if (socketSet.has(client.id)) {
+          socketSet.delete(client.id);
           if (socketSet.size === 0) {
             this.conversations. delete(convId);
           }
@@ -83,7 +85,7 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect, On
         }
       }
 
-      this.logger. log(`❌ User ${userId} disconnected`);
+      this.logger.log(`❌ User ${userId} disconnected`);
     }
 
     this.logger.log(`🔌 Client disconnected: ${client.id}`);
@@ -93,7 +95,7 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect, On
 
   private registerUser(client: Socket, userId: number) {
     if (!userId || typeof userId !== 'number') {
-      this.logger.warn(`Invalid userId in register: ${userId}`);
+      this.logger.warn(`⚠️ Invalid userId in register: ${userId}`);
       return;
     }
 
@@ -105,12 +107,16 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect, On
     this.clients.set(userId, socketSet);
 
     // Guardar en socketToUser
-    this. socketToUser.set(client. id, userId);
+    this.socketToUser.set(client.id, userId);
 
     // Guardar userId en el socket para acceso rápido
     (client as any).__userId = userId;
 
-    this.logger.log(`✅ User ${userId} registered, total users: ${this.clients.size}`);
+    client.emit('registered', { ok: true, userId });
+
+    this.logger.log(
+      `✅ User ${userId} registered successfully, total users: ${this.clients.size}`,
+    );
   }
 
   // ==================== JOIN CONVERSATION ====================
@@ -124,12 +130,23 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect, On
       const room = String(data.conversationId);
       const userId = (client as any).__userId;
 
+      if (!userId) {
+        this.logger. warn(
+          `⚠️ User not registered, cannot join conversation ${room}`,
+        );
+        client.emit('error', {
+          event: 'joinConversation',
+          message: 'Usuario no registrado',
+        });
+        return;
+      }
+
       this.logger.log(`👥 User ${userId} joining conversation ${room}`);
 
       // Verificar si ya está en la sala
       if (client.rooms.has(room)) {
-        this. logger.log(`⏭️ User ${userId} already in conversation ${room}`);
-        client.emit('joinedConversation', {
+        this.logger.log(`⏭️ User ${userId} already in conversation ${room}`);
+        client. emit('joinedConversation', {
           conversationId: room,
           ok: true,
           note: 'already_joined',
@@ -141,26 +158,75 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect, On
       await client.join(room);
 
       // Agregar a conversations map
-      const socketSet = this.conversations.get(Number(room)) || new Set<string>();
+      const socketSet =
+        this.conversations.get(Number(room)) || new Set<string>();
       socketSet.add(client. id);
       this.conversations. set(Number(room), socketSet);
 
       // Notificar a otros usuarios
       client.to(room).emit('userJoined', {
-        userSocketId: client.id,
+        conversationId: room,
         userId,
-        timestamp: new Date(). toISOString(),
+        timestamp: new Date().toISOString(),
       });
 
       // Confirmar al usuario
       client.emit('joinedConversation', { conversationId: room, ok: true });
 
-      this.logger. log(`✅ User ${userId} joined conversation ${room}`);
+      this.logger.log(
+        `✅ User ${userId} joined conversation ${room}, total in room: ${socketSet.size}`,
+      );
     } catch (err) {
       this.logger. error('❌ Error joining conversation:', err);
       client.emit('error', {
         event: 'joinConversation',
         message: 'No se pudo unir a la conversación',
+        error: String(err),
+      });
+    }
+  }
+
+  // ==================== LEAVE CONVERSATION ====================
+
+  @SubscribeMessage('leaveConversation')
+  handleLeaveConversation(
+    @MessageBody() data: { conversationId: string },
+    @ConnectedSocket() client: Socket,
+  ) {
+    try {
+      const room = String(data.conversationId);
+      const userId = (client as any).__userId;
+
+      this.logger.log(`👋 User ${userId} leaving conversation ${room}`);
+
+      // Salir de la sala
+      client.leave(room);
+
+      // Remover de conversations map
+      const socketSet = this.conversations.get(Number(room));
+      if (socketSet) {
+        socketSet.delete(client.id);
+        if (socketSet.size === 0) {
+          this.conversations. delete(Number(room));
+        }
+      }
+
+      // Notificar a otros
+      client.to(room).emit('userLeft', {
+        conversationId: room,
+        userId,
+        timestamp: new Date(). toISOString(),
+      });
+
+      // Confirmar
+      client.emit('leftConversation', { conversationId: room, ok: true });
+
+      this.logger.log(`✅ User ${userId} left conversation ${room}`);
+    } catch (err) {
+      this.logger.error('❌ Error leaving conversation:', err);
+      client.emit('error', {
+        event: 'leaveConversation',
+        message: 'Error al salir de la conversación',
       });
     }
   }
@@ -194,7 +260,9 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect, On
         imageUrl,
       );
 
-      // Preparar payload
+      this.logger.log(`✅ Message saved to database with ID: ${message.id}`);
+
+      // Preparar payload para el cliente
       const payload = {
         id: message.id,
         text: message.text,
@@ -203,17 +271,20 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect, On
           message.createdAt instanceof Date
             ? message.createdAt.toISOString()
             : message.createdAt,
-        senderId: (message as any). sender?. id ??  +senderId,
+        senderId: (message as any).sender?. id ??  +senderId,
         conversationId: (message as any).conversation?.id ?? +conversationId,
         tempId: tempId || null,
+        seenBy: [],
       };
 
       // Emitir a TODOS en la conversación (incluyendo el emisor)
       this.server. to(conversationId).emit('newMessage', payload);
 
-      this.logger.log(`✅ Message ${message.id} broadcasted to conversation ${conversationId}`);
+      this.logger.log(
+        `📤 Message ${message.id} broadcasted to conversation ${conversationId}`,
+      );
 
-      // ✅ NOTIFICACIÓN GLOBAL: Emitir a TODOS los participantes aunque no estén en la página de chat
+      // Notificación global para usuarios NO en la conversación actual
       await this.notifyNewMessage(+conversationId, payload);
 
       return { status: 'ok', message: payload };
@@ -231,7 +302,8 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect, On
 
   @SubscribeMessage('messageSeen')
   handleMessageSeen(
-    @MessageBody() data: { conversationId: string; messageIds: number[]; userId: number },
+    @MessageBody()
+    data: { conversationId: string; messageIds: number[]; userId: number },
     @ConnectedSocket() client: Socket,
   ) {
     try {
@@ -248,12 +320,15 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect, On
         userId,
         timestamp: new Date().toISOString(),
       });
+
+      return { ok: true };
     } catch (err) {
       this.logger.error('❌ Error marking message as seen:', err);
       client.emit('error', {
         event: 'messageSeen',
         message: 'No se pudo procesar seen',
       });
+      return { ok: false, error: String(err) };
     }
   }
 
@@ -261,7 +336,8 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect, On
 
   @SubscribeMessage('typing')
   handleTyping(
-    @MessageBody() data: { conversationId: string; senderId: string; typing: boolean },
+    @MessageBody()
+    data: { conversationId: string; senderId: string; typing: boolean },
     @ConnectedSocket() client: Socket,
   ) {
     try {
@@ -276,37 +352,28 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect, On
       });
 
       client.emit('typingAck', { conversationId, ok: true });
+
+      return { ok: true };
     } catch (err) {
       this.logger.error('❌ Error handling typing:', err);
       client. emit('error', {
         event: 'typing',
         message: 'No se pudo notificar typing',
       });
+      return { ok: false, error: String(err) };
     }
   }
 
   // ==================== NOTIFICACIÓN GLOBAL ====================
 
-  /**
-   * Notificar a TODOS los participantes de la conversación
-   * aunque no estén en la página de chat
-   */
   private async notifyNewMessage(conversationId: number, messagePayload: any) {
     try {
-      // TODO: Obtener participantes de la conversación desde la BD
-      // Por ahora, emitimos a todos los usuarios conectados
-      // En producción, deberías filtrar solo a los participantes
-
-      this.logger.log(
-        `========== 🔔 NEW MESSAGE NOTIFICATION ==========`,
-      );
+      this.logger.log(`🔔 Sending new message notification`);
       this.logger.log(`📢 Conversation: ${conversationId}`);
       this.logger.log(`📢 Sender: ${messagePayload.senderId}`);
       this.logger. log(`📢 Text: ${messagePayload.text?. substring(0, 50)}...`);
-      this.logger.log(`================================================`);
 
-      // Emitir notificación global a todos los sockets de los participantes
-      // (puedes obtener los participantes de la BD y filtrar)
+      // Emitir notificación global a todos los usuarios conectados
       this.server.emit('newMessageNotification', {
         conversationId,
         message: messagePayload,
@@ -321,9 +388,6 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect, On
 
   // ==================== HELPER METHODS ====================
 
-  /**
-   * Emitir evento a un usuario específico (todos sus sockets)
-   */
   emitToUser(userId: number, event: string, data: any) {
     const socketIds = this.clients.get(userId);
     if (! socketIds || socketIds.size === 0) {
@@ -335,21 +399,25 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect, On
       this.server. to(socketId).emit(event, data);
     });
 
-    this.logger.log(`📤 Emitted ${event} to user ${userId} (${socketIds.size} sockets)`);
+    this.logger.log(
+      `📤 Emitted ${event} to user ${userId} (${socketIds.size} sockets)`,
+    );
   }
 
-  /**
-   * Emitir a una conversación
-   */
   emitToConversation(conversationId: number, event: string, data: any) {
     this.server.to(String(conversationId)).emit(event, data);
     this.logger.log(`📤 Emitted ${event} to conversation ${conversationId}`);
   }
 
-  /**
-   * Verificar si un usuario está conectado
-   */
   isUserConnected(userId: number): boolean {
     return this.clients.has(userId);
+  }
+
+  getStats() {
+    return {
+      connectedUsers: this.clients.size,
+      activeConversations: this.conversations. size,
+      totalSockets: this.socketToUser.size,
+    };
   }
 }
