@@ -271,7 +271,7 @@ export default function EventDetail() {
                                 className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 flex items-center gap-2"
                             >
                                 <Share2 className="w-4 h-4" />
-                                Compartir
+                                Copiar Link
                             </button>
                         </div>
                     </div>

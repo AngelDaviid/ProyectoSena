@@ -1,8 +1,9 @@
 import { createContext, useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import type { ReactNode } from 'react';
 import { eventsSocket } from '../services/sockets/evento.socket';
 import type { EventPublishedPayload } from '../services/sockets/evento.socket';
-import { useSocketContext } from '../hooks/useSocketContext';
+import { useSocketContext } from './socket-provider';
 import EventToast from '../components/Events/Events-toast';
 import type { Event } from '../types/event';
 
@@ -35,7 +36,11 @@ export function EventNotificationsProvider({ children }: { children: ReactNode }
         console.log('[EventNotifications] 🎧 Setting up event listeners');
 
         const handleEventPublished = (payload: EventPublishedPayload) => {
-            console.log('[EventNotifications] 📢 New event published:', payload);
+            console.log('========== 🔔 EVENT RECEIVED ==========');
+            console.log('📍 Current page:', window.location.pathname);
+            console.log('📢 Event:', payload.event.title);
+            console.log('📢 Message:', payload.message);
+            console.log('=======================================');
 
             const notification: EventNotification = {
                 id: `event-${payload.event.id}-${Date.now()}`,
@@ -44,18 +49,25 @@ export function EventNotificationsProvider({ children }: { children: ReactNode }
                 timestamp: Date.now(),
             };
 
-            setNotifications(prev => [...prev, notification]);
+            setNotifications(prev => {
+                const updated = [...prev, notification];
+                console.log('📊 Total notifications:', updated.length);
+                return updated;
+            });
 
+            // Reproducir sonido
             try {
-                const audio = new Audio('/notification-sound.mp3');
-                audio.volume = 0.5;
-                audio.play(). catch(err => console.warn('Could not play sound:', err));
+                const audio = new Audio('/Notidficacion-sound.mp3');
+                audio. volume = 0.5;
+                audio.play()
+                    .then(() => console.log('🔊 Sound played'))
+                    .catch(err => console.warn('🔇 Could not play sound:', err));
             } catch (err) {
-                console.warn('Audio not available:', err);
+                console.warn('🔇 Audio error:', err);
             }
         };
 
-        eventsSocket. onEventPublished(handleEventPublished);
+        eventsSocket.onEventPublished(handleEventPublished);
 
         return () => {
             console.log('[EventNotifications] 🔌 Cleaning up event listeners');
@@ -64,27 +76,51 @@ export function EventNotificationsProvider({ children }: { children: ReactNode }
     }, [isConnected]);
 
     const removeNotification = (id: string) => {
+        console.log('🗑️ Removing notification:', id);
         setNotifications(prev => prev.filter(n => n.id !== id));
     };
 
     const clearNotifications = () => {
+        console.log('🗑️ Clearing all notifications');
         setNotifications([]);
     };
+
+    // Renderizar toasts usando Portal directamente en body
+    const toastsPortal = typeof document !== 'undefined' ? createPortal(
+        <div
+            className="event-toasts-container"
+            style={{
+                position: 'fixed',
+                top: '80px',
+                right: '16px',
+                zIndex: 999999,
+                pointerEvents: 'none',
+                maxWidth: '400px',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '8px'
+            }}
+        >
+            {notifications.map(notification => {
+                console.log('🎨 Rendering toast:', notification. event.title);
+                return (
+                    <div key={notification.id} style={{ pointerEvents: 'auto' }}>
+                        <EventToast
+                            event={notification.event}
+                            message={notification.message}
+                            onClose={() => removeNotification(notification.id)}
+                        />
+                    </div>
+                );
+            })}
+        </div>,
+        document.body
+    ) : null;
 
     return (
         <EventNotificationsContext.Provider value={{ notifications, removeNotification, clearNotifications }}>
             {children}
-
-            <div className="fixed top-20 right-4 z-50 space-y-2">
-                {notifications.map(notification => (
-                    <EventToast
-                        key={notification.id}
-                        event={notification.event}
-                        message={notification.message}
-                        onClose={() => removeNotification(notification.id)}
-                    />
-                ))}
-            </div>
+            {toastsPortal}
         </EventNotificationsContext.Provider>
     );
 }

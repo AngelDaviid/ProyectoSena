@@ -140,11 +140,16 @@ class SocketService {
      * Registrar usuario en el socket
      */
     registerUser(userId: number): void {
+        if (!userId) {
+            console.error('[Socket] Invalid userId provided');
+            return;
+        }
+
         if (this.socket && this.socket.connected) {
             this.socket.emit('register', { userId });
-            console.log('[Socket] 👤 User registered:', userId);
+            console.log('[Socket] 👤 User registration sent:', userId);
         } else {
-            console.warn('[Socket] Cannot register user: socket not connected');
+            console.warn('[Socket] Cannot register user: socket not connected, adding to queue');
             // Agregar a la cola para enviar cuando se conecte
             this.eventQueue.push({ event: 'register', data: { userId } });
         }

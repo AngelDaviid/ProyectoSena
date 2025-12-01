@@ -9,193 +9,415 @@ import {
   OnGatewayInit,
 } from '@nestjs/websockets';
 import { Server, Socket } from 'socket.io';
-import { MessagesService } from "./services/message.service";
+import { Injectable, Logger } from '@nestjs/common';
+import { MessagesService } from './services/message.service';
 
+@Injectable()
 @WebSocketGateway({
   namespace: '/ws',
   cors: {
-    origin: 'http://localhost:5173',
+    origin: process.env.FRONTEND_URL || 'http://localhost:5173',
     credentials: true,
   },
 })
-export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect, OnGatewayInit {
+export class ChatGateway
+  implements OnGatewayConnection, OnGatewayDisconnect, OnGatewayInit
+{
   @WebSocketServer()
   server: Server;
 
-  // Simple rate limit por IP (memoria).  Para producción usar Redis o store compartida.
-  private connectionCounts = new Map<string, number>();
-  private readonly MAX_CONN_PER_IP = 20;
+  private readonly logger = new Logger(ChatGateway. name);
 
-  // Evitar joins en ráfaga: socketId -> (room -> lastTimestamp)
-  private lastJoinAt = new Map<string, Map<string, number>>();
-  private readonly JOIN_COOLDOWN_MS = 300; // configurable (ms)
+  // Map userId -> Set<socketId> (múltiples conexiones por usuario)
+  private clients = new Map<number, Set<string>>();
+
+  // Map conversationId -> Set<socketId> (usuarios en cada conversación)
+  private conversations = new Map<number, Set<string>>();
+
+  // Map socketId -> userId
+  private socketToUser = new Map<string, number>();
 
   constructor(private messagesService: MessagesService) {}
 
-  // OnGatewayInit hook
   afterInit(server: Server) {
-    console.log('[WS] gateway initialized (namespace /ws)');
+    this.logger. log('✅ ChatGateway initialized (namespace /ws)');
   }
 
   handleConnection(client: Socket) {
-    const ip =
-      (client.handshake && (client.handshake.address as string)) ||
-      (client.conn && (client.conn.remoteAddress as string)) ||
-      'unknown';
-    const count = (this.connectionCounts.get(ip) || 0) + 1;
-    this.connectionCounts.set(ip, count);
+    this.logger.log(`🔌 Client connected: ${client.id}`);
 
-    // Guarda ip en socket para limpiar en disconnect
-    (client as any).__remoteIp = ip;
-
-    if (count > this.MAX_CONN_PER_IP) {
-      console.warn(`[WS] Too many connections from ${ip} (${count}), disconnecting ${client.id}`);
-      client.emit('error', 'too_many_connections');
-      client. disconnect(true);
-      return;
-    }
-
-    console.log(`[WS] client connected: ${client.id} (ip=${ip})`);
-
-    if (client.handshake?. auth?.token) {
-      console.log(`[WS] client ${client.id} provided token (length=${String(client.handshake.auth.token). length})`);
-    }
+    // Escuchar evento 'register' para asociar userId
+    client.on('register', (payload: { userId: number }) => {
+      this.registerUser(client, payload.userId);
+    });
   }
 
   handleDisconnect(client: Socket) {
-    const ip = (client as any).__remoteIp;
-    if (ip) {
-      const c = (this.connectionCounts.get(ip) || 1) - 1;
-      if (c <= 0) this.connectionCounts.delete(ip);
-      else this.connectionCounts.set(ip, c);
+    const userId = this.socketToUser.get(client.id);
+
+    if (userId) {
+      // Remover de clients
+      const sockets = this.clients.get(userId);
+      if (sockets) {
+        sockets.delete(client. id);
+        if (sockets.size === 0) {
+          this.clients. delete(userId);
+        }
+      }
+
+      // Remover de socketToUser
+      this.socketToUser.delete(client.id);
+
+      // Remover de todas las conversaciones y notificar
+      for (const [convId, socketSet] of this.conversations. entries()) {
+        if (socketSet.has(client.id)) {
+          socketSet.delete(client.id);
+          if (socketSet.size === 0) {
+            this.conversations. delete(convId);
+          }
+
+          // Notificar a otros en la conversación
+          this.server.to(String(convId)).emit('userLeft', {
+            conversationId: convId,
+            userId,
+            timestamp: new Date().toISOString(),
+          });
+        }
+      }
+
+      this.logger.log(`❌ User ${userId} disconnected`);
     }
 
-    // limpiar lastJoinAt para este socket
-    this.lastJoinAt.delete(client.id);
-
-    console.log(`[WS] client disconnected: ${client. id}`);
+    this.logger.log(`🔌 Client disconnected: ${client.id}`);
   }
 
-  /**
-   * joinConversation protegido contra joins redundantes y ráfagas
-   */
+  // ==================== REGISTRO ====================
+
+  private registerUser(client: Socket, userId: number) {
+    if (!userId || typeof userId !== 'number') {
+      this.logger.warn(`⚠️ Invalid userId in register: ${userId}`);
+      return;
+    }
+
+    this.logger.log(`📝 Registering user ${userId} with socket ${client.id}`);
+
+    // Guardar en clients
+    const socketSet = this.clients.get(userId) || new Set<string>();
+    socketSet.add(client.id);
+    this.clients.set(userId, socketSet);
+
+    // Guardar en socketToUser
+    this.socketToUser.set(client.id, userId);
+
+    // Guardar userId en el socket para acceso rápido
+    (client as any).__userId = userId;
+
+    client.emit('registered', { ok: true, userId });
+
+    this.logger.log(
+      `✅ User ${userId} registered successfully, total users: ${this.clients.size}`,
+    );
+  }
+
+  // ==================== JOIN CONVERSATION ====================
+
   @SubscribeMessage('joinConversation')
-  async handleJoin(
-    @MessageBody('conversationId') conversationId: string,
+  async handleJoinConversation(
+    @MessageBody() data: { conversationId: string },
     @ConnectedSocket() client: Socket,
   ) {
     try {
-      const room = String(conversationId);
-      // 1) Evitar joins si ya está en la sala
-      if (client.rooms && client.rooms.has(room)) {
-        client.emit('joinedConversation', { conversationId: room, ok: true, note: 'already_joined' });
+      const room = String(data.conversationId);
+      const userId = (client as any).__userId;
+
+      if (!userId) {
+        this.logger. warn(
+          `⚠️ User not registered, cannot join conversation ${room}`,
+        );
+        client.emit('error', {
+          event: 'joinConversation',
+          message: 'Usuario no registrado',
+        });
         return;
       }
 
-      // 2) Rate-limit simple por socket+room (protege de bursts)
-      const socketId = client.id;
-      const perSocket = this.lastJoinAt.get(socketId) ??  new Map<string, number>();
-      const now = Date.now();
-      const last = perSocket.get(room) ?? 0;
-      if (now - last < this.JOIN_COOLDOWN_MS) {
-        client.emit('error', { event: 'joinConversation', message: 'too_many_joins' });
+      this.logger.log(`👥 User ${userId} joining conversation ${room}`);
+
+      // Verificar si ya está en la sala
+      if (client.rooms.has(room)) {
+        this.logger.log(`⏭️ User ${userId} already in conversation ${room}`);
+        client. emit('joinedConversation', {
+          conversationId: room,
+          ok: true,
+          note: 'already_joined',
+        });
         return;
       }
-      perSocket. set(room, now);
-      this.lastJoinAt.set(socketId, perSocket);
 
-      // 3) Realizar el join
-      client.join(room);
-      client.to(room).emit('userJoined', { userSocketId: client.id });
+      // Unirse a la sala
+      await client.join(room);
+
+      // Agregar a conversations map
+      const socketSet =
+        this.conversations.get(Number(room)) || new Set<string>();
+      socketSet.add(client. id);
+      this.conversations. set(Number(room), socketSet);
+
+      // Notificar a otros usuarios
+      client.to(room).emit('userJoined', {
+        conversationId: room,
+        userId,
+        timestamp: new Date().toISOString(),
+      });
+
+      // Confirmar al usuario
       client.emit('joinedConversation', { conversationId: room, ok: true });
-      console.log(`[WS] client ${client.id} joined conversation ${room}`);
+
+      this.logger.log(
+        `✅ User ${userId} joined conversation ${room}, total in room: ${socketSet.size}`,
+      );
     } catch (err) {
-      console.error('[WS] joinConversation error', err);
-      client.emit('error', { event: 'joinConversation', message: 'No se pudo unir a la conversación' });
+      this.logger. error('❌ Error joining conversation:', err);
+      client.emit('error', {
+        event: 'joinConversation',
+        message: 'No se pudo unir a la conversación',
+        error: String(err),
+      });
     }
   }
+
+  // ==================== LEAVE CONVERSATION ====================
+
+  @SubscribeMessage('leaveConversation')
+  handleLeaveConversation(
+    @MessageBody() data: { conversationId: string },
+    @ConnectedSocket() client: Socket,
+  ) {
+    try {
+      const room = String(data.conversationId);
+      const userId = (client as any).__userId;
+
+      this.logger.log(`👋 User ${userId} leaving conversation ${room}`);
+
+      // Salir de la sala
+      client.leave(room);
+
+      // Remover de conversations map
+      const socketSet = this.conversations.get(Number(room));
+      if (socketSet) {
+        socketSet.delete(client.id);
+        if (socketSet.size === 0) {
+          this.conversations. delete(Number(room));
+        }
+      }
+
+      // Notificar a otros
+      client.to(room).emit('userLeft', {
+        conversationId: room,
+        userId,
+        timestamp: new Date(). toISOString(),
+      });
+
+      // Confirmar
+      client.emit('leftConversation', { conversationId: room, ok: true });
+
+      this.logger.log(`✅ User ${userId} left conversation ${room}`);
+    } catch (err) {
+      this.logger.error('❌ Error leaving conversation:', err);
+      client.emit('error', {
+        event: 'leaveConversation',
+        message: 'Error al salir de la conversación',
+      });
+    }
+  }
+
+  // ==================== SEND MESSAGE ====================
 
   @SubscribeMessage('sendMessage')
-  async handleMessage(
-    @MessageBody() data: { conversationId: string; senderId: string; text: string; imageUrl?: string; tempId?: string },
+  async handleSendMessage(
+    @MessageBody()
+    data: {
+      conversationId: string;
+      senderId: string;
+      text: string;
+      imageUrl?: string;
+      tempId?: string;
+    },
     @ConnectedSocket() client: Socket,
   ) {
     try {
-      console.log(`[WS] sendMessage -> conv ${data.conversationId} sender ${data.senderId} tempId=${data.tempId ??  'none'}`);
-      const message = await this.messagesService. create(
-        +data.conversationId,
-        +data.senderId,
-        data.text,
-        data.imageUrl,
+      const { conversationId, senderId, text, imageUrl, tempId } = data;
+
+      this.logger. log(
+        `💬 Message from user ${senderId} to conversation ${conversationId}, tempId=${tempId ??  'none'}`,
       );
 
-      // Normalizar payload para envío por websocket (evitar relaciones circulares)
+      // Guardar mensaje en base de datos
+      const message = await this.messagesService.create(
+        +conversationId,
+        +senderId,
+        text,
+        imageUrl,
+      );
+
+      this.logger.log(`✅ Message saved to database with ID: ${message.id}`);
+
+      // Preparar payload para el cliente
       const payload = {
         id: message.id,
         text: message.text,
-        imageUrl: message.imageUrl ??  null,
-        createdAt: (message.createdAt as Date)?.toISOString ?  (message.createdAt as Date).toISOString() : message.createdAt,
-        senderId: (message as any).sender?. id ??  +data.senderId,
-        conversationId: (message as any).conversation?.id ??  +data.conversationId,
-        tempId: data.tempId ??  undefined,
+        imageUrl: message.imageUrl || null,
+        createdAt:
+          message.createdAt instanceof Date
+            ? message.createdAt.toISOString()
+            : message.createdAt,
+        senderId: (message as any).sender?. id ??  +senderId,
+        conversationId: (message as any).conversation?.id ?? +conversationId,
+        tempId: tempId || null,
+        seenBy: [],
       };
 
-      console.log('[WS] emitting newMessage', payload);
-      this.server.to(data.conversationId).emit('newMessage', payload);
+      // Emitir a TODOS en la conversación (incluyendo el emisor)
+      this.server. to(conversationId).emit('newMessage', payload);
+
+      this.logger.log(
+        `📤 Message ${message.id} broadcasted to conversation ${conversationId}`,
+      );
+
+      // Notificación global para usuarios NO en la conversación actual
+      await this.notifyNewMessage(+conversationId, payload);
 
       return { status: 'ok', message: payload };
     } catch (err) {
-      console.error('[WS] sendMessage error', err);
-      client.emit('messageError', { message: 'Error al enviar el mensaje' });
+      this.logger.error('❌ Error sending message:', err);
+      client.emit('messageError', {
+        message: 'Error al enviar el mensaje',
+        error: String(err),
+      });
       return { status: 'error', error: String(err) };
     }
   }
 
-  /**
-   * messageSeen: client notifica que uno o varios mensajes fueron vistos por userId
-   * data: { conversationId, messageIds: number[], userId }
-   */
+  // ==================== MESSAGE SEEN ====================
+
   @SubscribeMessage('messageSeen')
   handleMessageSeen(
-    @MessageBody() data: { conversationId: string; messageIds: number[]; userId: number },
+    @MessageBody()
+    data: { conversationId: string; messageIds: number[]; userId: number },
     @ConnectedSocket() client: Socket,
   ) {
     try {
-      console. log('[WS] messageSeen', data);
-      // Reenviar la información a la room, para que otros clientes la actualicen en UI
-      this.server.to(String(data.conversationId)).emit('messageSeen', {
-        conversationId: data. conversationId,
-        messageIds: data.messageIds,
-        userId: data.userId,
+      const { conversationId, messageIds, userId } = data;
+
+      this.logger.log(
+        `👁️ User ${userId} saw ${messageIds.length} messages in conversation ${conversationId}`,
+      );
+
+      // Emitir a todos en la conversación
+      this.server.to(String(conversationId)).emit('messageSeen', {
+        conversationId,
+        messageIds,
+        userId,
         timestamp: new Date().toISOString(),
       });
-      // Opcional: aquí podrías persistir el "seen" en BD si añades campos a Message
+
+      return { ok: true };
     } catch (err) {
-      console.error('[WS] messageSeen error', err);
-      client.emit('error', { event: 'messageSeen', message: 'No se pudo procesar seen' });
+      this.logger.error('❌ Error marking message as seen:', err);
+      client.emit('error', {
+        event: 'messageSeen',
+        message: 'No se pudo procesar seen',
+      });
+      return { ok: false, error: String(err) };
     }
   }
 
-  /**
-   * Evento "typing": reenviar a la room sin spamear (cliente debe debounciar)
-   */
+  // ==================== TYPING INDICATOR ====================
+
   @SubscribeMessage('typing')
   handleTyping(
-    @MessageBody() data: { conversationId: string; senderId: string; typing: boolean },
+    @MessageBody()
+    data: { conversationId: string; senderId: string; typing: boolean },
     @ConnectedSocket() client: Socket,
   ) {
     try {
       const { conversationId, senderId, typing } = data;
+
+      // Emitir solo a OTROS usuarios (no al emisor)
       client.to(conversationId).emit('userTyping', {
         conversationId,
         userId: senderId,
         typing,
         timestamp: new Date().toISOString(),
       });
+
       client.emit('typingAck', { conversationId, ok: true });
+
+      return { ok: true };
     } catch (err) {
-      console.error('[WS] typing error', err);
-      client.emit('error', { event: 'typing', message: 'No se pudo notificar typing' });
+      this.logger.error('❌ Error handling typing:', err);
+      client. emit('error', {
+        event: 'typing',
+        message: 'No se pudo notificar typing',
+      });
+      return { ok: false, error: String(err) };
     }
+  }
+
+  // ==================== NOTIFICACIÓN GLOBAL ====================
+
+  private async notifyNewMessage(conversationId: number, messagePayload: any) {
+    try {
+      this.logger.log(`🔔 Sending new message notification`);
+      this.logger.log(`📢 Conversation: ${conversationId}`);
+      this.logger.log(`📢 Sender: ${messagePayload.senderId}`);
+      this.logger. log(`📢 Text: ${messagePayload.text?. substring(0, 50)}...`);
+
+      // Emitir notificación global a todos los usuarios conectados
+      this.server.emit('newMessageNotification', {
+        conversationId,
+        message: messagePayload,
+        timestamp: new Date().toISOString(),
+      });
+
+      this.logger.log(`✅ Message notification broadcasted`);
+    } catch (err) {
+      this.logger.error('❌ Error sending message notification:', err);
+    }
+  }
+
+  // ==================== HELPER METHODS ====================
+
+  emitToUser(userId: number, event: string, data: any) {
+    const socketIds = this.clients.get(userId);
+    if (! socketIds || socketIds.size === 0) {
+      this.logger.debug(`⚠️ User ${userId} not connected`);
+      return;
+    }
+
+    socketIds.forEach((socketId) => {
+      this.server. to(socketId).emit(event, data);
+    });
+
+    this.logger.log(
+      `📤 Emitted ${event} to user ${userId} (${socketIds.size} sockets)`,
+    );
+  }
+
+  emitToConversation(conversationId: number, event: string, data: any) {
+    this.server.to(String(conversationId)).emit(event, data);
+    this.logger.log(`📤 Emitted ${event} to conversation ${conversationId}`);
+  }
+
+  isUserConnected(userId: number): boolean {
+    return this.clients.has(userId);
+  }
+
+  getStats() {
+    return {
+      connectedUsers: this.clients.size,
+      activeConversations: this.conversations. size,
+      totalSockets: this.socketToUser.size,
+    };
   }
 }

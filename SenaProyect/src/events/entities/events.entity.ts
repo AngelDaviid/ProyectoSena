@@ -42,8 +42,9 @@ export class Event {
   imageUrl?: string;
 
   @ApiProperty({ description: 'Ubicación del evento' })
-  @Column({ type: 'varchar', length: 255 })
+  @Column({ type: 'varchar', length: 255})
   location: string;
+
 
   @ApiProperty({ description: 'Fecha de inicio del evento' })
   @Column({ type: 'timestamptz', name: 'start_date' })

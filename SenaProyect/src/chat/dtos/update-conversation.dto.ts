@@ -1,4 +1,10 @@
-import { PartialType } from '@nestjs/mapped-types';
-import { CreateConversationDto } from './create-conversation.dto';
+import { IsArray, IsInt, IsOptional } from 'class-validator';
+import { Type } from 'class-transformer';
 
-export class UpdateConversationDto extends PartialType(CreateConversationDto) {}
+export class UpdateConversationDto {
+  @IsOptional()
+  @IsArray()
+  @IsInt({ each: true })
+  @Type(() => Number)
+  participantIds?: number[];
+}
