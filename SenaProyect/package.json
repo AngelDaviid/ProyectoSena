@@ -23,8 +23,11 @@
     "migration:create": "typeorm-ts-node-commonjs migration:create",
     "migration:show": "npm run typeorm migration:show",
     "migration:run": "npm run typeorm migration:run",
-    "postdeploy": "npm run migration:run"
+    "migration:revert": "npm run typeorm migration:revert",
+    "postdeploy": "npm run migration:run",
+    "seed": "ts-node src/seeds/run-seeds.ts"
   },
+
   "dependencies": {
     "@nestjs/common": "^11.0.1",
     "@nestjs/config": "^4.0.2",

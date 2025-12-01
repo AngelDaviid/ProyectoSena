@@ -1,5 +1,14 @@
-import { Column, CreateDateColumn, Entity, ManyToMany, PrimaryGeneratedColumn, UpdateDateColumn } from 'typeorm';
+import {
+  Column,
+  CreateDateColumn,
+  Entity,
+  ManyToMany,
+  OneToMany,
+  PrimaryGeneratedColumn,
+  UpdateDateColumn
+} from 'typeorm';
 import { Post } from './post.entity';
+import { Event } from '../../events/entities/events.entity'; // 👈 IMPORTANTE
 
 @Entity({
   name: 'categories',
@@ -31,4 +40,9 @@ export class Category {
 
   @ManyToMany(() => Post, (post) => post.categories)
   posts: Post[];
+
+  // 👇 ESTA ES LA RELACIÓN QUE TE FALTABA
+  @ManyToMany(() => Event, (event) => event.categories)
+  events: Event[];
+
 }
