@@ -1,16 +1,16 @@
 import {
   Injectable,
   NotFoundException,
-  BadRequestException,
   ForbiddenException,
+  BadRequestException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Event } from '../entities/events.entity';
-import { CreateEventDto } from '../dto/events.dto';
-import { UpdateEventDto } from '../dto/update-event.dto';
-import { FilterEventsDto } from '../dto/filter-events.dto';
 import { EventsGateway } from '../events.gateway';
+import { CreateEventDto } from '../dto/events.dto';
+import { FilterEventsDto } from '../dto/filter-events.dto';
+import { UpdateEventDto } from '../dto/update-event.dto';
 
 @Injectable()
 export class EventsService {
@@ -24,7 +24,6 @@ export class EventsService {
    * Crear un nuevo evento
    */
   async create(createEventDto: CreateEventDto, userId: number, imageUrl?: string): Promise<Event> {
-    // ✅ LOGS DE DEBUG
     console.log('========== 🔍 DEBUG CREATE EVENT ==========');
     console.log('📥 createEventDto:', JSON.stringify(createEventDto, null, 2));
     console. log('📥 createEventDto.isDraft:', createEventDto.isDraft);
@@ -44,19 +43,18 @@ export class EventsService {
       throw new BadRequestException('La fecha de fin debe ser posterior a la fecha de inicio');
     }
 
-    const isDraft = createEventDto.isDraft ?? false;
+    const isDraft = createEventDto.isDraft ??  false;
 
-    // ✅ LOG DESPUÉS DE CALCULAR
     console.log('🎯 isDraft calculado:', isDraft);
     console.log('🎯 Lógica: createEventDto.isDraft !== false');
     console.log('🎯 Resultado:', createEventDto.isDraft, '! ==', false, '=', isDraft);
 
     const event = this.eventsRepository.create({
-      ... createEventDto,
+      ...createEventDto,
       startDate,
       endDate,
       user: { id: userId } as any,
-      categories: createEventDto.categoryIds?. map(id => ({ id })) as any,
+      categories: createEventDto.categoryIds?. map((id) => ({ id })) as any,
       imageUrl: imageUrl,
       isDraft,
     });
@@ -72,8 +70,7 @@ export class EventsService {
       throw new NotFoundException('Error al crear el evento');
     }
 
-    // ✅ LOGS ANTES DE NOTIFICAR
-    console.log('📊 fullEvent.isDraft:', fullEvent.isDraft);
+    console.log('📊 fullEvent. isDraft:', fullEvent.isDraft);
     console.log('📊 ! isDraft (should publish?):', !isDraft);
     console.log('📊 fullEvent.title:', fullEvent.title);
 
@@ -88,10 +85,14 @@ export class EventsService {
 
     return this.enrichEventWithUserData(fullEvent, userId) as Event;
   }
+
   /**
    * Listar eventos (solo públicos, no borradores)
    */
-  async findAll(filters: FilterEventsDto, userId?: number): Promise<{ events: Event[]; total: number }> {
+  async findAll(
+    filters: FilterEventsDto,
+    userId?: number,
+  ): Promise<{ events: Event[]; total: number }> {
     const { eventType, categoryId, startDateFrom, startDateTo, search, page = 1, limit = 20 } = filters;
 
     const qb = this.eventsRepository
@@ -100,14 +101,13 @@ export class EventsService {
       .leftJoinAndSelect('user.profile', 'userProfile')
       .leftJoinAndSelect('event.categories', 'category')
       .leftJoinAndSelect('event.attendees', 'attendees')
-      .where(userId
-          ? '(event.isDraft = :isDraft OR event. userId = :userId)'
-          : 'event.isDraft = :isDraft',
-        { isDraft: false, userId }
+      .where(
+        userId ? '(event.isDraft = :isDraft OR event.userId = :userId)' : 'event.isDraft = :isDraft',
+        { isDraft: false, userId },
       );
 
     if (eventType) {
-      qb.andWhere('event. eventType = :eventType', { eventType });
+      qb.andWhere('event.eventType = :eventType', { eventType });
     }
 
     if (categoryId) {
@@ -123,9 +123,12 @@ export class EventsService {
     }
 
     if (search) {
-      qb.andWhere('(event.title ILIKE :search OR event.description ILIKE :search OR event.location ILIKE :search)', {
-        search: `%${search}%`,
-      });
+      qb.andWhere(
+        '(event.title ILIKE :search OR event.description ILIKE :search OR event.location ILIKE :search)',
+        {
+          search: `%${search}%`,
+        },
+      );
     }
 
     qb.orderBy('event.startDate', 'ASC');
@@ -133,11 +136,11 @@ export class EventsService {
 
     const [events, total] = await qb.getManyAndCount();
 
-    // Enriquecer con información del usuario actual
-    const enrichedEvents = events.map(event => this.enrichEventWithUserData(event, userId)) as Event[];
+    const enrichedEvents = events.map((event) => this.enrichEventWithUserData(event, userId)) as Event[];
 
     return { events: enrichedEvents, total };
   }
+
   /**
    * Obtener un evento por ID
    */
@@ -157,7 +160,13 @@ export class EventsService {
   /**
    * Actualizar un evento
    */
-  async update(id: number, updateEventDto: UpdateEventDto, userId: number, imageUrl?: string | null): Promise<Event> {
+  async update(
+    id: number,
+    updateEventDto: UpdateEventDto,
+    userId: number,
+    userRole: string,
+    imageUrl?: string | null,
+  ): Promise<Event> {
     const event = await this.eventsRepository.findOne({
       where: { id },
       relations: ['user', 'attendees', 'categories'],
@@ -167,8 +176,8 @@ export class EventsService {
       throw new NotFoundException(`Evento con ID ${id} no encontrado`);
     }
 
-    // Solo el creador puede actualizar
-    if (event.user.id !== userId) {
+    // ✅ Desarrollador puede editar cualquier evento, otros solo los suyos
+    if (userRole !== 'desarrollador' && event. user.id !== userId) {
       throw new ForbiddenException('No tienes permisos para actualizar este evento');
     }
 
@@ -185,25 +194,20 @@ export class EventsService {
       updateEventDto.endDate = endDate.toISOString();
     }
 
-    // Detectar si se está publicando
     const wasPublished = event.isDraft && updateEventDto.isDraft === false;
 
-    // Actualizar categorías si se proporcionan
     if ((updateEventDto as any).categoryIds !== undefined) {
       event.categories = (updateEventDto as any).categoryIds. map((id: number) => ({ id })) as any;
       delete (updateEventDto as any).categoryIds;
     }
 
-    // Actualizar imagen
     if (imageUrl !== undefined) {
       event.imageUrl = imageUrl as any;
     }
 
-    // Merge y guardar
     Object.assign(event, updateEventDto);
-    await this.eventsRepository. save(event);
+    await this.eventsRepository.save(event);
 
-    // ✅ CORRECCIÓN: Obtener evento actualizado completo
     const updatedEvent = await this.eventsRepository.findOne({
       where: { id },
       relations: ['user', 'user.profile', 'categories', 'attendees', 'attendees.profile'],
@@ -213,7 +217,6 @@ export class EventsService {
       throw new NotFoundException('Error al actualizar el evento');
     }
 
-    // Notificar actualización
     this.eventsGateway.notifyEventUpdated(updatedEvent, wasPublished);
 
     return this.enrichEventWithUserData(updatedEvent, userId) as Event;
@@ -222,7 +225,7 @@ export class EventsService {
   /**
    * Eliminar un evento
    */
-  async remove(id: number, userId: number): Promise<{ message: string }> {
+  async remove(id: number, userId: number, userRole: string): Promise<{ message: string }> {
     const event = await this.eventsRepository.findOne({
       where: { id },
       relations: ['user', 'attendees'],
@@ -232,15 +235,15 @@ export class EventsService {
       throw new NotFoundException(`Evento con ID ${id} no encontrado`);
     }
 
-    if (event.user.id !== userId) {
+    // ✅ Desarrollador puede eliminar cualquier evento
+    if (userRole !== 'desarrollador' && event.user.id !== userId) {
       throw new ForbiddenException('No tienes permisos para eliminar este evento');
     }
 
-    const attendeeIds = event.attendees?. map(a => a.id) || [];
+    const attendeeIds = event.attendees?. map((a) => a.id) || [];
 
     await this.eventsRepository.remove(event);
 
-    // Notificar eliminación
     this.eventsGateway.notifyEventDeleted(id, attendeeIds);
 
     return { message: 'Evento eliminado correctamente' };
@@ -249,8 +252,8 @@ export class EventsService {
   /**
    * Publicar un evento (cambiar isDraft a false)
    */
-  async publish(id: number, userId: number): Promise<Event> {
-    return this.update(id, { isDraft: false }, userId);
+  async publish(id: number, userId: number, userRole: string): Promise<Event> {
+    return this.update(id, { isDraft: false }, userId, userRole);
   }
 
   /**
@@ -266,25 +269,21 @@ export class EventsService {
       throw new NotFoundException('Evento no encontrado o no está publicado');
     }
 
-    // Verificar si ya está registrado
-    const alreadyRegistered = event.attendees?.some(a => a. id === userId);
+    const alreadyRegistered = event.attendees?.some((a) => a.id === userId);
     if (alreadyRegistered) {
       throw new BadRequestException('Ya estás registrado en este evento');
     }
 
-    // Verificar cupos
     if (event.maxAttendees && event.attendees && event.attendees.length >= event.maxAttendees) {
       throw new BadRequestException('El evento ha alcanzado el máximo de asistentes');
     }
 
-    // Agregar asistente
     await this.eventsRepository
       .createQueryBuilder()
       .relation(Event, 'attendees')
       .of(eventId)
       .add(userId);
 
-    // ✅ CORRECCIÓN: Obtener evento actualizado
     const updatedEvent = await this.eventsRepository.findOne({
       where: { id: eventId },
       relations: ['user', 'user.profile', 'attendees', 'attendees.profile'],
@@ -294,9 +293,8 @@ export class EventsService {
       throw new NotFoundException('Error al obtener el evento actualizado');
     }
 
-    const newAttendee = updatedEvent.attendees?.find(a => a.id === userId);
+    const newAttendee = updatedEvent.attendees?. find((a) => a.id === userId);
 
-    // Notificar al creador
     if (newAttendee) {
       this.eventsGateway.notifyEventRegistration(updatedEvent, {
         id: newAttendee.id,
@@ -321,7 +319,7 @@ export class EventsService {
       throw new NotFoundException('Evento no encontrado');
     }
 
-    const isRegistered = event.attendees?. some(a => a.id === userId);
+    const isRegistered = event.attendees?.some((a) => a.id === userId);
     if (!isRegistered) {
       throw new BadRequestException('No estás registrado en este evento');
     }
@@ -341,13 +339,13 @@ export class EventsService {
    * Obtener eventos creados por el usuario
    */
   async getMyEvents(userId: number): Promise<Event[]> {
-    const events = await this.eventsRepository. find({
+    const events = await this. eventsRepository.find({
       where: { user: { id: userId } },
       relations: ['user', 'user.profile', 'categories', 'attendees', 'attendees.profile'],
       order: { createdAt: 'DESC' },
     });
 
-    return events. map(event => this.enrichEventWithUserData(event, userId)) as Event[];
+    return events. map((event) => this.enrichEventWithUserData(event, userId)) as Event[];
   }
 
   /**
@@ -357,25 +355,27 @@ export class EventsService {
     const events = await this.eventsRepository
       .createQueryBuilder('event')
       .leftJoinAndSelect('event.user', 'user')
-      . leftJoinAndSelect('user. profile', 'profile')
+      . leftJoinAndSelect('user.profile', 'profile')
       .leftJoinAndSelect('event.categories', 'category')
       .leftJoinAndSelect('event.attendees', 'attendee')
-      .leftJoinAndSelect('attendee. profile', 'attendeeProfile')
+      .leftJoinAndSelect('attendee.profile', 'attendeeProfile')
       .where('attendee.id = :userId', { userId })
       .andWhere('event.isDraft = :isDraft', { isDraft: false })
-      .orderBy('event. startDate', 'ASC')
+      .orderBy('event.startDate', 'ASC')
       .getMany();
 
-    return events.map(event => this.enrichEventWithUserData(event, userId)) as Event[];
+    return events.map((event) => this.enrichEventWithUserData(event, userId)) as Event[];
   }
 
-
-  private enrichEventWithUserData(event: Event, userId?: number): Event & { attendeesCount: number; isRegistered: boolean } {
-    const attendeesCount = event.attendees?. length || 0;
-    const isRegistered = userId ? event.attendees?.some(a => a.id === userId) || false : false;
+  /**
+   * Helper para enriquecer eventos con datos del usuario
+   */
+  private enrichEventWithUserData(event: any, userId?: number): any {
+    const attendeesCount = event.attendees?.length || 0;
+    const isRegistered = userId ? event.attendees?. some((a: any) => a.id === userId) : false;
 
     return {
-      ...event,
+      ... event,
       attendeesCount,
       isRegistered,
     };

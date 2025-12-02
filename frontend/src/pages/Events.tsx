@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { Plus, Search, Filter, Calendar as CalendarIcon, Eye, Edit, Trash2 } from 'lucide-react';
 import { useEvents } from '../hooks/useEvents.ts';
 import { useAuth } from '../hooks/useAuth';
+import { usePermissions } from '../hooks/usePermissions.ts';
 import EventList from "../components/Events/Event-list.tsx";
 import { EventType, EventTypeLabels } from '../types/event';
 import type {FilterEventsParams, Event} from '../types/event';
@@ -14,6 +15,7 @@ import { formatEventDateShort, getEventImageUrl } from '../types/event';
 export default function EventsPage() {
     const navigate = useNavigate();
     const { user } = useAuth();
+    const permissions = usePermissions(); // ✅ NUEVO
     const [activeTab, setActiveTab] = useState<'all' | 'my-events' | 'registered'>('all');
     const [myEventsTab, setMyEventsTab] = useState<'published' | 'drafts'>('published');
     const [searchTerm, setSearchTerm] = useState('');
@@ -103,6 +105,13 @@ export default function EventsPage() {
             navigate('/login');
             return;
         }
+
+        // ✅ Verificar permisos
+        if (! permissions.canCreateEvent) {
+            alert('No tienes permisos para crear eventos.  Solo los instructores pueden crear eventos.');
+            return;
+        }
+
         navigate('/events/create');
     };
 
@@ -115,7 +124,7 @@ export default function EventsPage() {
     // Filtrar mis eventos
     const publishedEvents = myEvents.filter(e => ! e.isDraft);
     const draftEvents = myEvents.filter(e => e.isDraft);
-    const currentMyEvents = myEventsTab === 'published' ? publishedEvents : draftEvents;
+    const currentMyEvents = myEventsTab === 'published' ?  publishedEvents : draftEvents;
 
     const renderMyEventCard = (event: Event) => (
         <div key={event.id} className="bg-white rounded-lg shadow-md hover:shadow-lg transition-shadow overflow-hidden">
@@ -143,7 +152,7 @@ export default function EventsPage() {
 
                 <div className="flex items-center gap-2 text-sm text-gray-700 mb-2">
                     <CalendarIcon className="w-4 h-4" />
-                    <span>{formatEventDateShort(event. startDate)}</span>
+                    <span>{formatEventDateShort(event.startDate)}</span>
                 </div>
 
                 {! event.isDraft && (
@@ -167,14 +176,14 @@ export default function EventsPage() {
                         </button>
                     )}
                     <button
-                        onClick={() => navigate(`/events/edit/${event. id}`)}
+                        onClick={() => navigate(`/events/edit/${event.id}`)}
                         className="flex-1 bg-blue-600 hover:bg-blue-700 text-white py-2 px-3 rounded-lg text-sm font-medium transition-colors flex items-center justify-center gap-1"
                     >
                         <Edit className="w-4 h-4" />
                         Editar
                     </button>
                     <button
-                        onClick={() => handleDelete(event.id)}
+                        onClick={() => handleDelete(event. id)}
                         disabled={actionLoading === event.id}
                         className="flex-1 bg-red-600 hover:bg-red-700 text-white py-2 px-3 rounded-lg text-sm font-medium transition-colors disabled:opacity-50 flex items-center justify-center gap-1"
                     >
@@ -202,13 +211,56 @@ export default function EventsPage() {
                             </p>
                         </div>
 
-                        <button
-                            onClick={handleCreateEvent}
-                            className="flex items-center gap-2 bg-green-600 hover:bg-green-700 text-white px-6 py-3 rounded-lg font-medium transition-colors shadow-lg"
-                        >
-                            <Plus className="w-5 h-5" />
-                            Crear Evento
-                        </button>
+                        <div className="flex items-center gap-3">
+                            {/* ✅ BADGE DE ROL SUPER ADMIN - MUY LLAMATIVO */}
+                            {permissions.isSuperAdmin && (
+                                <div className="relative">
+                                    <div className="absolute -inset-1 bg-gradient-to-r from-purple-600 to-pink-600 rounded-lg blur opacity-75 animate-pulse"></div>
+                                    <div className="relative px-4 py-2 bg-gradient-to-r from-purple-600 to-pink-600 rounded-lg">
+                                        <div className="flex items-center gap-2">
+                                            <span className="text-2xl animate-bounce">👑</span>
+                                            <div className="text-white">
+                                                <p className="text-xs font-medium uppercase tracking-wider">Super Admin</p>
+                                                <p className="text-[10px] opacity-90">Acceso Total</p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* ✅ Badge para instructor (sin ser super admin) */}
+                            {permissions.isInstructor && ! permissions.isSuperAdmin && (
+                                <div className="flex items-center gap-2 text-sm bg-blue-100 border-2 border-blue-300 px-4 py-2 rounded-lg">
+                                    <span className="text-lg">👨‍🏫</span>
+                                    <div>
+                                        <p className="font-medium text-blue-900">Instructor</p>
+                                        <p className="text-xs text-blue-700">Puedes crear eventos</p>
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* ✅ Solo mostrar botón si tiene permisos */}
+                            {permissions.canCreateEvent && (
+                                <button
+                                    onClick={handleCreateEvent}
+                                    className="flex items-center gap-2 bg-green-600 hover:bg-green-700 text-white px-6 py-3 rounded-lg font-medium transition-all transform hover:scale-105 shadow-lg"
+                                >
+                                    <Plus className="w-5 h-5" />
+                                    Crear Evento
+                                </button>
+                            )}
+
+                            {/* ✅ Mensaje informativo para aprendices */}
+                            {permissions.isAprendiz && (
+                                <div className="flex items-center gap-2 text-sm bg-blue-50 border-2 border-blue-200 px-4 py-2 rounded-lg">
+                                    <span className="text-lg">🎓</span>
+                                    <div>
+                                        <p className="font-medium text-blue-900">Modo Aprendiz</p>
+                                        <p className="text-xs text-blue-700">Solo instructores pueden crear eventos</p>
+                                    </div>
+                                </div>
+                            )}
+                        </div>
                     </div>
 
                     {/* Tabs principales */}
@@ -266,7 +318,7 @@ export default function EventsPage() {
                                 onClick={() => setMyEventsTab('drafts')}
                                 className={`px-3 py-1 text-sm font-medium rounded-t-lg transition-colors ${
                                     myEventsTab === 'drafts'
-                                        ?  'bg-yellow-100 text-yellow-700'
+                                        ? 'bg-yellow-100 text-yellow-700'
                                         : 'text-gray-600 hover:bg-gray-100'
                                 }`}
                             >
