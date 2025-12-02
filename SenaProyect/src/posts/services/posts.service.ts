@@ -88,19 +88,9 @@ export class PostsService {
     return await this.commentRepository.save(comment);
   }
 
-  // ✅ ELIMINAR COMENTARIO - Solo el autor o desarrollador
-  async removeComment(
-    postId: number,
-    commentId: number,
-    userId?: number,
-    userRole?: string,
-  ) {
-    if (!userId) {
-      throw new UnauthorizedException('Debes iniciar sesión');
-    }
-
+  async removeComment(postId: number, commentId: number, userId?: number, userRole?: string) {
     const post = await this.findOne(postId);
-    const comment = await this.commentRepository.findOne({
+    const comment = await this.commentRepository. findOne({
       where: { id: commentId },
       relations: ['user', 'post'],
     });
@@ -109,16 +99,19 @@ export class PostsService {
       throw new NotFoundException(`Comentario con id ${commentId} no encontrado`);
     }
 
-    if (comment.post && comment.post.id !== post.id) {
+    if (comment.post && comment.post.id !== post. id) {
       throw new BadRequestException('El comentario no pertenece a este post');
     }
 
-    // ✅ Desarrollador puede eliminar cualquier comentario
-    if (userRole !== 'desarrollador' && comment. user && comment.user.id !== userId) {
+    // ✅ NUEVO: El desarrollador puede eliminar cualquier comentario
+    const isDeveloper = userRole === 'desarrollador';
+    const isOwner = userId && comment.user && comment.user. id === userId;
+
+    if (!isDeveloper && !isOwner) {
       throw new ForbiddenException('No tienes permisos para eliminar este comentario');
     }
 
-    await this.commentRepository.delete(commentId);
+    await this.commentRepository. delete(commentId);
     return { message: 'Comentario eliminado correctamente' };
   }
 
@@ -298,23 +291,21 @@ export class PostsService {
 
   // ✅ ELIMINAR POST - Solo el autor o desarrollador
   async remove(id: number, userId?: number, userRole?: string) {
-    if (!userId) {
-      throw new UnauthorizedException('Debes iniciar sesión');
-    }
-
     try {
       const post = await this.findOne(id);
 
-      // ✅ Desarrollador puede eliminar cualquier post
-      if (userRole !== 'desarrollador' && post.user && post.user.id !== userId) {
+      // ✅ NUEVO: El desarrollador puede eliminar cualquier post
+      const isDeveloper = userRole === 'desarrollador';
+      const isOwner = userId && post.user && post.user.id === userId;
+
+      if (!isDeveloper && !isOwner) {
         throw new ForbiddenException('No tienes permisos para eliminar este post');
       }
 
       await this.postsRepository.delete(id);
       return { message: 'Post eliminado correctamente.' };
     } catch (err) {
-      if (err instanceof ForbiddenException || err instanceof UnauthorizedException)
-        throw err;
+      if (err instanceof ForbiddenException) throw err;
       throw new BadRequestException('Error al eliminar el post');
     }
   }

@@ -16,6 +16,7 @@ import { ChatNotificationsProvider } from './context/chat-notifications-context.
 import ChatNotificationToast from './components/Chat/Chat-notification-toast.tsx';
 import ProtectedRoute from "./components/Protected-routes.tsx";
 import RoleProtectedRoute from "./components/Role-protected-route.tsx";
+import { ToastProvider } from "./components/Toast-context.tsx";
 
 function App() {
     return (
@@ -24,6 +25,7 @@ function App() {
                 <EventNotificationsProvider>
                     <ChatNotificationsProvider>
                         <ChatNotificationToast />
+                        <ToastProvider>
                         <Routes>
                             <Route path="/login" element={<Login />} />
                             <Route path="/register" element={<Register />} />
@@ -100,6 +102,7 @@ function App() {
 
                             <Route path="*" element={<Navigate to="/" replace />} />
                         </Routes>
+                        </ToastProvider>
                     </ChatNotificationsProvider>
                 </EventNotificationsProvider>
             </SocketProvider>

@@ -153,9 +153,9 @@ export class PostsController {
   @Delete(':id')
   remove(@Param('id', ParseIntPipe) id: number, @Req() req: Request) {
     const user = req.user as any;
-    const userId = user?.id;
-    const userRole = user?.role; // ✅ AGREGAR ESTO
-    return this.postsService. remove(id, userId, userRole); // ✅ PASAR userRole
+    const userId = user?. id;
+    const userRole = user?.role; // ✅ Obtener el rol del usuario
+    return this.postsService.remove(id, userId, userRole);
   }
 
   // ✅ CREAR COMENTARIO - Requiere autenticación
@@ -209,7 +209,7 @@ export class PostsController {
     @Req() req: any,
   ) {
     const user = req.user;
-    // ✅ PASAR userRole
-    return this.postsService. removeComment(postId, id, user?.id, user?.role);
+    const userRole = user?.role; // ✅ Obtener el rol del usuario
+    return this.postsService.removeComment(postId, id, user?. id, userRole);
   }
 }
