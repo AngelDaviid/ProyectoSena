@@ -17,6 +17,7 @@ import ChatNotificationToast from './components/Chat/Chat-notification-toast.tsx
 import ProtectedRoute from "./components/Protected-routes.tsx";
 import RoleProtectedRoute from "./components/Role-protected-route.tsx";
 import { ToastProvider } from "./components/Toast-context.tsx";
+import EditEvent from "./pages/Edit-events.tsx";
 
 function App() {
     return (
@@ -91,7 +92,7 @@ function App() {
                                 element={
                                     <ProtectedRoute>
                                         <RoleProtectedRoute allowedRoles={['instructor', 'desarrollador']}>
-                                            <EventForm />
+                                            <EditEvent />
                                         </RoleProtectedRoute>
                                     </ProtectedRoute>
                                 }

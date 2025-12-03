@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Plus, Search, Filter, Calendar as CalendarIcon, Eye, Edit, Trash2 } from 'lucide-react';
+import { Plus, Search, Filter, Calendar as CalendarIcon, Eye, Edit, Trash2, ArrowLeft } from 'lucide-react';
 import { useEvents } from '../hooks/useEvents.ts';
 import { useAuth } from '../hooks/useAuth';
 import EventList from "../components/Events/Event-list.tsx";
@@ -74,11 +74,13 @@ export default function EventsPage() {
             setActionLoading(id);
             await deleteEvent(id);
             setMyEvents(prev => prev.filter(e => e.id !== id));
-            toast.success('Evento eliminado correctamente'); // ✅
+            toast.success('Evento eliminado correctamente');
         } catch (err: any) {
-            toast.error(err.response?.data?.message || 'Error al eliminar'); // ✅
+            toast.error(err.response?.data?.message || 'Error al eliminar');
         } finally {
             setActionLoading(null);
+            setShowDeleteModal(false);
+            setEventToDelete(null);
         }
     };
 
@@ -87,9 +89,9 @@ export default function EventsPage() {
             setActionLoading(id);
             await publishEvent(id);
             await loadMyEvents();
-            toast.success('Evento publicado exitosamente'); // ✅
+            toast. success('Evento publicado exitosamente');
         } catch (err: any) {
-            toast.error(err.response?.data?.message || 'Error al publicar'); // ✅
+            toast.error(err.response?.data?.message || 'Error al publicar');
         } finally {
             setActionLoading(null);
         }
@@ -105,15 +107,15 @@ export default function EventsPage() {
     const { events, total, loading, error, reload } = useEvents(filters);
 
     const handleCreateEvent = () => {
-        if (!  user) {
-            toast.warning('Debes iniciar sesión para crear un evento'); // ✅
+        if (! user) {
+            toast.warning('Debes iniciar sesión para crear un evento');
             navigate('/login');
             return;
         }
 
         // ✅ RESTRICCIÓN: Solo instructores y desarrolladores
-        if (user. role === 'aprendiz') {
-            toast.warning('Solo instructores pueden crear eventos'); // ✅
+        if (user.role === 'aprendiz') {
+            toast.warning('Solo instructores pueden crear eventos');
             return;
         }
 
@@ -127,7 +129,7 @@ export default function EventsPage() {
     };
 
     // Filtrar mis eventos
-    const publishedEvents = myEvents.filter(e => !  e.isDraft);
+    const publishedEvents = myEvents.filter(e => ! e.isDraft);
     const draftEvents = myEvents.filter(e => e.isDraft);
     const currentMyEvents = myEventsTab === 'published' ? publishedEvents : draftEvents;
 
@@ -163,7 +165,7 @@ export default function EventsPage() {
                     <span>{formatEventDateShort(event.startDate)}</span>
                 </div>
 
-                {!  event.isDraft && (
+                {! event.isDraft && (
                     <div className="flex items-center gap-2 text-sm text-gray-700 mb-3">
                         <span>👥</span>
                         <span>{event.attendeesCount || 0} inscritos</span>
@@ -192,8 +194,8 @@ export default function EventsPage() {
                     </button>
                     <button
                         onClick={() => {
-                            setEventToDelete(event.id); // ✅
-                            setShowDeleteModal(true); // ✅
+                            setEventToDelete(event.id);
+                            setShowDeleteModal(true);
                         }}
                         disabled={actionLoading === event.id}
                         className="flex-1 bg-red-600 hover:bg-red-700 text-white py-2 px-3 rounded-lg text-sm font-medium transition-colors disabled:opacity-50 flex items-center justify-center gap-1"
@@ -209,6 +211,17 @@ export default function EventsPage() {
     return (
         <>
             <div className="min-h-screen bg-gray-50">
+                {/* ✅ NUEVO: Botón para volver atrás */}
+                <div className="max-w-7xl mx-auto px-4 pt-6 pb-2">
+                    <button
+                        onClick={() => navigate('/')}
+                        className="text-gray-600 hover:text-gray-900 flex items-center gap-1"
+                    >
+                        <ArrowLeft className="w-4 h-4" />
+                        Volver
+                    </button>
+                </div>
+
                 {/* Header */}
                 <div className="bg-white shadow-sm border-b sticky top-0 z-40">
                     <div className="max-w-7xl mx-auto px-4 py-4">
@@ -282,7 +295,7 @@ export default function EventsPage() {
                                     onClick={() => setMyEventsTab('published')}
                                     className={`px-3 py-1 text-sm font-medium rounded-t-lg transition-colors ${
                                         myEventsTab === 'published'
-                                            ?   'bg-green-100 text-green-700'
+                                            ?  'bg-green-100 text-green-700'
                                             : 'text-gray-600 hover:bg-gray-100'
                                     }`}
                                 >
@@ -292,7 +305,7 @@ export default function EventsPage() {
                                     onClick={() => setMyEventsTab('drafts')}
                                     className={`px-3 py-1 text-sm font-medium rounded-t-lg transition-colors ${
                                         myEventsTab === 'drafts'
-                                            ?  'bg-yellow-100 text-yellow-700'
+                                            ? 'bg-yellow-100 text-yellow-700'
                                             : 'text-gray-600 hover:bg-gray-100'
                                     }`}
                                 >
@@ -361,7 +374,7 @@ export default function EventsPage() {
                                             </label>
                                             <select
                                                 value={selectedCategory}
-                                                onChange={(e) => setSelectedCategory(e.target.value ?   Number(e.target.value) : '')}
+                                                onChange={(e) => setSelectedCategory(e.target.value ?  Number(e.target.value) : '')}
                                                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
                                             >
                                                 <option value="">Todas las categorías</option>
@@ -425,13 +438,13 @@ export default function EventsPage() {
                                 </div>
                             )}
 
-                            {myEventsLoading ?   (
+                            {myEventsLoading ?  (
                                 <div className="text-center py-12">
                                     <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-green-600 mx-auto"></div>
                                 </div>
                             ) : currentMyEvents.length > 0 ? (
                                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                                    {currentMyEvents. map(renderMyEventCard)}
+                                    {currentMyEvents.map(renderMyEventCard)}
                                 </div>
                             ) : (
                                 <div className="text-center py-12">
@@ -464,7 +477,7 @@ export default function EventsPage() {
                     }
                 }}
                 title="Eliminar evento"
-                message="¿Estás seguro de eliminar este evento?   Esta acción no se puede deshacer."
+                message="¿Estás seguro de eliminar este evento? Esta acción no se puede deshacer."
                 confirmText="Eliminar"
                 cancelText="Cancelar"
                 type="danger"
