@@ -57,7 +57,7 @@ const Home: React.FC = () => {
                             onClick={() => setDropdownOpen(!dropdownOpen)}
                             className="flex items-center gap-3 hover:bg-gray-50 px-3 py-2 rounded-lg transition-colors"
                         >
-                            {avatarSrc ?  (
+                            {avatarSrc ? (
                                 <img
                                     src={avatarSrc}
                                     alt={displayName}
@@ -104,76 +104,79 @@ const Home: React.FC = () => {
 
             {/* MAIN GRID */}
             <main className="grid grid-cols-1 lg:grid-cols-[280px_1fr] gap-8 px-4 lg:px-8 py-6">
-                {/* SIDEBAR */}
+                {/* SIDEBAR - ✅ Contenedor sticky con espacio */}
                 <aside className="space-y-6">
-                    {/* Profile Card */}
-                    <div className="bg-white rounded-xl shadow-lg p-6 h-fit sticky top-24 border border-gray-100">
-                        <div className="flex items-center gap-4 mb-6">
-                            {avatarSrc ? (
-                                <img
-                                    src={avatarSrc}
-                                    alt={displayName}
-                                    className="w-16 h-16 rounded-full object-cover ring-2 ring-green-500 ring-offset-2"
-                                />
-                            ) : (
-                                <div className="w-16 h-16 rounded-full bg-gradient-to-br from-green-400 to-green-600 flex items-center justify-center text-white font-bold text-2xl shadow-lg">
-                                    {displayName.charAt(0).toUpperCase()}
+                    {/* ✅ Wrapper sticky que contiene ambos cards */}
+                    <div className="sticky top-24 space-y-6">
+                        {/* Profile Card */}
+                        <div className="bg-white rounded-xl shadow-lg p-6 border border-gray-100">
+                            <div className="flex items-center gap-4 mb-6">
+                                {avatarSrc ? (
+                                    <img
+                                        src={avatarSrc}
+                                        alt={displayName}
+                                        className="w-16 h-16 rounded-full object-cover ring-2 ring-green-500 ring-offset-2"
+                                    />
+                                ) : (
+                                    <div className="w-16 h-16 rounded-full bg-gradient-to-br from-green-400 to-green-600 flex items-center justify-center text-white font-bold text-2xl shadow-lg">
+                                        {displayName.charAt(0).toUpperCase()}
+                                    </div>
+                                )}
+                                <div className="flex-1 min-w-0">
+                                    <strong className="text-lg block text-gray-900 truncate">{displayName}</strong>
+                                    <span className="text-gray-500 text-sm">{user?.role ??  "Aprendiz"}</span>
                                 </div>
-                            )}
-                            <div className="flex-1 min-w-0">
-                                <strong className="text-lg block text-gray-900 truncate">{displayName}</strong>
-                                <span className="text-gray-500 text-sm">{user?.role ??  "Aprendiz"}</span>
+                            </div>
+
+                            <div className="grid gap-3">
+                                <button
+                                    onClick={() => navigate("/friends")}
+                                    className="w-full text-left cursor-pointer px-4 py-3 hover:bg-green-50 transition-all rounded-lg flex items-center gap-3 group border border-transparent hover:border-green-200"
+                                >
+                                    <Users className="w-5 h-5 text-green-600 group-hover:scale-110 transition-transform" />
+                                    <span className="font-medium text-gray-700 group-hover:text-green-700">Amigos</span>
+                                </button>
+                                <button
+                                    onClick={() => navigate("/chat")}
+                                    className="w-full text-left cursor-pointer px-4 py-3 hover:bg-blue-50 transition-all rounded-lg flex items-center gap-3 group border border-transparent hover:border-blue-200"
+                                >
+                                    <MessageCircle className="w-5 h-5 text-blue-600 group-hover:scale-110 transition-transform" />
+                                    <span className="font-medium text-gray-700 group-hover:text-blue-700">Chat</span>
+                                </button>
                             </div>
                         </div>
 
-                        <div className="grid gap-3">
-                            <button
-                                onClick={() => navigate("/friends")}
-                                className="w-full text-left cursor-pointer px-4 py-3 hover:bg-green-50 transition-all rounded-lg flex items-center gap-3 group border border-transparent hover:border-green-200"
-                            >
-                                <Users className="w-5 h-5 text-green-600 group-hover:scale-110 transition-transform" />
-                                <span className="font-medium text-gray-700 group-hover:text-green-700">Amigos</span>
-                            </button>
-                            <button
-                                onClick={() => navigate("/chat")}
-                                className="w-full text-left cursor-pointer px-4 py-3 hover:bg-blue-50 transition-all rounded-lg flex items-center gap-3 group border border-transparent hover:border-blue-200"
-                            >
-                                <MessageCircle className="w-5 h-5 text-blue-600 group-hover:scale-110 transition-transform" />
-                                <span className="font-medium text-gray-700 group-hover:text-blue-700">Chat</span>
-                            </button>
-                        </div>
-                    </div>
+                        {/* EVENTOS CARD */}
+                        <div className="bg-gradient-to-br from-green-500 to-emerald-600 rounded-2xl shadow-xl p-6 text-white relative overflow-hidden">
+                            <div className="absolute top-0 right-0 w-32 h-32 bg-white opacity-10 rounded-full -mr-10 -mt-10"></div>
+                            <div className="absolute bottom-0 left-0 w-24 h-24 bg-white opacity-10 rounded-full -ml-8 -mb-8"></div>
 
-                    {/* EVENTOS CARD */}
-                    <div className="bg-gradient-to-br from-green-500 to-emerald-600 rounded-2xl shadow-xl p-6 text-white relative overflow-hidden">
-                        <div className="absolute top-0 right-0 w-32 h-32 bg-white opacity-10 rounded-full -mr-10 -mt-10"></div>
-                        <div className="absolute bottom-0 left-0 w-24 h-24 bg-white opacity-10 rounded-full -ml-8 -mb-8"></div>
+                            <div className="relative z-10">
+                                <div className="flex items-center justify-center w-16 h-16 bg-white bg-opacity-20 rounded-full mb-4 backdrop-blur-sm">
+                                    <Calendar className="w-8 h-8 text-white animate-pulse" />
+                                </div>
 
-                        <div className="relative z-10">
-                            <div className="flex items-center justify-center w-16 h-16 bg-white bg-opacity-20 rounded-full mb-4 backdrop-blur-sm">
-                                <Calendar className="w-8 h-8 text-white animate-pulse" />
-                            </div>
+                                <h3 className="text-xl font-bold mb-2 flex items-center gap-2">
+                                    Eventos SENA
+                                    <Sparkles className="w-5 h-5 animate-pulse" />
+                                </h3>
 
-                            <h3 className="text-xl font-bold mb-2 flex items-center gap-2">
-                                Eventos SENA
-                                <Sparkles className="w-5 h-5 animate-pulse" />
-                            </h3>
+                                <p className="text-green-50 text-sm mb-5 leading-relaxed">
+                                    Descubre talleres, conferencias y actividades exclusivas para la comunidad
+                                </p>
 
-                            <p className="text-green-50 text-sm mb-5 leading-relaxed">
-                                Descubre talleres, conferencias y actividades exclusivas para la comunidad
-                            </p>
+                                <button
+                                    onClick={() => navigate("/events")}
+                                    className="w-full bg-white text-green-600 font-semibold py-3 px-4 rounded-xl hover:bg-green-50 transition-all transform hover:scale-105 hover:shadow-lg flex items-center justify-center gap-2 group"
+                                >
+                                    <span>Explorar Eventos</span>
+                                    <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
+                                </button>
 
-                            <button
-                                onClick={() => navigate("/events")}
-                                className="w-full bg-white text-green-600 font-semibold py-3 px-4 rounded-xl hover:bg-green-50 transition-all transform hover:scale-105 hover:shadow-lg flex items-center justify-center gap-2 group"
-                            >
-                                <span>Explorar Eventos</span>
-                                <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
-                            </button>
-
-                            <div className="mt-4 flex items-center justify-center gap-2 text-xs text-green-100">
-                                <span className="w-2 h-2 bg-green-300 rounded-full animate-pulse"></span>
-                                <span>Nuevos eventos disponibles</span>
+                                <div className="mt-4 flex items-center justify-center gap-2 text-xs text-green-100">
+                                    <span className="w-2 h-2 bg-green-300 rounded-full animate-pulse"></span>
+                                    <span>Nuevos eventos disponibles</span>
+                                </div>
                             </div>
                         </div>
                     </div>

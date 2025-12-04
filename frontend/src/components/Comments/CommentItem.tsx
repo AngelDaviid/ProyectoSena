@@ -12,21 +12,26 @@ type Props = {
 
 const CommentItem: React.FC<Props> = ({ postId, comment, onUpdated, onDeleted }) => {
     const { user } = useAuth();
+
+    // ✅ NUEVO: Verificar si el usuario puede modificar el comentario
     const isAuthor = user?.id === comment.user?.id;
+    const isDeveloper = user?.role === 'desarrollador';
+    const canModifyComment = isAuthor || isDeveloper;
+
     const [editing, setEditing] = useState(false);
     const [content, setContent] = useState(comment.content);
     const [loading, setLoading] = useState(false);
 
     const authorName =
-        comment.user?.profile?.name ||
-        comment.user?.profile?.lastName ||
-        comment.user?.email ||
+        comment.user?.profile?. name ||
+        comment.user?. profile?.lastName ||
+        comment. user?.email ||
         'Usuario';
 
     const authorAvatar =
-        comment.user?.profile?.avatar
-            ? comment.user!.profile!.avatar!.startsWith('/')
-                ? `${(import.meta.env.SENA_API_URL || 'http://localhost:3001')}${comment.user!.profile!.avatar}`
+        comment.user?.profile?. avatar
+            ? comment.user! .profile!.avatar! .startsWith('/')
+                ?  `${(import.meta. env.SENA_API_URL || 'http://localhost:3001')}${comment.user!.profile!.avatar}`
                 : comment.user!.profile!.avatar
             : null;
 
@@ -34,12 +39,12 @@ const CommentItem: React.FC<Props> = ({ postId, comment, onUpdated, onDeleted })
         if (!content.trim()) return;
         try {
             setLoading(true);
-            const updated = await apiUpdateComment(postId, comment.id, content.trim());
+            const updated = await apiUpdateComment(postId, comment.id, content. trim());
             onUpdated?.(updated);
             setEditing(false);
         } catch (err: any) {
             console.error(err);
-            alert(err?.response?.data?.message || 'Error al actualizar comentario');
+            alert(err?. response?.data?.message || 'Error al actualizar comentario');
         } finally {
             setLoading(false);
         }
@@ -53,14 +58,14 @@ const CommentItem: React.FC<Props> = ({ postId, comment, onUpdated, onDeleted })
             onDeleted?.(comment.id);
         } catch (err: any) {
             console.error(err);
-            alert(err?.response?.data?.message || 'Error al eliminar comentario');
+            alert(err?.response?. data?.message || 'Error al eliminar comentario');
         } finally {
             setLoading(false);
         }
     };
 
     return (
-        <div className="flex items-start gap-3">
+        <div className="flex items-start gap-3 mb-3">
             <div className="w-8 h-8 rounded-full overflow-hidden bg-gray-200 flex items-center justify-center text-gray-600 font-semibold flex-shrink-0">
                 {authorAvatar ? (
                     <img src={authorAvatar} alt={authorName} className="w-full h-full object-cover" />
@@ -74,13 +79,14 @@ const CommentItem: React.FC<Props> = ({ postId, comment, onUpdated, onDeleted })
                     <div>
                         <div className="text-sm font-medium text-gray-900">{authorName}</div>
                         <div className="text-xs text-gray-500">
-                            {comment.createdAt ? new Date(comment.createdAt).toLocaleString() : ''}
+                            {comment.createdAt ? new Date(comment. createdAt).toLocaleString() : ''}
                         </div>
                     </div>
 
-                    {isAuthor && (
+                    {/* ✅ MODIFICADO: Mostrar botones si el usuario puede modificar */}
+                    {canModifyComment && (
                         <div className="flex items-center gap-2">
-                            {!editing && (
+                            {isAuthor && ! editing && (
                                 <button
                                     onClick={() => setEditing(true)}
                                     className="text-xs text-blue-600 hover:underline"
@@ -100,12 +106,12 @@ const CommentItem: React.FC<Props> = ({ postId, comment, onUpdated, onDeleted })
                 </div>
 
                 <div className="mt-1 text-sm text-gray-800">
-                    {!editing && <div className="whitespace-pre-wrap">{comment.content}</div>}
+                    {! editing && <div className="whitespace-pre-wrap">{comment.content}</div>}
                     {editing && (
                         <div className="space-y-2">
                             <textarea
                                 value={content}
-                                onChange={(e) => setContent(e.target.value)}
+                                onChange={(e) => setContent(e.target. value)}
                                 className="w-full border border-gray-200 rounded-md p-2 text-sm"
                                 rows={3}
                             />

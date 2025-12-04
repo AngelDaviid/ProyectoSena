@@ -15,6 +15,7 @@ import {
     Share2,
     Eye,
     Loader2,
+    ArrowLeft,
 } from 'lucide-react';
 
 const API_BASE = import.meta.env.VITE_SENA_API_URL || 'http://localhost:3001';
@@ -97,14 +98,14 @@ export default function EventDetail() {
             alert('Evento eliminado exitosamente');
             navigate('/events');
         } catch (error: any) {
-            alert(error.response?.data?.message || 'Error al eliminar el evento');
+            alert(error.response?. data?.message || 'Error al eliminar el evento');
         } finally {
             setActionLoading(false);
         }
     };
 
     const handlePublish = async () => {
-        if (!event) return;
+        if (! event) return;
         if (!confirm('¿Publicar este evento para que todos lo vean?')) return;
 
         try {
@@ -153,15 +154,24 @@ export default function EventDetail() {
         );
     }
 
-    const isOwner = user?.id === event. user?. id;
+    const isOwner = user?.id === event.user?.id;
     const spotsLeft = event.maxAttendees ?  event.maxAttendees - (event.attendeesCount || 0) : null;
     const isFull = spotsLeft !== null && spotsLeft <= 0;
 
     return (
         <div className="max-w-5xl mx-auto p-6">
+            {/* ✅ NUEVO: Botón para volver atrás */}
+            <button
+                onClick={() => navigate('/events')}
+                className="flex items-center gap-2 text-gray-600 hover:text-gray-900 mb-6 transition-colors"
+            >
+                <ArrowLeft className="w-5 h-5" />
+                <span className="font-medium">Volver a Eventos</span>
+            </button>
+
             {/* Imagen de portada */}
             <div className="relative h-96 bg-gray-200 rounded-lg overflow-hidden mb-6">
-                {event.imageUrl ?  (
+                {event. imageUrl ? (
                     <img
                         src={`${API_BASE}${event. imageUrl}`}
                         alt={event.title}
@@ -193,16 +203,29 @@ export default function EventDetail() {
                     <div>
                         <h1 className="text-4xl font-bold text-gray-900 mb-4">{event.title}</h1>
 
-                        <div className="flex items-center gap-4 mb-4">
-                            <img
-                                src={event.user?. profile?. avatar || '/default. png'}
-                                alt={event. user?.profile?.name || 'Organizador'}
-                                className="w-12 h-12 rounded-full"
-                            />
+                        {/* ✅ ARREGLADO: Información del creador con foto de perfil */}
+                        <div className="flex items-center gap-3 mb-6">
+                            <div className="w-12 h-12 rounded-full bg-gradient-to-br from-green-400 to-blue-500 overflow-hidden flex-shrink-0">
+                                {event.user?.profile?.avatar ? (
+                                    <img
+                                        src={
+                                            event.user.profile.avatar.startsWith('/')
+                                                ? `${API_BASE}${event.user.profile.avatar}`
+                                                : event.user.profile.avatar
+                                        }
+                                        alt={event.user.profile. name || event.user.email}
+                                        className="w-full h-full object-cover"
+                                    />
+                                ) : (
+                                    <div className="w-full h-full flex items-center justify-center text-white font-bold text-lg">
+                                        {event. user?.profile?.name?.[0] || event.user?. email[0]. toUpperCase()}
+                                    </div>
+                                )}
+                            </div>
                             <div>
                                 <p className="text-sm text-gray-500">Organizado por</p>
-                                <p className="font-medium text-gray-900">
-                                    {event.user?. profile?.name} {event.user?.profile?.lastName}
+                                <p className="font-semibold text-gray-900">
+                                    {event.user?.profile?.name} {event.user?.profile?.lastName}
                                 </p>
                             </div>
                         </div>
@@ -283,7 +306,7 @@ export default function EventDetail() {
                     </div>
 
                     {/* Categorías */}
-                    {event.categories && event.categories. length > 0 && (
+                    {event.categories && event.categories.length > 0 && (
                         <div className="bg-white rounded-lg shadow p-6">
                             <h3 className="text-xl font-semibold mb-3">Categorías</h3>
                             <div className="flex flex-wrap gap-2">
@@ -292,8 +315,8 @@ export default function EventDetail() {
                                         key={category.id}
                                         className="px-3 py-1 bg-green-100 text-green-800 rounded-full text-sm font-medium"
                                     >
-                    {category.name}
-                  </span>
+                                        {category.name}
+                                    </span>
                                 ))}
                             </div>
                         </div>
@@ -303,19 +326,32 @@ export default function EventDetail() {
                     {event.attendees && event.attendees.length > 0 && (
                         <div className="bg-white rounded-lg shadow p-6">
                             <h3 className="text-xl font-semibold mb-4">
-                                Asistentes ({event. attendeesCount})
+                                Asistentes ({event.attendeesCount})
                             </h3>
                             <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
                                 {event.attendees.map(attendee => (
                                     <div key={attendee.id} className="flex items-center gap-2">
-                                        <img
-                                            src={attendee.profile?.avatar || '/default.png'}
-                                            alt={attendee.profile?.name || attendee.email}
-                                            className="w-10 h-10 rounded-full"
-                                        />
+                                        {/* ✅ ARREGLADO: Foto de perfil de asistentes */}
+                                        <div className="w-10 h-10 rounded-full bg-gradient-to-br from-green-400 to-blue-500 overflow-hidden flex-shrink-0">
+                                            {attendee.profile?.avatar ? (
+                                                <img
+                                                    src={
+                                                        attendee.profile.avatar.startsWith('/')
+                                                            ? `${API_BASE}${attendee.profile.avatar}`
+                                                            : attendee.profile.avatar
+                                                    }
+                                                    alt={attendee.profile?. name || attendee.email}
+                                                    className="w-full h-full object-cover"
+                                                />
+                                            ) : (
+                                                <div className="w-full h-full flex items-center justify-center text-white font-bold text-sm">
+                                                    {attendee.profile?.name?.[0] || attendee.email[0].toUpperCase()}
+                                                </div>
+                                            )}
+                                        </div>
                                         <div className="min-w-0">
                                             <p className="text-sm font-medium truncate">
-                                                {attendee.profile?.name} {attendee.profile?.lastName}
+                                                {attendee. profile?.name} {attendee.profile?.lastName}
                                             </p>
                                             <p className="text-xs text-gray-500 truncate">{attendee.email}</p>
                                         </div>
@@ -370,7 +406,7 @@ export default function EventDetail() {
                                         {event.maxAttendees && ` / ${event.maxAttendees}`}
                                     </p>
                                     {spotsLeft !== null && (
-                                        <p className={`text-sm ${spotsLeft > 0 ?  'text-green-600' : 'text-red-600'}`}>
+                                        <p className={`text-sm ${spotsLeft > 0 ? 'text-green-600' : 'text-red-600'}`}>
                                             {spotsLeft > 0 ? `${spotsLeft} cupos disponibles` : 'Sin cupos'}
                                         </p>
                                     )}

@@ -5,7 +5,7 @@ import type { Event } from '../../types/event';
 import { createEvent, updateEvent } from '../../services/events';
 import { getCategories } from '../../services/categories';
 import type { Category } from '../../types/post';
-import { Calendar, MapPin, Users, Image as ImageIcon, X, Loader2, CheckCircle, AlertCircle } from 'lucide-react';
+import { Calendar, MapPin, Users, Image as ImageIcon, X, Loader2, CheckCircle, AlertCircle, ArrowLeft } from 'lucide-react';
 
 interface EventFormProps {
     event?: Event;
@@ -14,7 +14,7 @@ interface EventFormProps {
 
 const eventTypeOptions = [
     { value: EventType.CONFERENCE, label: 'Conferencia' },
-    { value: EventType. WORKSHOP, label: 'Taller' },
+    { value: EventType.WORKSHOP, label: 'Taller' },
     { value: EventType.SEMINAR, label: 'Seminario' },
     { value: EventType.SOCIAL, label: 'Social' },
     { value: EventType.SPORTS, label: 'Deportivo' },
@@ -28,29 +28,51 @@ export default function EventForm({ event, onSuccess }: EventFormProps) {
     const [categories, setCategories] = useState<Category[]>([]);
     const [imagePreview, setImagePreview] = useState<string | null>(null);
 
-    // ✅ NUEVO: Estado para mensajes de éxito/error (toast interno)
     const [notification, setNotification] = useState<{
         type: 'success' | 'error';
         message: string;
     } | null>(null);
 
     const [formData, setFormData] = useState({
-        title: event?.title || '',
-        description: event?.description || '',
-        location: event?.location || '',
-        startDate: event?.startDate ?  new Date(event.startDate). toISOString().slice(0, 16) : '',
-        endDate: event?.endDate ? new Date(event.endDate).toISOString().slice(0, 16) : '',
-        maxAttendees: event?.maxAttendees || '',
-        eventType: event?.eventType || EventType.OTHER,
-        categoryIds: event?.categories?.map(c => c.id) || [] as number[],
+        title: '',
+        description: '',
+        location: '',
+        startDate: '',
+        endDate: '',
+        maxAttendees: '',
+        eventType: EventType.OTHER as EventType,
+        categoryIds: [] as number[],
         image: null as File | null,
     });
 
+    // ✅ Cargar categorías
     useEffect(() => {
         loadCategories();
-        if (event?. imageUrl) {
-            const API_BASE = import.meta.env.VITE_SENA_API_URL || 'http://localhost:3001';
-            setImagePreview(`${API_BASE}${event.imageUrl}`);
+    }, []);
+
+    // ✅ ARREGLADO: Cargar datos del evento cuando cambie la prop 'event'
+    useEffect(() => {
+        console.log('🔍 Event prop changed:', event); // DEBUG
+        if (event) {
+            setFormData({
+                title: event.title || '',
+                description: event.description || '',
+                location: event. location || '',
+                startDate: event.startDate ?  new Date(event.startDate). toISOString().slice(0, 16) : '',
+                endDate: event.endDate ? new Date(event.endDate).toISOString().slice(0, 16) : '',
+                maxAttendees: event.maxAttendees ?  String(event.maxAttendees) : '',
+                eventType: event.eventType ?  (event.eventType as EventType) : EventType.OTHER,
+                categoryIds: event.categories?. map(c => c.id) || [],
+                image: null,
+            });
+
+            // Cargar imagen preview si existe
+            if (event.imageUrl) {
+                const API_BASE = import.meta.env.VITE_SENA_API_URL || 'http://localhost:3001';
+                setImagePreview(`${API_BASE}${event.imageUrl}`);
+            } else {
+                setImagePreview(null);
+            }
         }
     }, [event]);
 
@@ -80,7 +102,6 @@ export default function EventForm({ event, onSuccess }: EventFormProps) {
         setImagePreview(null);
     };
 
-    // ✅ NUEVO: Función para mostrar notificación
     const showNotification = (type: 'success' | 'error', message: string) => {
         setNotification({ type, message });
         setTimeout(() => setNotification(null), 5000);
@@ -90,7 +111,7 @@ export default function EventForm({ event, onSuccess }: EventFormProps) {
         try {
             setLoading(true);
 
-            // Validaciones (sin alert, con notificación)
+            // Validaciones
             if (!formData.title.trim()) {
                 showNotification('error', 'El título es requerido');
                 return;
@@ -101,7 +122,7 @@ export default function EventForm({ event, onSuccess }: EventFormProps) {
                 return;
             }
 
-            if (!formData.location.trim()) {
+            if (!formData.location. trim()) {
                 showNotification('error', 'La ubicación es requerida');
                 return;
             }
@@ -111,7 +132,7 @@ export default function EventForm({ event, onSuccess }: EventFormProps) {
                 return;
             }
 
-            if (! formData.endDate) {
+            if (!formData.endDate) {
                 showNotification('error', 'La fecha de fin es requerida');
                 return;
             }
@@ -119,25 +140,17 @@ export default function EventForm({ event, onSuccess }: EventFormProps) {
             const data = new FormData();
             data.append('title', formData.title);
             data.append('description', formData.description);
-            data. append('location', formData.location);
+            data.append('location', formData. location);
             data.append('startDate', new Date(formData.startDate). toISOString());
-            data. append('endDate', new Date(formData.endDate).toISOString());
-            data.append('eventType', formData.eventType);
-
-// ✅ LOGS DE DEBUG
-            console.log('========== 🔍 FRONTEND SUBMIT ==========');
-            console. log('📤 isDraft parameter:', isDraft);
-            console.log('📤 typeof isDraft:', typeof isDraft);
-            console.log('📤 String(isDraft):', String(isDraft));
-            console.log('=========================================');
-
+            data.append('endDate', new Date(formData.endDate).toISOString());
+            data. append('eventType', formData.eventType);
             data.append('isDraft', String(isDraft));
 
             if (formData.maxAttendees) {
                 data.append('maxAttendees', String(formData.maxAttendees));
             }
 
-            if (formData.categoryIds. length > 0) {
+            if (formData.categoryIds.length > 0) {
                 formData.categoryIds.forEach(id => {
                     data.append('categoryIds[]', String(id));
                 });
@@ -152,18 +165,16 @@ export default function EventForm({ event, onSuccess }: EventFormProps) {
                 showNotification('success', 'Evento actualizado exitosamente');
             } else {
                 await createEvent(data);
-                // ✅ NO mostrar notificación aquí - el WebSocket lo hará
-                console.log('✅ Evento creado, el WebSocket mostrará la notificación');
+                console.log('✅ Evento creado');
             }
 
-            // Esperar un momento para que se vea la notificación antes de redirigir
             setTimeout(() => {
                 if (onSuccess) {
                     onSuccess();
                 } else {
                     navigate('/events');
                 }
-            }, isDraft ? 1500 : 500); // Si es publicado, redirigir rápido para ver el toast global
+            }, 1000);
 
         } catch (error: any) {
             console.error('Error saving event:', error);
@@ -182,18 +193,21 @@ export default function EventForm({ event, onSuccess }: EventFormProps) {
         }));
     };
 
+    // ✅ Variable para saber si estamos editando
+    const isEditing = !!event;
+
     return (
         <div className="max-w-4xl mx-auto p-6">
-            {/* ✅ NUEVO: Notificación de éxito/error */}
+            {/* Notificación de éxito/error */}
             {notification && (
                 <div
                     className={`fixed top-4 right-4 z-50 flex items-center gap-3 px-6 py-4 rounded-lg shadow-lg animate-in slide-in-from-right ${
                         notification.type === 'success'
-                            ?  'bg-green-500 text-white'
+                            ? 'bg-green-500 text-white'
                             : 'bg-red-500 text-white'
                     }`}
                 >
-                    {notification.type === 'success' ? (
+                    {notification.type === 'success' ?  (
                         <CheckCircle className="w-5 h-5" />
                     ) : (
                         <AlertCircle className="w-5 h-5" />
@@ -208,9 +222,18 @@ export default function EventForm({ event, onSuccess }: EventFormProps) {
                 </div>
             )}
 
+            {/* ✅ Botón para volver atrás */}
+            <button
+                onClick={() => navigate('/events')}
+                className="flex items-center gap-2 text-gray-600 hover:text-gray-900 mb-6 transition-colors"
+            >
+                <ArrowLeft className="w-5 h-5" />
+                <span className="font-medium">Volver a Eventos</span>
+            </button>
+
             <div className="bg-white rounded-lg shadow-lg p-8">
                 <h2 className="text-2xl font-bold mb-6 text-gray-900">
-                    {event ? 'Editar Evento' : 'Crear Nuevo Evento'}
+                    {isEditing ? 'Editar Evento' : 'Crear Nuevo Evento'}
                 </h2>
 
                 <div className="space-y-6">
@@ -358,7 +381,7 @@ export default function EventForm({ event, onSuccess }: EventFormProps) {
                                 type="number"
                                 min="1"
                                 value={formData.maxAttendees}
-                                onChange={(e) => setFormData(prev => ({ ... prev, maxAttendees: e.target.value }))}
+                                onChange={(e) => setFormData(prev => ({ ...prev, maxAttendees: e.target.value }))}
                                 className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
                                 placeholder="Ilimitado"
                             />
@@ -371,13 +394,13 @@ export default function EventForm({ event, onSuccess }: EventFormProps) {
                             Categorías
                         </label>
                         <div className="flex flex-wrap gap-2">
-                            {categories.map(category => (
+                            {categories. map(category => (
                                 <button
                                     key={category.id}
                                     type="button"
-                                    onClick={() => toggleCategory(category.id)}
+                                    onClick={() => toggleCategory(category. id)}
                                     className={`px-4 py-2 rounded-full text-sm font-medium transition-colors ${
-                                        formData. categoryIds.includes(category.id)
+                                        formData.categoryIds. includes(category.id)
                                             ? 'bg-green-600 text-white'
                                             : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
                                     }`}
@@ -388,48 +411,78 @@ export default function EventForm({ event, onSuccess }: EventFormProps) {
                         </div>
                     </div>
 
-                    {/* Botones */}
+                    {/* ✅ BOTONES CONDICIONALES SEGÚN MODO */}
                     <div className="flex gap-4 pt-6">
-                        {/* Botón Publicar */}
-                        <button
-                            type="button"
-                            onClick={() => handleSubmit(false)}
-                            disabled={loading}
-                            className="flex-1 flex items-center justify-center gap-2 bg-green-600 hover:bg-green-700 text-white px-6 py-3 rounded-lg font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed shadow-lg"
-                        >
-                            {loading ? (
-                                <>
-                                    <Loader2 className="w-5 h-5 animate-spin" />
-                                    Publicando...
-                                </>
-                            ) : (
-                                <>
-                                    {event ? 'Actualizar y Publicar' : 'Publicar Evento'}
-                                </>
-                            )}
-                        </button>
+                        {isEditing ? (
+                            // ✅ MODO EDICIÓN: Solo Guardar Cambios y Cancelar
+                            <>
+                                <button
+                                    type="button"
+                                    onClick={() => handleSubmit(false)}
+                                    disabled={loading}
+                                    className="flex-1 flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-lg font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                                >
+                                    {loading ?  (
+                                        <>
+                                            <Loader2 className="w-5 h-5 animate-spin" />
+                                            Guardando...
+                                        </>
+                                    ) : (
+                                        <>
+                                            Guardar Cambios
+                                        </>
+                                    )}
+                                </button>
 
-                        {/* Botón Guardar como Borrador */}
-                        {! event && (
-                            <button
-                                type="button"
-                                onClick={() => handleSubmit(true)}
-                                disabled={loading}
-                                className="flex-1 bg-gray-600 hover:bg-gray-700 text-white px-6 py-3 rounded-lg font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                            >
-                                {loading ? 'Guardando...' : 'Guardar como Borrador'}
-                            </button>
+                                <button
+                                    type="button"
+                                    onClick={() => navigate('/events')}
+                                    disabled={loading}
+                                    className="px-6 py-3 bg-white border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                                >
+                                    Cancelar
+                                </button>
+                            </>
+                        ) : (
+                            // ✅ MODO CREAR: Publicar, Borrador y Cancelar
+                            <>
+                                <button
+                                    type="button"
+                                    onClick={() => handleSubmit(false)}
+                                    disabled={loading}
+                                    className="flex-1 flex items-center justify-center gap-2 bg-green-600 hover:bg-green-700 text-white px-6 py-3 rounded-lg font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                                >
+                                    {loading ?  (
+                                        <>
+                                            <Loader2 className="w-5 h-5 animate-spin" />
+                                            Publicando...
+                                        </>
+                                    ) : (
+                                        <>
+                                            Publicar Evento
+                                        </>
+                                    )}
+                                </button>
+
+                                <button
+                                    type="button"
+                                    onClick={() => handleSubmit(true)}
+                                    disabled={loading}
+                                    className="flex-1 bg-gray-600 hover:bg-gray-700 text-white px-6 py-3 rounded-lg font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                                >
+                                    {loading ? 'Guardando...' : 'Guardar como Borrador'}
+                                </button>
+
+                                <button
+                                    type="button"
+                                    onClick={() => navigate('/events')}
+                                    disabled={loading}
+                                    className="px-6 py-3 bg-white border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                                >
+                                    Cancelar
+                                </button>
+                            </>
                         )}
-
-                        {/* Botón Cancelar */}
-                        <button
-                            type="button"
-                            onClick={() => navigate('/events')}
-                            disabled={loading}
-                            className="px-6 py-3 bg-white border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-                        >
-                            Cancelar
-                        </button>
                     </div>
                 </div>
             </div>

@@ -25,58 +25,97 @@ export class PostsService {
     private likeRepository: Repository<Like>,
   ) {}
 
-
+  // ✅ CREAR COMENTARIO - Todos los usuarios autenticados
   async CreateCommet(postId: number, userId: number, content: string) {
-    const post = await this.findOne(postId)
-    const comment = this.commentRepository.create({content, post: {id: post.id} as any, user: {id: userId} as any})
-    await this.commentRepository.save(comment);
-    return this.commentRepository.findOne({where: {id: comment.id}, relations: ['user', 'user.profile']})
-  }
-
-
-  async getCommet(postId: number){
-    const post = await this.findOne(postId)
-    return this.commentRepository.find({where: {post: {id: post.id}}, relations: ['user', 'user.profile'], order: { createdAt: 'ASC'}})
-  }
-
-  async updateComment(postId: number, commentId: number, userId: number | undefined, content: string) {
+    if (!userId) {
+      throw new UnauthorizedException('Debes iniciar sesión para comentar');
+    }
     const post = await this.findOne(postId);
-    const comment = await this.commentRepository.findOne({
+    const comment = this.commentRepository.create({
+      content,
+      post: { id: post.id } as any,
+      user: { id: userId } as any,
+    });
+    await this.commentRepository.save(comment);
+    return this.commentRepository.findOne({
+      where: { id: comment.id },
+      relations: ['user', 'user.profile'],
+    });
+  }
+
+  // ✅ OBTENER COMENTARIOS - Público
+  async getCommet(postId: number) {
+    const post = await this.findOne(postId);
+    return this.commentRepository.find({
+      where: { post: { id: post.id } },
+      relations: ['user', 'user.profile'],
+      order: { createdAt: 'ASC' },
+    });
+  }
+
+  // ✅ ACTUALIZAR COMENTARIO - Solo el autor o desarrollador
+  async updateComment(
+    postId: number,
+    commentId: number,
+    userId: number | undefined,
+    userRole: string | undefined,
+    content: string,
+  ) {
+    if (!userId) {
+      throw new UnauthorizedException('Debes iniciar sesión');
+    }
+
+    const post = await this.findOne(postId);
+    const comment = await this.commentRepository. findOne({
       where: { id: commentId },
       relations: ['user', 'post'],
     });
-    if (!comment) {
+
+    if (! comment) {
       throw new NotFoundException(`Comentario con id ${commentId} no encontrado`);
     }
+
     if (comment.post && comment.post.id !== post.id) {
       throw new BadRequestException('El comentario no pertenece a este post');
     }
-    if (userId && comment.user && comment.user.id !== userId) {
+
+    // ✅ Desarrollador puede editar cualquier comentario
+    if (userRole !== 'desarrollador' && comment. user && comment.user.id !== userId) {
       throw new ForbiddenException('No tienes permisos para editar este comentario');
     }
+
     comment.content = content;
     return await this.commentRepository.save(comment);
   }
 
-  async removeComment(postId: number, commentId: number, userId?: number) {
+  async removeComment(postId: number, commentId: number, userId?: number, userRole?: string) {
     const post = await this.findOne(postId);
-    const comment = await this.commentRepository.findOne({
+    const comment = await this.commentRepository. findOne({
       where: { id: commentId },
       relations: ['user', 'post'],
     });
+
     if (!comment) {
       throw new NotFoundException(`Comentario con id ${commentId} no encontrado`);
     }
-    if (comment.post && comment.post.id !== post.id) {
+
+    if (comment.post && comment.post.id !== post. id) {
       throw new BadRequestException('El comentario no pertenece a este post');
     }
-    if (userId && comment.user && comment.user.id !== userId) {
+
+    // ✅ NUEVO: El desarrollador puede eliminar cualquier comentario
+    const isDeveloper = userRole === 'desarrollador';
+    const isOwner = userId && comment.user && comment.user. id === userId;
+
+    if (!isDeveloper && !isOwner) {
       throw new ForbiddenException('No tienes permisos para eliminar este comentario');
     }
-    await this.commentRepository.delete(commentId);
+
+    await this.commentRepository. delete(commentId);
     return { message: 'Comentario eliminado correctamente' };
   }
 
+  // ✅ TOGGLE LIKE - Todos los usuarios autenticados
   async toggleLike(postId: number, userOrId: User | number) {
     const userId = typeof userOrId === 'number' ? userOrId : (userOrId as any)?.id;
     if (!userId) throw new UnauthorizedException('Usuario no autenticado');
@@ -91,29 +130,40 @@ export class PostsService {
       await this.likeRepository.delete(existingLike.id);
       liked = false;
     } else {
-      const like = this.likeRepository.create({ post: { id: post.id } as any, user: { id: userId } as any });
+      const like = this.likeRepository. create({
+        post: { id: post.id } as any,
+        user: { id: userId } as any,
+      });
       await this.likeRepository.save(like);
       liked = true;
     }
 
-    const likesCount = await this.likeRepository.count({ where: { post: { id: post.id } } });
+    const likesCount = await this.likeRepository.count({
+      where: { post: { id: post. id } },
+    });
     return { liked, likesCount };
   }
 
+  // ✅ CREAR POST - Todos los usuarios autenticados
   async create(createPostDto: CreatePostDto, userId: number, imageUrl?: string) {
+    if (!userId) {
+      throw new UnauthorizedException('Debes iniciar sesión para crear un post');
+    }
+
     try {
       const newPost = await this.postsRepository.save({
         ...createPostDto,
         user: { id: userId },
-        categories: createPostDto.categoryIds?.map((id) => ({ id })),
+        categories: createPostDto.categoryIds?. map((id) => ({ id })),
         imageUrl: imageUrl,
       });
       return this.findOne(newPost.id);
     } catch (error) {
-      throw new BadRequestException('Error al crear el post. Verifica los datos proporcionados.');
+      throw new BadRequestException('Error al crear el post.  Verifica los datos proporcionados.');
     }
   }
 
+  // ✅ VER TODOS LOS POSTS - Público (no requiere autenticación)
   async findAll(userId?: number) {
     const posts = await this.postsRepository.find({
       relations: [
@@ -132,7 +182,7 @@ export class PostsService {
     const countsRaw = await this.likeRepository
       .createQueryBuilder('like')
       .select('like.postId', 'postId')
-      .addSelect('COUNT(like.id)', 'count')
+      . addSelect('COUNT(like.id)', 'count')
       .where('like.postId IN (:...ids)', { ids: postIds })
       .groupBy('like.postId')
       .getRawMany();
@@ -144,44 +194,48 @@ export class PostsService {
 
     const likedMap: Record<number, boolean> = {};
     if (userId) {
-      const userLikes = await this.likeRepository.find({
+      const userLikes = await this.likeRepository. find({
         where: { user: { id: userId }, post: { id: In(postIds) } },
         relations: ['post'],
       });
       userLikes.forEach((l) => {
-        if (l.post?.id) likedMap[l.post.id] = true;
+        if (l.post?. id) likedMap[l. post.id] = true;
       });
     }
 
     return posts.map((p) => {
       return {
         ...p,
-        likesCount: likesCountMap[p.id] ?? 0,
+        likesCount: likesCountMap[p.id] ??  0,
         likedByUser: !!likedMap[p.id],
       };
     });
   }
 
-
-  /**
-   * findOne admite userId opcional para devolver likedByUser y likesCount
-   */
+  // ✅ VER UN POST - Público
   async findOne(id: number, userId?: number) {
-    const post = await this.postsRepository.findOne({ where: { id },       relations: [
+    const post = await this. postsRepository.findOne({
+      where: { id },
+      relations: [
         'user.profile',
         'categories',
         'comments',
         'comments.user',
         'comments.user.profile',
-      ], });
+      ],
+    });
+
     if (!post) {
       throw new NotFoundException(`Post con id ${id} no encontrado`);
     }
 
-    const likesCount = await this.likeRepository.count({ where: { post: { id: post.id } } });
+    const likesCount = await this.likeRepository.count({
+      where: { post: { id: post.id } },
+    });
+
     let likedByUser = false;
     if (userId) {
-      const existing = await this.likeRepository.findOne({
+      const existing = await this.likeRepository. findOne({
         where: { post: { id: post.id }, user: { id: userId } },
       });
       likedByUser = !!existing;
@@ -194,16 +248,30 @@ export class PostsService {
     };
   }
 
-  async update(id: number, updatePostDto: UpdatePostDto, userId?: number, imageUrl?: string | null) {
+  // ✅ ACTUALIZAR POST - Solo el autor o desarrollador
+  async update(
+    id: number,
+    updatePostDto: UpdatePostDto,
+    userId?: number,
+    userRole?: string,
+    imageUrl?: string | null,
+  ) {
+    if (!userId) {
+      throw new UnauthorizedException('Debes iniciar sesión');
+    }
+
     try {
       const post = await this.findOne(id);
 
-      if (userId && post.user && post.user.id !== userId) {
+      // ✅ Desarrollador puede editar cualquier post
+      if (userRole !== 'desarrollador' && post.user && post.user.id !== userId) {
         throw new ForbiddenException('No tienes permisos para actualizar este post');
       }
 
       if ((updatePostDto as any).categoryIds !== undefined) {
-        const newCategories = (updatePostDto as any).categoryIds.map((id: number) => ({ id }));
+        const newCategories = (updatePostDto as any).categoryIds.map((id: number) => ({
+          id,
+        }));
         post.categories = newCategories;
         delete (updatePostDto as any).categoryIds;
       }
@@ -215,19 +283,25 @@ export class PostsService {
       this.postsRepository.merge(post, updatePostDto);
       return await this.postsRepository.save(post);
     } catch (err) {
-      if (err instanceof ForbiddenException) throw err;
+      if (err instanceof ForbiddenException || err instanceof UnauthorizedException)
+        throw err;
       throw new BadRequestException('Error al actualizar el post');
     }
   }
 
-
-
-  async remove(id: number, userId?: number) {
+  // ✅ ELIMINAR POST - Solo el autor o desarrollador
+  async remove(id: number, userId?: number, userRole?: string) {
     try {
       const post = await this.findOne(id);
-      if (userId && post.user && post.user.id !== userId) {
+
+      // ✅ NUEVO: El desarrollador puede eliminar cualquier post
+      const isDeveloper = userRole === 'desarrollador';
+      const isOwner = userId && post.user && post.user.id === userId;
+
+      if (!isDeveloper && !isOwner) {
         throw new ForbiddenException('No tienes permisos para eliminar este post');
       }
+
       await this.postsRepository.delete(id);
       return { message: 'Post eliminado correctamente.' };
     } catch (err) {
