@@ -9,6 +9,17 @@ let _conversationsCache: { ts: number; data: Conversation[] } | null = null;
 let _conversationsInFlight: Promise<Conversation[]> | null = null;
 const CONVERSATIONS_CACHE_TTL = 5000; // 5 segundos
 
+
+export interface NewMessagePayload {
+    message: Message;
+    conversationId: number;
+}
+
+export interface UserTypingPayload {
+    userId: number;
+    conversationId: number;
+    isTyping: boolean;
+}
 /**
  * Obtener todas las conversaciones del usuario actual
  */
@@ -36,7 +47,7 @@ export async function getConversations(): Promise<Conversation[]> {
             console.error('[ChatSocket] Error getting conversations:', error);
             console.error('[ChatSocket] Error details:', {
                 message: error?. message,
-                response: error?.response?.data,
+                response: error?. response?.data,
                 status: error?.response?.status,
                 url: error?.config?.url
             });
@@ -61,9 +72,9 @@ export async function getConversation(id: number): Promise<Conversation> {
         return res.data;
     } catch (error: any) {
         console.error('[ChatSocket] Error getting conversation:', error);
-        console.error('[ChatSocket] Error details:', {
-            message: error?. message,
-            response: error?. response?.data,
+        console. error('[ChatSocket] Error details:', {
+            message: error?.message,
+            response: error?.response?.data,
             status: error?.response?.status
         });
         throw error;
@@ -116,7 +127,7 @@ export async function getMessages(
 
             if (status === 429 && attempt <= maxRetries) {
                 const backoffMs = 300 * Math.pow(2, attempt - 1);
-                console. warn(`[ChatSocket] Rate limited (429), retrying in ${backoffMs}ms...  (attempt ${attempt}/${maxRetries})`);
+                console.warn(`[ChatSocket] Rate limited (429), retrying in ${backoffMs}ms...   (attempt ${attempt}/${maxRetries})`);
                 await new Promise((r) => setTimeout(r, backoffMs));
                 return doRequest();
             }
@@ -174,13 +185,13 @@ export async function createConversation(participantIds: number[]) {
         // Invalidar cache de conversaciones
         _conversationsCache = null;
 
-        return res.data;
+        return res. data;
     } catch (error: any) {
-        console.error('[ChatSocket] Error creating conversation:', error);
+        console. error('[ChatSocket] Error creating conversation:', error);
         console.error('[ChatSocket] Error details:', {
             message: error?.message,
-            response: error?.response?.data,
-            status: error?.response?.status,
+            response: error?.response?. data,
+            status: error?. response?.status,
             url: error?.config?. url
         });
         throw error;
@@ -203,6 +214,93 @@ export async function refreshConversations(): Promise<Conversation[]> {
     return getConversations();
 }
 
+// ==================== FUNCIONES DE SOCKET ====================
+
+/**
+ * Unirse a una conversación (WebSocket)
+ */
+export function joinConversation(conversationId: number) {
+    console. log('[ChatSocket] Joining conversation:', conversationId);
+    // Implementación vacía por ahora - se puede implementar si necesitas room-based sockets
+}
+
+/**
+ * Salir de una conversación (WebSocket)
+ */
+export function leaveConversation(conversationId: number) {
+    console. log('[ChatSocket] Leaving conversation:', conversationId);
+    // Implementación vacía por ahora
+}
+
+/**
+ * Enviar mensaje vía WebSocket (alternativa a postMessage)
+ */
+export function sendMessage(conversationId: number, content: string, attachments?: File[]) {
+    console.log('[ChatSocket] Sending message via socket:', { conversationId, content });
+    // Por ahora redirige a postMessage (REST)
+    const formData = new FormData();
+    formData.append('conversationId', conversationId.toString());
+    formData.append('content', content);
+    if (attachments) {
+        attachments.forEach(file => formData.append('attachments', file));
+    }
+    return postMessage(formData);
+}
+
+/**
+ * Marcar mensajes como vistos
+ */
+export function markAsSeen(conversationId: number, messageIds: number[]) {
+    console.log('[ChatSocket] Marking messages as seen:', { conversationId, messageIds });
+    // Implementar cuando tengas el endpoint en el backend
+    return Promise.resolve();
+}
+
+/**
+ * Enviar indicador de "está escribiendo..."
+ */
+export function sendTypingIndicator(conversationId: number, isTyping: boolean) {
+    console.log('[ChatSocket] Typing indicator:', { conversationId, isTyping });
+    // Implementar cuando tengas WebSocket en el backend
+    return Promise.resolve();
+}
+
+/**
+ * Escuchar nuevos mensajes
+ */
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+export function onNewMessage(_callback: (payload: NewMessagePayload) => void) {
+    console.log('[ChatSocket] Listening for new messages');
+    // Implementar con socket.on('newMessage', callback) cuando esté disponible
+}
+
+/**
+ * Dejar de escuchar nuevos mensajes
+ */
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+export function offNewMessage(_callback: (payload: NewMessagePayload) => void) {
+    console.log('[ChatSocket] Stopped listening for new messages');
+    // Implementar con socket.off('newMessage', callback)
+}
+
+/**
+ * Escuchar indicador de "está escribiendo..."
+ */
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+export function onUserTyping(_callback: (payload: UserTypingPayload) => void) {
+    console.log('[ChatSocket] Listening for typing indicators');
+    // Implementar con socket.on('userTyping', callback)
+}
+
+/**
+ * Dejar de escuchar indicador de "está escribiendo..."
+ */
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+export function offUserTyping(_callback: (payload: UserTypingPayload) => void) {
+    console.log('[ChatSocket] Stopped listening for typing indicators');
+    // Implementar con socket.off('userTyping', callback)
+}
+
 // ==================== EXPORT DEFAULT (PARA COMPATIBILIDAD) ====================
 
 /**
@@ -218,6 +316,15 @@ export const chatSocket = {
     createConversation,
     invalidateConversationsCache,
     refreshConversations,
+    joinConversation,
+    leaveConversation,
+    sendMessage,
+    markAsSeen,
+    sendTypingIndicator,
+    onNewMessage,
+    offNewMessage,
+    onUserTyping,
+    offUserTyping,
 };
 
 export default chatSocket;
