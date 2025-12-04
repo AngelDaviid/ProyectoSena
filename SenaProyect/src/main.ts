@@ -41,8 +41,12 @@ async function bootstrap() {
     }),
   );
 
+  const allowedOrigins = process.env. FRONTEND_URL
+    ? process.env.FRONTEND_URL. split(',').map(url => url.trim())
+    : ['http://localhost:5173'];
+
   app.enableCors({
-    origin: ['http://localhost:5173'],
+    origin: allowedOrigins,
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
     credentials: true,
     allowedHeaders: ['Content-Type', 'Authorization'],
