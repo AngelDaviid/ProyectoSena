@@ -11,17 +11,14 @@ import { existsSync } from 'fs';
 async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
 
-  // Servir archivos estáticos (uploads)
   app.useStaticAssets(join(__dirname, '..', 'uploads'), { prefix: '/uploads/' });
 
-  // Servir el frontend (asegúrate el path corresponde con el build de React/Vite)
-  const frontendDist = join(__dirname, '..', '..', 'frontend', 'dist'); // Ajusta el path si no corresponde
+  // 1. Servir el build del frontend solo si existe
+  const frontendDist = join(__dirname, '..', '..', 'frontend', 'dist');
   if (existsSync(frontendDist)) {
-    app.useStaticAssets(frontendDist, {
-      prefix: '/',
-    });
+    app.useStaticAssets(frontendDist, { prefix: '/' });
 
-    // SPA fallback: devolver index.html para rutas desconocidas
+    // 2. SPA fallback: Responde index.html para rutas desconocidas por el backend
     app.use((req, res, next) => {
       if (
         req.method === 'GET' &&
@@ -29,7 +26,8 @@ async function bootstrap() {
         !req.path.startsWith('/uploads') &&
         !req.path.startsWith('/docs') &&
         !req.path.startsWith('/ws') &&
-        !req.path.startsWith('/socket.io')
+        !req.path.startsWith('/socket.io') &&
+        !req.path.includes('.') // no archivos estáticos
       ) {
         res.sendFile(join(frontendDist, 'index.html'));
       } else {
@@ -38,13 +36,7 @@ async function bootstrap() {
     });
   }
 
-  app.useGlobalPipes(new ValidationPipe({
-    transform: true,
-    whitelist: true,
-    forbidNonWhitelisted: false,
-    transformOptions: { enableImplicitConversion: true },
-  }));
-
+  app.useGlobalPipes(new ValidationPipe({ transform: true, whitelist: true, forbidNonWhitelisted: false, transformOptions: { enableImplicitConversion: true }}));
   app.useGlobalInterceptors(new ClassSerializerInterceptor(app.get(Reflector)));
 
   const config = new DocumentBuilder()
@@ -53,7 +45,6 @@ async function bootstrap() {
     .setVersion('1.0')
     .addBearerAuth()
     .build();
-
   const document = SwaggerModule.createDocument(app, config);
   SwaggerModule.setup('docs', app, document);
 
@@ -62,7 +53,6 @@ async function bootstrap() {
   const allowedOrigins = process.env.FRONTEND_URL
     ? process.env.FRONTEND_URL.split(',').map(url => url.trim())
     : ['http://localhost:5173'];
-
   app.enableCors({
     origin: allowedOrigins,
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
@@ -81,10 +71,5 @@ async function bootstrap() {
   const port = process.env.PORT || 3001;
   await app.listen(port);
   console.log(`🚀 Servidor corriendo en http://localhost:${port}`);
-  console.log(`📁 Archivos estáticos disponibles en http://localhost:${port}/uploads`);
-  if (existsSync(frontendDist)) {
-    console.log(`🌐 Frontend servido desde ${frontendDist}`);
-  }
 }
-
 bootstrap();
