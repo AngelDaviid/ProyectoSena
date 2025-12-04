@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-const baseURL = import.meta.env.SENA_API_URL || 'http://localhost:3001';
+const baseURL = import.meta.env.VITE_SENA_API_URL || 'http://localhost:3001';
 
 const api = axios.create({
     baseURL,
