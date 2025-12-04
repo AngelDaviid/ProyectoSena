@@ -11,19 +11,17 @@ import { existsSync } from 'fs';
 async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
 
-  // Servir archivos estáticos de uploads (imágenes, etc)
-  app.useStaticAssets(join(__dirname, '..', 'uploads'), {
-    prefix: '/uploads/',
-  });
+  // Servir archivos estáticos (uploads)
+  app.useStaticAssets(join(__dirname, '..', 'uploads'), { prefix: '/uploads/' });
 
-  // Servir el frontend build (React/Vite) en producción
-  const frontendDist = join(__dirname, '..', '..', 'frontend', 'dist');
+  // Servir el frontend (asegúrate el path corresponde con el build de React/Vite)
+  const frontendDist = join(__dirname, '..', '..', 'frontend', 'dist'); // Ajusta el path si no corresponde
   if (existsSync(frontendDist)) {
     app.useStaticAssets(frontendDist, {
       prefix: '/',
     });
 
-    // Fallback: enviar index.html en rutas desconocidas (para SPA)
+    // SPA fallback: devolver index.html para rutas desconocidas
     app.use((req, res, next) => {
       if (
         req.method === 'GET' &&
@@ -40,14 +38,12 @@ async function bootstrap() {
     });
   }
 
-  app.useGlobalPipes(
-    new ValidationPipe({
-      transform: true,
-      whitelist: true,
-      forbidNonWhitelisted: false,
-      transformOptions: { enableImplicitConversion: true },
-    }),
-  );
+  app.useGlobalPipes(new ValidationPipe({
+    transform: true,
+    whitelist: true,
+    forbidNonWhitelisted: false,
+    transformOptions: { enableImplicitConversion: true },
+  }));
 
   app.useGlobalInterceptors(new ClassSerializerInterceptor(app.get(Reflector)));
 
@@ -61,11 +57,7 @@ async function bootstrap() {
   const document = SwaggerModule.createDocument(app, config);
   SwaggerModule.setup('docs', app, document);
 
-  app.use(
-    helmet({
-      crossOriginResourcePolicy: { policy: 'cross-origin' },
-    }),
-  );
+  app.use(helmet({ crossOriginResourcePolicy: { policy: 'cross-origin' } }));
 
   const allowedOrigins = process.env.FRONTEND_URL
     ? process.env.FRONTEND_URL.split(',').map(url => url.trim())
@@ -78,15 +70,13 @@ async function bootstrap() {
     allowedHeaders: ['Content-Type', 'Authorization'],
   });
 
-  app.use(
-    rateLimit({
-      windowMs: 1 * 60 * 1000, // 1 minuto
-      max: 1000, // Puedes subirlo más si tienes tráfico
-      message: 'Demasiadas peticiones, intenta de nuevo más tarde',
-      standardHeaders: true,
-      legacyHeaders: false,
-    }),
-  );
+  app.use(rateLimit({
+    windowMs: 1 * 60 * 1000,
+    max: 1000,
+    message: 'Demasiadas peticiones, intenta de nuevo más tarde',
+    standardHeaders: true,
+    legacyHeaders: false,
+  }));
 
   const port = process.env.PORT || 3001;
   await app.listen(port);
