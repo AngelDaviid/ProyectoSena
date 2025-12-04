@@ -1,7 +1,9 @@
 import axios from 'axios';
 
-const baseURL = import.meta.env.VITE_SENA_API_URL || 'http://localhost:3001';
+const isDevelopment = import.meta.env.MODE === 'development';
 
+const baseURL = import. meta.env.VITE_SENA_API_URL ||
+    (isDevelopment ?  'http://localhost:3001' : 'https://proyectosena-gkx1. onrender.com');
 const api = axios.create({
     baseURL,
 });

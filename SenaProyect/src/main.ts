@@ -41,7 +41,7 @@ async function bootstrap() {
     }),
   );
 
-  const allowedOrigins = process.env. FRONTEND_URL
+  const allowedOrigins = process.env.FRONTEND_URL
     ? process.env.FRONTEND_URL. split(',').map(url => url.trim())
     : ['http://localhost:5173'];
 
