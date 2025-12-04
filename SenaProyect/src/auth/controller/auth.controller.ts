@@ -30,16 +30,29 @@ export class AuthController {
 
   @Post('register')
   async register(@Body() dto: CreateUserDto) {
-    const user = await this.usersService.create(dto);
+    console.log('[AuthController] Registration attempt:', {
+      email: dto. email,
+      hasProfile: !!dto.profile,
+      role: dto.role
+    });
 
-    const access_token = this.authService.generateToken(user);
+    try {
+      const user = await this.usersService.create(dto);
 
-    const { password, ...safeUser } = user as any;
+      const access_token = this. authService.generateToken(user);
 
-    return {
-      user: safeUser,
-      access_token,
-    };
+      const { password, ...safeUser } = user as any;
+
+      console.log('[AuthController] User registered successfully:', user.id);
+
+      return {
+        user: safeUser,
+        access_token,
+      };
+    } catch (error) {
+      console.error('[AuthController] Registration error:', error.message);
+      throw error;
+    }
   }
 
   @UseGuards(AuthGuard('jwt'))

@@ -53,15 +53,38 @@ export class UsersService {
 
   async create(create: CreateUserDto) {
     try {
+      const existingUser = await this. getUserbyEmail(create.email);
+      if (existingUser) {
+        throw new BadRequestException('El email ya está registrado');
+      }
+
       const data = {
         ...create,
-        role: create.role ?? 'aprendiz'
+        role: create.role ??  'aprendiz'
       };
-      const newUser = this.usersRepository.create(data as Partial<User>);
+
+      console.log('[UsersService] Creating user with data:', {
+        email: data.email,
+        role: data.role,
+        profileName: data. profile?.name,
+        profileLastName: data.profile?.lastName
+      });
+
+      const newUser = this.usersRepository. create(data as Partial<User>);
       const savedUser = await this.usersRepository.save(newUser);
-      return this.findOne(savedUser.id)
+
+      console.log('[UsersService] User created successfully:', savedUser.id);
+
+      return this. findOne(savedUser.id);
     } catch (error) {
-      throw new BadRequestException('Error creating user. Please check the provided data.');
+      console.error('[UsersService] Error creating user:', error);
+
+      if (error instanceof BadRequestException) {
+        throw error;
+      }
+
+      const errorMessage = error?.message || 'Error al crear usuario';
+      throw new BadRequestException(errorMessage);
     }
   }
 
