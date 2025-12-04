@@ -219,39 +219,62 @@ export async function refreshConversations(): Promise<Conversation[]> {
 /**
  * Unirse a una conversación (WebSocket)
  */
-export function joinConversation(conversationId: number) {
-    console. log('[ChatSocket] Joining conversation:', conversationId);
+export function joinConversation(conversationId: number, userId: number) {
+    console.log('[ChatSocket] Joining conversation:', { conversationId, userId });
     // Implementación vacía por ahora - se puede implementar si necesitas room-based sockets
 }
 
 /**
  * Salir de una conversación (WebSocket)
  */
-export function leaveConversation(conversationId: number) {
-    console. log('[ChatSocket] Leaving conversation:', conversationId);
+export function leaveConversation(conversationId: number, userId: number) {
+    console.log('[ChatSocket] Leaving conversation:', { conversationId, userId });
     // Implementación vacía por ahora
 }
 
 /**
- * Enviar mensaje vía WebSocket (alternativa a postMessage)
+ * Enviar mensaje vía WebSocket
  */
-export function sendMessage(conversationId: number, content: string, attachments?: File[]) {
-    console.log('[ChatSocket] Sending message via socket:', { conversationId, content });
+export function sendMessage(
+    conversationId: number,
+    userId: number,
+    text: string,
+    imageUrl?: string,
+    tempId?: string
+) {
+    console.log('[ChatSocket] Sending message via socket:', {
+        conversationId,
+        userId,
+        text,
+        imageUrl,
+        tempId
+    });
+
     // Por ahora redirige a postMessage (REST)
     const formData = new FormData();
     formData.append('conversationId', conversationId.toString());
-    formData.append('content', content);
-    if (attachments) {
-        attachments.forEach(file => formData.append('attachments', file));
+    formData.append('content', text);
+
+    if (imageUrl) {
+        formData.append('imageUrl', imageUrl);
     }
+
+    if (tempId) {
+        formData.append('tempId', tempId);
+    }
+
     return postMessage(formData);
 }
 
 /**
  * Marcar mensajes como vistos
  */
-export function markAsSeen(conversationId: number, messageIds: number[]) {
-    console.log('[ChatSocket] Marking messages as seen:', { conversationId, messageIds });
+export function markAsSeen(conversationId: number, messageIds: number[], userId: number) {
+    console.log('[ChatSocket] Marking messages as seen:', {
+        conversationId,
+        messageIds,
+        userId
+    });
     // Implementar cuando tengas el endpoint en el backend
     return Promise.resolve();
 }
@@ -259,8 +282,8 @@ export function markAsSeen(conversationId: number, messageIds: number[]) {
 /**
  * Enviar indicador de "está escribiendo..."
  */
-export function sendTypingIndicator(conversationId: number, isTyping: boolean) {
-    console.log('[ChatSocket] Typing indicator:', { conversationId, isTyping });
+export function sendTypingIndicator(conversationId: number, userId: number, isTyping: boolean) {
+    console.log('[ChatSocket] Typing indicator:', { conversationId, userId, isTyping });
     // Implementar cuando tengas WebSocket en el backend
     return Promise.resolve();
 }
@@ -300,7 +323,6 @@ export function offUserTyping(_callback: (payload: UserTypingPayload) => void) {
     console.log('[ChatSocket] Stopped listening for typing indicators');
     // Implementar con socket.off('userTyping', callback)
 }
-
 // ==================== EXPORT DEFAULT (PARA COMPATIBILIDAD) ====================
 
 /**
