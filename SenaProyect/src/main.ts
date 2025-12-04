@@ -6,13 +6,39 @@ import { join } from 'path';
 import { NestExpressApplication } from '@nestjs/platform-express';
 import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
+import { existsSync } from 'fs';
 
 async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
 
+  // Servir archivos estáticos de uploads (imágenes, etc)
   app.useStaticAssets(join(__dirname, '..', 'uploads'), {
     prefix: '/uploads/',
   });
+
+  // Servir el frontend build (React/Vite) en producción
+  const frontendDist = join(__dirname, '..', '..', 'frontend', 'dist');
+  if (existsSync(frontendDist)) {
+    app.useStaticAssets(frontendDist, {
+      prefix: '/',
+    });
+
+    // Fallback: enviar index.html en rutas desconocidas (para SPA)
+    app.use((req, res, next) => {
+      if (
+        req.method === 'GET' &&
+        !req.path.startsWith('/api') &&
+        !req.path.startsWith('/uploads') &&
+        !req.path.startsWith('/docs') &&
+        !req.path.startsWith('/ws') &&
+        !req.path.startsWith('/socket.io')
+      ) {
+        res.sendFile(join(frontendDist, 'index.html'));
+      } else {
+        next();
+      }
+    });
+  }
 
   app.useGlobalPipes(
     new ValidationPipe({
@@ -42,7 +68,7 @@ async function bootstrap() {
   );
 
   const allowedOrigins = process.env.FRONTEND_URL
-    ? process.env.FRONTEND_URL. split(',').map(url => url.trim())
+    ? process.env.FRONTEND_URL.split(',').map(url => url.trim())
     : ['http://localhost:5173'];
 
   app.enableCors({
@@ -52,11 +78,10 @@ async function bootstrap() {
     allowedHeaders: ['Content-Type', 'Authorization'],
   });
 
-
   app.use(
     rateLimit({
       windowMs: 1 * 60 * 1000, // 1 minuto
-      max: 200, // 200 requests por minuto
+      max: 1000, // Puedes subirlo más si tienes tráfico
       message: 'Demasiadas peticiones, intenta de nuevo más tarde',
       standardHeaders: true,
       legacyHeaders: false,
@@ -67,6 +92,9 @@ async function bootstrap() {
   await app.listen(port);
   console.log(`🚀 Servidor corriendo en http://localhost:${port}`);
   console.log(`📁 Archivos estáticos disponibles en http://localhost:${port}/uploads`);
+  if (existsSync(frontendDist)) {
+    console.log(`🌐 Frontend servido desde ${frontendDist}`);
+  }
 }
 
 bootstrap();
