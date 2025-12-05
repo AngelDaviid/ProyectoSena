@@ -26,37 +26,37 @@ const PostList: React.FC = () => {
     };
 
     useEffect(() => {
-        if (!loading && !error) {
+        if (! loading && !error) {
             setLocalPosts(posts);
         }
     }, [loading, error, posts]);
 
     return (
-        <div className="max-w-2xl mx-auto mt-8 bg-gray-50 rounded-3xl shadow-sm border border-gray-200 p-6">
-            <div className="mb-8">
+        <div className="max-w-2xl mx-auto mt-6 sm:mt-8 bg-gray-50 rounded-2xl sm:rounded-3xl shadow-sm border border-gray-200 p-4 sm:p-6">
+            <div className="mb-6 sm:mb-8">
                 <NewPostForm onCreated={handleCreated} />
             </div>
 
             {loading && (
-                <div className="text-center py-6 text-gray-500 anima te-pulse">
+                <div className="text-center py-6 text-gray-500 animate-pulse text-sm sm:text-base">
                     Cargando publicaciones...
                 </div>
             )}
             {error && (
-                <div className="text-red-600 bg-red-50 border border-red-200 rounded-xl p-3 text-sm mb-4">
+                <div className="text-red-600 bg-red-50 border border-red-200 rounded-xl p-3 text-xs sm:text-sm mb-4">
                     {error}
                 </div>
             )}
-            {!loading && localPosts.length === 0 && (
-                <div className="text-center text-gray-500 py-8">
+            {! loading && localPosts.length === 0 && (
+                <div className="text-center text-gray-500 py-8 text-sm sm:text-base">
                     No hay publicaciones todavía 📝
                 </div>
             )}
 
-            <div className="space-y-6">
+            <div className="space-y-4 sm:space-y-6">
                 {localPosts.map((p) => (
                     <PostItem
-                        key={p.id}
+                        key={p. id}
                         post={p}
                         onUpdated={handleUpdated}
                         onDeleted={handleDeleted}

@@ -19,7 +19,7 @@ const eventTypeOptions = [
     { value: EventType.SOCIAL, label: 'Social' },
     { value: EventType.SPORTS, label: 'Deportivo' },
     { value: EventType.CULTURAL, label: 'Cultural' },
-    { value: EventType.OTHER, label: 'Otro' },
+    { value: EventType. OTHER, label: 'Otro' },
 ];
 
 export default function EventForm({ event, onSuccess }: EventFormProps) {
@@ -58,7 +58,7 @@ export default function EventForm({ event, onSuccess }: EventFormProps) {
                 title: event.title || '',
                 description: event.description || '',
                 location: event. location || '',
-                startDate: event.startDate ?  new Date(event.startDate). toISOString().slice(0, 16) : '',
+                startDate: event.startDate ?  new Date(event.startDate). toISOString(). slice(0, 16) : '',
                 endDate: event.endDate ? new Date(event.endDate).toISOString().slice(0, 16) : '',
                 maxAttendees: event.maxAttendees ?  String(event.maxAttendees) : '',
                 eventType: event.eventType ?  (event.eventType as EventType) : EventType.OTHER,
@@ -117,12 +117,12 @@ export default function EventForm({ event, onSuccess }: EventFormProps) {
                 return;
             }
 
-            if (!formData.description.trim()) {
+            if (! formData.description.trim()) {
                 showNotification('error', 'La descripción es requerida');
                 return;
             }
 
-            if (!formData.location. trim()) {
+            if (!formData. location.trim()) {
                 showNotification('error', 'La ubicación es requerida');
                 return;
             }
@@ -140,10 +140,10 @@ export default function EventForm({ event, onSuccess }: EventFormProps) {
             const data = new FormData();
             data.append('title', formData.title);
             data.append('description', formData.description);
-            data.append('location', formData. location);
+            data.append('location', formData.location);
             data.append('startDate', new Date(formData.startDate). toISOString());
             data.append('endDate', new Date(formData.endDate).toISOString());
-            data. append('eventType', formData.eventType);
+            data.append('eventType', formData.eventType);
             data.append('isDraft', String(isDraft));
 
             if (formData.maxAttendees) {
@@ -197,25 +197,25 @@ export default function EventForm({ event, onSuccess }: EventFormProps) {
     const isEditing = !!event;
 
     return (
-        <div className="max-w-4xl mx-auto p-6">
+        <div className="max-w-4xl mx-auto p-4 sm:p-6 lg:p-8">
             {/* Notificación de éxito/error */}
             {notification && (
                 <div
-                    className={`fixed top-4 right-4 z-50 flex items-center gap-3 px-6 py-4 rounded-lg shadow-lg animate-in slide-in-from-right ${
+                    className={`fixed top-4 right-4 left-4 sm:left-auto sm:right-4 z-50 flex items-center gap-2 sm:gap-3 px-4 sm:px-6 py-3 sm:py-4 rounded-lg shadow-lg animate-in slide-in-from-right ${
                         notification.type === 'success'
                             ? 'bg-green-500 text-white'
                             : 'bg-red-500 text-white'
                     }`}
                 >
-                    {notification.type === 'success' ?  (
-                        <CheckCircle className="w-5 h-5" />
+                    {notification.type === 'success' ? (
+                        <CheckCircle className="w-4 h-4 sm:w-5 sm:h-5 flex-shrink-0" />
                     ) : (
-                        <AlertCircle className="w-5 h-5" />
+                        <AlertCircle className="w-4 h-4 sm:w-5 sm:h-5 flex-shrink-0" />
                     )}
-                    <span className="font-medium">{notification.message}</span>
+                    <span className="font-medium text-sm sm:text-base">{notification.message}</span>
                     <button
                         onClick={() => setNotification(null)}
-                        className="ml-4 hover:opacity-80"
+                        className="ml-auto hover:opacity-80"
                     >
                         <X className="w-4 h-4" />
                     </button>
@@ -225,29 +225,29 @@ export default function EventForm({ event, onSuccess }: EventFormProps) {
             {/* ✅ Botón para volver atrás */}
             <button
                 onClick={() => navigate('/events')}
-                className="flex items-center gap-2 text-gray-600 hover:text-gray-900 mb-6 transition-colors"
+                className="flex items-center gap-2 text-gray-600 hover:text-gray-900 mb-4 sm:mb-6 transition-colors"
             >
-                <ArrowLeft className="w-5 h-5" />
-                <span className="font-medium">Volver a Eventos</span>
+                <ArrowLeft className="w-4 h-4 sm:w-5 sm:h-5" />
+                <span className="font-medium text-sm sm:text-base">Volver a Eventos</span>
             </button>
 
-            <div className="bg-white rounded-lg shadow-lg p-8">
-                <h2 className="text-2xl font-bold mb-6 text-gray-900">
+            <div className="bg-white rounded-lg shadow-lg p-4 sm:p-6 lg:p-8">
+                <h2 className="text-xl sm:text-2xl lg:text-3xl font-bold mb-4 sm:mb-6 text-gray-900">
                     {isEditing ? 'Editar Evento' : 'Crear Nuevo Evento'}
                 </h2>
 
-                <div className="space-y-6">
+                <div className="space-y-4 sm:space-y-6">
                     {/* Imagen */}
                     <div>
                         <label className="block text-sm font-medium text-gray-700 mb-2">
                             Imagen del Evento
                         </label>
-                        {imagePreview ? (
+                        {imagePreview ?  (
                             <div className="relative">
                                 <img
                                     src={imagePreview}
                                     alt="Preview"
-                                    className="w-full h-64 object-cover rounded-lg"
+                                    className="w-full h-48 sm:h-64 object-cover rounded-lg"
                                 />
                                 <button
                                     type="button"
@@ -258,10 +258,10 @@ export default function EventForm({ event, onSuccess }: EventFormProps) {
                                 </button>
                             </div>
                         ) : (
-                            <label className="flex flex-col items-center justify-center w-full h-64 border-2 border-gray-300 border-dashed rounded-lg cursor-pointer bg-gray-50 hover:bg-gray-100">
+                            <label className="flex flex-col items-center justify-center w-full h-48 sm:h-64 border-2 border-gray-300 border-dashed rounded-lg cursor-pointer bg-gray-50 hover:bg-gray-100">
                                 <div className="flex flex-col items-center justify-center pt-5 pb-6">
-                                    <ImageIcon className="w-12 h-12 mb-3 text-gray-400" />
-                                    <p className="mb-2 text-sm text-gray-500">
+                                    <ImageIcon className="w-10 h-10 sm:w-12 sm:h-12 mb-3 text-gray-400" />
+                                    <p className="mb-2 text-xs sm:text-sm text-gray-500">
                                         <span className="font-semibold">Click para subir</span> o arrastra una imagen
                                     </p>
                                     <p className="text-xs text-gray-500">PNG, JPG, GIF hasta 5MB</p>
@@ -285,7 +285,7 @@ export default function EventForm({ event, onSuccess }: EventFormProps) {
                             type="text"
                             value={formData.title}
                             onChange={(e) => setFormData(prev => ({ ...prev, title: e.target.value }))}
-                            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                            className="w-full px-3 sm:px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent text-sm sm:text-base"
                             placeholder="Ej: Conferencia de Inteligencia Artificial"
                             required
                         />
@@ -300,7 +300,7 @@ export default function EventForm({ event, onSuccess }: EventFormProps) {
                             value={formData.description}
                             onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
                             rows={4}
-                            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                            className="w-full px-3 sm:px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent text-sm sm:text-base"
                             placeholder="Describe tu evento..."
                             required
                         />
@@ -316,14 +316,14 @@ export default function EventForm({ event, onSuccess }: EventFormProps) {
                             type="text"
                             value={formData.location}
                             onChange={(e) => setFormData(prev => ({ ...prev, location: e.target.value }))}
-                            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                            className="w-full px-3 sm:px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent text-sm sm:text-base"
                             placeholder="Ej: Auditorio Principal SENA"
                             required
                         />
                     </div>
 
                     {/* Fechas */}
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         <div>
                             <label className="block text-sm font-medium text-gray-700 mb-2">
                                 <Calendar className="w-4 h-4 inline mr-1" />
@@ -333,7 +333,7 @@ export default function EventForm({ event, onSuccess }: EventFormProps) {
                                 type="datetime-local"
                                 value={formData.startDate}
                                 onChange={(e) => setFormData(prev => ({ ...prev, startDate: e.target.value }))}
-                                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                                className="w-full px-3 sm:px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent text-sm sm:text-base"
                                 required
                             />
                         </div>
@@ -347,14 +347,14 @@ export default function EventForm({ event, onSuccess }: EventFormProps) {
                                 type="datetime-local"
                                 value={formData.endDate}
                                 onChange={(e) => setFormData(prev => ({ ...prev, endDate: e.target.value }))}
-                                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                                className="w-full px-3 sm:px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent text-sm sm:text-base"
                                 required
                             />
                         </div>
                     </div>
 
                     {/* Tipo de Evento y Cupos */}
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         <div>
                             <label className="block text-sm font-medium text-gray-700 mb-2">
                                 Tipo de Evento
@@ -362,7 +362,7 @@ export default function EventForm({ event, onSuccess }: EventFormProps) {
                             <select
                                 value={formData.eventType}
                                 onChange={(e) => setFormData(prev => ({ ...prev, eventType: e.target.value as EventType }))}
-                                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                                className="w-full px-3 sm:px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent text-sm sm:text-base"
                             >
                                 {eventTypeOptions.map(option => (
                                     <option key={option.value} value={option.value}>
@@ -381,8 +381,8 @@ export default function EventForm({ event, onSuccess }: EventFormProps) {
                                 type="number"
                                 min="1"
                                 value={formData.maxAttendees}
-                                onChange={(e) => setFormData(prev => ({ ...prev, maxAttendees: e.target.value }))}
-                                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                                onChange={(e) => setFormData(prev => ({ ... prev, maxAttendees: e.target.value }))}
+                                className="w-full px-3 sm:px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent text-sm sm:text-base"
                                 placeholder="Ilimitado"
                             />
                         </div>
@@ -394,14 +394,14 @@ export default function EventForm({ event, onSuccess }: EventFormProps) {
                             Categorías
                         </label>
                         <div className="flex flex-wrap gap-2">
-                            {categories. map(category => (
+                            {categories.map(category => (
                                 <button
-                                    key={category.id}
+                                    key={category. id}
                                     type="button"
-                                    onClick={() => toggleCategory(category. id)}
-                                    className={`px-4 py-2 rounded-full text-sm font-medium transition-colors ${
-                                        formData.categoryIds. includes(category.id)
-                                            ? 'bg-green-600 text-white'
+                                    onClick={() => toggleCategory(category.id)}
+                                    className={`px-3 sm:px-4 py-1. 5 sm:py-2 rounded-full text-xs sm:text-sm font-medium transition-colors ${
+                                        formData.categoryIds.includes(category.id)
+                                            ?  'bg-green-600 text-white'
                                             : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
                                     }`}
                                 >
@@ -412,7 +412,7 @@ export default function EventForm({ event, onSuccess }: EventFormProps) {
                     </div>
 
                     {/* ✅ BOTONES CONDICIONALES SEGÚN MODO */}
-                    <div className="flex gap-4 pt-6">
+                    <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 pt-4 sm:pt-6">
                         {isEditing ? (
                             // ✅ MODO EDICIÓN: Solo Guardar Cambios y Cancelar
                             <>
@@ -420,11 +420,11 @@ export default function EventForm({ event, onSuccess }: EventFormProps) {
                                     type="button"
                                     onClick={() => handleSubmit(false)}
                                     disabled={loading}
-                                    className="flex-1 flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-lg font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                                    className="flex-1 flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4 sm:px-6 py-2. 5 sm:py-3 rounded-lg text-sm sm:text-base font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                                 >
-                                    {loading ?  (
+                                    {loading ? (
                                         <>
-                                            <Loader2 className="w-5 h-5 animate-spin" />
+                                            <Loader2 className="w-4 h-4 sm:w-5 sm:h-5 animate-spin" />
                                             Guardando...
                                         </>
                                     ) : (
@@ -438,7 +438,7 @@ export default function EventForm({ event, onSuccess }: EventFormProps) {
                                     type="button"
                                     onClick={() => navigate('/events')}
                                     disabled={loading}
-                                    className="px-6 py-3 bg-white border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                                    className="px-4 sm:px-6 py-2.5 sm:py-3 bg-white border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed text-sm sm:text-base"
                                 >
                                     Cancelar
                                 </button>
@@ -450,11 +450,11 @@ export default function EventForm({ event, onSuccess }: EventFormProps) {
                                     type="button"
                                     onClick={() => handleSubmit(false)}
                                     disabled={loading}
-                                    className="flex-1 flex items-center justify-center gap-2 bg-green-600 hover:bg-green-700 text-white px-6 py-3 rounded-lg font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                                    className="flex-1 flex items-center justify-center gap-2 bg-green-600 hover:bg-green-700 text-white px-4 sm:px-6 py-2.5 sm:py-3 rounded-lg text-sm sm:text-base font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                                 >
-                                    {loading ?  (
+                                    {loading ? (
                                         <>
-                                            <Loader2 className="w-5 h-5 animate-spin" />
+                                            <Loader2 className="w-4 h-4 sm:w-5 sm:h-5 animate-spin" />
                                             Publicando...
                                         </>
                                     ) : (
@@ -468,7 +468,7 @@ export default function EventForm({ event, onSuccess }: EventFormProps) {
                                     type="button"
                                     onClick={() => handleSubmit(true)}
                                     disabled={loading}
-                                    className="flex-1 bg-gray-600 hover:bg-gray-700 text-white px-6 py-3 rounded-lg font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                                    className="flex-1 bg-gray-600 hover:bg-gray-700 text-white px-4 sm:px-6 py-2.5 sm:py-3 rounded-lg text-sm sm:text-base font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                                 >
                                     {loading ? 'Guardando...' : 'Guardar como Borrador'}
                                 </button>
@@ -477,7 +477,7 @@ export default function EventForm({ event, onSuccess }: EventFormProps) {
                                     type="button"
                                     onClick={() => navigate('/events')}
                                     disabled={loading}
-                                    className="px-6 py-3 bg-white border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                                    className="px-4 sm:px-6 py-2.5 sm:py-3 bg-white border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed text-sm sm:text-base"
                                 >
                                     Cancelar
                                 </button>

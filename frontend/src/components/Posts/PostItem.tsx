@@ -16,7 +16,7 @@ type Props = {
 const API_BASE = import.meta.env.SENA_API_URL || 'http://localhost:3001';
 
 const PostItem: React. FC<Props> = ({ post, onUpdated, onDeleted }) => {
-    const initialLikes = Array.isArray((post as any).likes)
+    const initialLikes = Array. isArray((post as any).likes)
         ? (post as any). likes.length
         : (typeof post.likesCount === 'number' ?  post.likesCount : 0);
 
@@ -35,8 +35,8 @@ const PostItem: React. FC<Props> = ({ post, onUpdated, onDeleted }) => {
     const [loadingComments, setLoadingComments] = useState(false);
 
     const authorName =
-        post.user?.profile?.name ||
-        post.user?.profile?. lastName ||
+        post.user?. profile?.name ||
+        post.user?.profile?.lastName ||
         post.user?.email ||
         'Usuario';
 
@@ -47,36 +47,32 @@ const PostItem: React. FC<Props> = ({ post, onUpdated, onDeleted }) => {
         : null;
 
     const authorAvatar =
-        post.user?.profile?. avatar
+        post.user?. profile?.avatar
             ? post.user! .profile! .avatar! .startsWith('/')
-                ?  `${API_BASE}${post.user!.profile!.avatar}`
-                : post.user! .profile!.avatar
+                ?  `${API_BASE}${post.user! .profile!.avatar}`
+                : post.user!.profile! .avatar
             : null;
 
     // ✅ VERIFICAR PERMISOS
     const isOwner = ! !(user && post.user && user.id === post.user.id);
-    const isDeveloper = user?.role === 'desarrollador';
-    const canEdit = isOwner; // Solo el dueño puede editar
-    const canDelete = isOwner || isDeveloper; // Dueño o desarrollador pueden eliminar
+    const isDeveloper = user?. role === 'desarrollador';
+    const canEdit = isOwner;
+    const canDelete = isOwner || isDeveloper;
 
-    // Sync comments if backend included them in the post payload
     useEffect(() => {
-        setComments(post.comments ?? []);
-    }, [post.comments]);
+        setComments(post.comments ??  []);
+    }, [post. comments]);
 
-    // Preload comments on mount / when post. id changes so comments are available after refresh
     useEffect(() => {
         let mounted = true;
 
         const preload = async () => {
             try {
-                // If backend already provided comments, use them
                 if (post.comments && post.comments.length > 0) {
                     setComments(post.comments);
                     return;
                 }
 
-                // If we already loaded them locally, skip
                 if (comments.length > 0) return;
 
                 setLoadingComments(true);
@@ -99,7 +95,7 @@ const PostItem: React. FC<Props> = ({ post, onUpdated, onDeleted }) => {
 
     useEffect(() => {
         function handleClickOutside(e: MouseEvent) {
-            if (menuRef.current && !menuRef. current.contains(e.target as Node)) {
+            if (menuRef.current && !menuRef.current.contains(e. target as Node)) {
                 setMenuOpen(false);
             }
         }
@@ -107,7 +103,6 @@ const PostItem: React. FC<Props> = ({ post, onUpdated, onDeleted }) => {
         return () => document.removeEventListener('mousedown', handleClickOutside);
     }, []);
 
-    // Existing behavior: lazy load comments when user opens the comments panel
     useEffect(() => {
         if (! showComments) return;
         if (comments.length > 0) return;
@@ -128,7 +123,7 @@ const PostItem: React. FC<Props> = ({ post, onUpdated, onDeleted }) => {
         return () => {
             mounted = false;
         };
-    }, [showComments, post.id, comments. length]);
+    }, [showComments, post.id, comments.length]);
 
     const handleDeleted = async () => {
         if (! confirm('¿Eliminar esta publicación?')) return;
@@ -145,7 +140,7 @@ const PostItem: React. FC<Props> = ({ post, onUpdated, onDeleted }) => {
     };
 
     const handleToggleLike = async () => {
-        if (!user || !user.id) {
+        if (! user || !user.id) {
             alert('Inicia sesión para dar like');
             return;
         }
@@ -184,80 +179,78 @@ const PostItem: React. FC<Props> = ({ post, onUpdated, onDeleted }) => {
     };
 
     const handleCommentUpdated = (updated: PostComment) => {
-        setComments((prev) => prev.map((c) => (c.id === updated.id ? updated : c)));
+        setComments((prev) => prev.map((c) => (c.id === updated.id ?  updated : c)));
     };
 
     const handleCommentDeleted = (id: number) => {
-        setComments((prev) => prev. filter((c) => c.id !== id));
+        setComments((prev) => prev.filter((c) => c.id !== id));
     };
 
     return (
-        <article className="border-b border-gray-200 hover:bg-gray-50 transition-colors duration-150 px-4 py-5">
-            <div className="flex items-start space-x-3">
-                <div className="w-10 h-10 rounded-full overflow-hidden bg-gray-200 flex items-center justify-center text-gray-600 font-semibold flex-shrink-0">
+        <article className="border-b border-gray-200 hover:bg-gray-50 transition-colors duration-150 px-3 sm:px-4 py-4 sm:py-5">
+            <div className="flex items-start space-x-2 sm:space-x-3">
+                <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-full overflow-hidden bg-gray-200 flex items-center justify-center text-gray-600 font-semibold flex-shrink-0 text-sm sm:text-base">
                     {authorAvatar ?  (
                         <img src={authorAvatar} alt={authorName} className="w-full h-full object-cover" />
                     ) : (
-                        authorName. charAt(0).toUpperCase()
+                        authorName. charAt(0). toUpperCase()
                     )}
                 </div>
 
                 <div className="flex-1 min-w-0">
-                    <div className="flex justify-between items-center">
-                        <div className="flex items-center space-x-2">
-                            <span className="font-semibold text-gray-900">{authorName}</span>
-                            <span className="text-sm text-gray-500">
+                    <div className="flex justify-between items-start gap-2">
+                        <div className="flex flex-col sm:flex-row sm:items-center sm:space-x-2 min-w-0">
+                            <span className="font-semibold text-gray-900 text-sm sm:text-base truncate">{authorName}</span>
+                            <span className="text-xs sm:text-sm text-gray-500">
                                 {post.createdAt ?  new Date(post.createdAt).toLocaleDateString() : ''}
                             </span>
                         </div>
 
                         {/* ✅ MOSTRAR MENÚ SI PUEDE EDITAR O ELIMINAR */}
                         {(canEdit || canDelete) && (
-                            <div className="relative" ref={menuRef}>
+                            <div className="relative flex-shrink-0" ref={menuRef}>
                                 <button
                                     onClick={() => setMenuOpen((s) => !s)}
                                     aria-haspopup="menu"
                                     aria-expanded={menuOpen}
-                                    className="p-1. 5 rounded-full hover:bg-gray-100 transition cursor-pointer"
+                                    className="p-1 sm:p-1. 5 rounded-full hover:bg-gray-100 transition cursor-pointer"
                                     title="Opciones"
                                 >
                                     <svg
                                         xmlns="http://www.w3. org/2000/svg"
-                                        className="w-5 h-5 text-gray-600"
+                                        className="w-4 h-4 sm:w-5 sm:h-5 text-gray-600"
                                         fill="none"
                                         viewBox="0 0 24 24"
                                         stroke="currentColor"
                                         strokeWidth={2}
                                     >
-                                        <path strokeLinecap="round" strokeLinejoin="round" d="M6 12h. 01M12 12h.01M18 12h.01" />
+                                        <path strokeLinecap="round" strokeLinejoin="round" d="M6 12h.01M12 12h. 01M18 12h.01" />
                                     </svg>
                                 </button>
 
                                 {menuOpen && (
-                                    <div className="absolute right-0 mt-2 w-40 bg-white border border-gray-200 rounded-xl shadow-lg z-20 overflow-hidden">
-                                        {/* ✅ SOLO MOSTRAR "EDITAR" SI ES EL DUEÑO */}
+                                    <div className="absolute right-0 mt-2 w-36 sm:w-40 bg-white border border-gray-200 rounded-xl shadow-lg z-20 overflow-hidden">
                                         {canEdit && (
                                             <button
                                                 onClick={() => {
                                                     setEditing(true);
                                                     setMenuOpen(false);
                                                 }}
-                                                className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 transition"
+                                                className="block w-full text-left px-3 sm:px-4 py-2 text-xs sm:text-sm text-gray-700 hover:bg-gray-100 transition"
                                             >
                                                 Editar
                                             </button>
                                         )}
 
-                                        {/* ✅ MOSTRAR "ELIMINAR" SI ES DUEÑO O DESARROLLADOR */}
                                         {canDelete && (
                                             <button
                                                 onClick={handleDeleted}
                                                 disabled={deleting}
-                                                className={`block w-full text-left px-4 py-2 text-sm transition ${
-                                                    deleting ?  'text-red-300 cursor-not-allowed' : 'text-red-600 hover:bg-red-50'
+                                                className={`block w-full text-left px-3 sm:px-4 py-2 text-xs sm:text-sm transition ${
+                                                    deleting ? 'text-red-300 cursor-not-allowed' : 'text-red-600 hover:bg-red-50'
                                                 }`}
                                             >
-                                                {deleting ? 'Eliminando.. .' : 'Eliminar'}
+                                                {deleting ? 'Eliminando...' : 'Eliminar'}
                                             </button>
                                         )}
                                     </div>
@@ -267,48 +260,49 @@ const PostItem: React. FC<Props> = ({ post, onUpdated, onDeleted }) => {
                     </div>
 
                     <div className="mt-2 text-gray-800 whitespace-pre-wrap break-words">
-                        {post.title && <p className="text-base font-medium">{post.title}</p>}
+                        {post.title && <p className="text-sm sm:text-base font-medium">{post.title}</p>}
 
                         {post.content ?  (
-                            <div className="text-gray-700 mt-1">{post.content}</div>
+                            <div className="text-gray-700 mt-1 text-sm sm:text-base">{post.content}</div>
                         ) : post.summary ? (
-                            <p className="text-gray-700 mt-1">{post. summary}</p>
+                            <p className="text-gray-700 mt-1 text-sm sm:text-base">{post.summary}</p>
                         ) : null}
                     </div>
 
                     {imageSrc && (
-                        <div className="mt-3 rounded-2xl overflow-hidden border border-gray-200">
+                        <div className="mt-3 rounded-xl sm:rounded-2xl overflow-hidden border border-gray-200">
                             <img
                                 src={imageSrc}
                                 alt={post.title ??  'Imagen'}
-                                className="w-full max-h-96 object-cover transition-transform duration-300 hover:scale-[1.02]"
+                                className="w-full max-h-64 sm:max-h-96 object-cover transition-transform duration-300 hover:scale-[1.02]"
                             />
                         </div>
                     )}
 
-                    <div className="mt-3 flex items-center gap-4">
+                    <div className="mt-3 flex items-center gap-3 sm:gap-4">
                         <button
                             onClick={handleToggleLike}
-                            className={`flex items-center gap-2 focus:outline-none transition ${
-                                liked ?  'text-red-600' : 'text-gray-600'
+                            className={`flex items-center gap-1. 5 sm:gap-2 focus:outline-none transition text-sm sm:text-base ${
+                                liked ? 'text-red-600' : 'text-gray-600'
                             } ${liking ? 'opacity-60 cursor-not-allowed' : 'hover:text-red-500'}`}
                             aria-pressed={liked}
                             aria-disabled={liking}
                             title={liked ? 'Quitar me gusta' : 'Me gusta'}
                             disabled={liking}
                         >
-                            <Heart className="w-5 h-5" />
+                            <Heart className="w-4 h-4 sm:w-5 sm:h-5" />
                             <span>{likesCount ??  0}</span>
                         </button>
 
                         <button
                             onClick={() => setShowComments((s) => !s)}
-                            className="flex items-center gap-2 text-gray-600"
+                            className="flex items-center gap-1. 5 sm:gap-2 text-gray-600 text-sm sm:text-base"
                             aria-expanded={showComments}
                             title="Mostrar comentarios"
                         >
-                            <MessageSquare className="w-5 h-5" />
-                            <span>Comentarios ({comments.length})</span>
+                            <MessageSquare className="w-4 h-4 sm:w-5 sm:h-5" />
+                            <span className="hidden sm:inline">Comentarios ({comments.length})</span>
+                            <span className="sm:hidden">({comments.length})</span>
                         </button>
                     </div>
 
@@ -327,13 +321,13 @@ const PostItem: React. FC<Props> = ({ post, onUpdated, onDeleted }) => {
 
                     {showComments && (
                         <div className="mt-4 border-t border-gray-100 pt-4 space-y-3">
-                            {loadingComments && <div className="text-sm text-gray-500">Cargando comentarios...</div>}
+                            {loadingComments && <div className="text-xs sm:text-sm text-gray-500">Cargando comentarios...</div>}
 
                             {! loadingComments && comments.length === 0 && (
-                                <div className="text-sm text-gray-500">No hay comentarios aún</div>
+                                <div className="text-xs sm:text-sm text-gray-500">No hay comentarios aún</div>
                             )}
 
-                            {! loadingComments &&
+                            {!loadingComments &&
                                 comments.map((c) => (
                                     <CommentItem
                                         key={c.id}
