@@ -1,16 +1,18 @@
-import { useEffect, useState, useRef, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
+import {useEffect, useState, useRef, useCallback} from 'react';
+import {useNavigate} from 'react-router-dom';
 import {
     getIncomingRequests,
 } from '../../services/friends';
 
-import type { FriendRequestDTO } from '../../services/friends';
+import type {FriendRequestDTO} from '../../services/friends';
 import {
     onFriendRequestSent,
     offFriendRequestSent,
     onFriendRequestAccepted,
     offFriendRequestAccepted,
 } from '../../services/sockets/friend-request.socket';
+
+const API_BASE = import.meta.env.VITE_SENA_API_URL || 'http://localhost:3001';
 
 export default function NavbarNotifications() {
     const [incomingCount, setIncomingCount] = useState(0);
@@ -98,7 +100,7 @@ export default function NavbarNotifications() {
                 className="relative p-2 focus:outline-none"
             >
                 <svg
-                    className="w-6 h-10 text-gray-700"
+                    className="w-5 h-5 sm:w-6 sm:h-6 text-gray-700"
                     fill="none"
                     stroke="currentColor"
                     viewBox="0 0 24 24"
@@ -112,37 +114,42 @@ export default function NavbarNotifications() {
                 </svg>
 
                 {incomingCount > 0 && (
-                    <span className="absolute -top-1 -right-1 flex items-center justify-center px-2 py-1 text-xs font-bold text-white bg-red-600 rounded-full">
-            {incomingCount}
-          </span>
+                    <span
+                        className="absolute -top-1 -right-1 flex items-center justify-center px-1. 5 sm:px-2 py-0.5 sm:py-1 text-xs font-bold text-white bg-red-600 rounded-full min-w-[18px] sm:min-w-[20px]">
+                        {incomingCount > 99 ? '99+' : incomingCount}
+                    </span>
                 )}
             </button>
 
             {/* 🧭 Dropdown de notificaciones */}
             {open && (
-                <div className="absolute right-0 mt-2 w-80 bg-white border rounded shadow-lg z-50">
-                    <div className="p-3 border-b flex items-center justify-between">
-                        <strong>Notificaciones</strong>
+                <div className="absolute right-0 mt-2 w-72 sm:w-80 bg-white border rounded-lg shadow-lg z-50">
+                    <div className="p-2. 5 sm:p-3 border-b flex items-center justify-between">
+                        <strong className="text-sm sm:text-base">Notificaciones</strong>
                         <button
                             onClick={() => {
                                 setOpen(false);
                                 navigate('/notifications');
                             }}
-                            className="text-xs text-green-600 hover:underline"
+                            className="text-xs sm:text-sm text-green-600 hover:underline"
                         >
                             Ver todo
                         </button>
                     </div>
 
-                    <div className="max-h-64 overflow-auto">
+                    <div className="max-h-60 sm:max-h-64 overflow-auto">
                         {preview.length === 0 ? (
-                            <div className="p-4 text-sm text-gray-500">
+                            <div className="p-4 text-xs sm:text-sm text-gray-500 text-center">
                                 No hay solicitudes nuevas.
                             </div>
                         ) : (
                             preview.map((req) => {
-                                const { id, sender } = req;
-                                const avatar = sender?.profile?.avatar || '/default.png';
+                                const {id, sender} = req;
+                                const avatar = sender?.profile?.avatar
+                                    ? sender.profile.avatar.startsWith('/')
+                                        ? `${API_BASE}${sender.profile.avatar}`
+                                        : sender.profile.avatar
+                                    : '/default. png';
                                 const fullName = `${sender?.profile?.name ?? ''} ${
                                     sender?.profile?.lastName ?? ''
                                 }`.trim();
@@ -150,22 +157,29 @@ export default function NavbarNotifications() {
                                 return (
                                     <div
                                         key={id}
-                                        className="p-3 flex gap-3 items-center border-b hover:bg-gray-50"
+                                        className="p-2. 5 sm:p-3 flex gap-2 sm:gap-3 items-center border-b hover:bg-gray-50 cursor-pointer transition"
+                                        onClick={() => {
+                                            setOpen(false);
+                                            navigate('/notifications');
+                                        }}
                                     >
                                         <img
                                             src={avatar}
                                             alt="avatar"
-                                            className="w-10 h-10 rounded-full object-cover"
+                                            className="w-8 h-8 sm:w-10 sm:h-10 rounded-full object-cover flex-shrink-0"
                                         />
-                                        <div className="flex-1 text-sm">
-                                            <div className="font-medium">{fullName || sender?.email}</div>
+                                        <div className="flex-1 min-w-0 text-xs sm:text-sm">
+                                            <div className="font-medium truncate">{fullName || sender?.email}</div>
                                             <div className="text-xs text-gray-500">
                                                 Te ha enviado una solicitud
                                             </div>
                                         </div>
                                         <button
-                                            onClick={() => navigate('/notifications')}
-                                            className="text-sm text-green-600 hover:underline"
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                navigate('/notifications');
+                                            }}
+                                            className="text-xs sm:text-sm text-green-600 hover:underline flex-shrink-0"
                                         >
                                             Ver
                                         </button>

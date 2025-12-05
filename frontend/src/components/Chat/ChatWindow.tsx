@@ -44,7 +44,6 @@ const ChatWindow: React.FC<Props> = ({
     const loadingMoreRef = useRef(false);
     const wasNearBottomRef = useRef(true);
 
-    // Cuando cambia conversación
     useEffect(() => {
         loadingMoreRef.current = false;
         wasNearBottomRef.current = true;
@@ -59,17 +58,15 @@ const ChatWindow: React.FC<Props> = ({
         }, 0);
     }, [activeConversation?. id]);
 
-    // Auto-scroll si estabas cerca del bottom
     useEffect(() => {
         const container = containerRef.current;
-        if (! container) return;
+        if (!container) return;
 
-        if (wasNearBottomRef.current) {
+        if (wasNearBottomRef. current) {
             messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
         }
     }, [messages. length]);
 
-    // Actualizar wasNearBottomRef y mostrar botón de scroll
     useEffect(() => {
         const el = containerRef.current;
         if (! el) return;
@@ -92,7 +89,6 @@ const ChatWindow: React.FC<Props> = ({
         };
     }, []);
 
-    // Limpiar preview cuando se desmonta
     useEffect(() => {
         return () => {
             if (imagePreview) {
@@ -101,17 +97,15 @@ const ChatWindow: React.FC<Props> = ({
         };
     }, [imagePreview]);
 
-    const handleImageSelect = (e: React. ChangeEvent<HTMLInputElement>) => {
+    const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
         if (! file) return;
 
-        // Validar tipo de archivo
-        if (!file.type.startsWith('image/')) {
+        if (! file.type.startsWith('image/')) {
             alert('Por favor selecciona un archivo de imagen válido');
             return;
         }
 
-        // Validar tamaño (máx 5MB)
         if (file.size > 5 * 1024 * 1024) {
             alert('La imagen no debe superar los 5MB');
             return;
@@ -124,7 +118,7 @@ const ChatWindow: React.FC<Props> = ({
 
     const handleRemoveImage = () => {
         if (imagePreview) {
-            URL.revokeObjectURL(imagePreview);
+            URL. revokeObjectURL(imagePreview);
         }
         setSelectedImage(null);
         setImagePreview(null);
@@ -136,15 +130,13 @@ const ChatWindow: React.FC<Props> = ({
     const handleSubmit = (e?: React.FormEvent) => {
         if (e) e.preventDefault();
 
-        const hasText = text.trim(). length > 0;
+        const hasText = text.trim().length > 0;
         const hasImage = selectedImage !== null;
 
-        if (! hasText && !hasImage) return;
+        if (!hasText && !hasImage) return;
 
-        // Enviar mensaje con texto e imagen (si existe)
         onSend(text. trim(), selectedImage || undefined);
 
-        // Limpiar
         setText('');
         handleRemoveImage();
 
@@ -155,7 +147,7 @@ const ChatWindow: React.FC<Props> = ({
 
     const handleScrollInner = useCallback(
         async (el: HTMLElement) => {
-            if (! onLoadMore || loadingMoreRef.current) return;
+            if (!onLoadMore || loadingMoreRef.current) return;
             if (el.scrollTop <= 80) {
                 loadingMoreRef.current = true;
                 const prevScrollHeight = el.scrollHeight;
@@ -208,29 +200,22 @@ const ChatWindow: React.FC<Props> = ({
         messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
     };
 
-    // ✅ FUNCIÓN para obtener URL de imagen correctamente
     const getImageUrl = (imageUrl: any): string | null => {
         if (!imageUrl) return null;
 
-        // Si es un string
         if (typeof imageUrl === 'string') {
-            // Si es un blob (imagen optimista local)
-            if (imageUrl. startsWith('blob:')) {
+            if (imageUrl.startsWith('blob:')) {
                 return imageUrl;
             }
-            // Si es una ruta absoluta del servidor
-            if (imageUrl. startsWith('/')) {
-                return `${import.meta.env. VITE_SENA_API_URL || 'http://localhost:3001'}${imageUrl}`;
+            if (imageUrl.startsWith('/')) {
+                return `${import.meta.env.VITE_SENA_API_URL || 'http://localhost:3001'}${imageUrl}`;
             }
-            // Si es una URL completa
-            if (imageUrl. startsWith('http')) {
+            if (imageUrl.startsWith('http')) {
                 return imageUrl;
             }
-            // Si es una ruta relativa
-            return `${import. meta.env.VITE_SENA_API_URL || 'http://localhost:3001'}/${imageUrl}`;
+            return `${import.meta.env.VITE_SENA_API_URL || 'http://localhost:3001'}/${imageUrl}`;
         }
 
-        // Si no es string, retornar null
         return null;
     };
 
@@ -241,110 +226,103 @@ const ChatWindow: React.FC<Props> = ({
             .join(', ') || 'Chat';
 
     return (
-        <div className="flex flex-col h-full relative bg-gradient-to-b from-green-50 to-white">
-            {/* Header verde SENA */}
-            <div className="px-6 py-4 bg-gradient-to-r from-green-600 to-emerald-600 shadow-md">
-                <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                        {/* Avatar */}
-                        <div className="w-11 h-11 rounded-full bg-white/20 backdrop-blur-sm flex items-center justify-center text-white font-bold text-lg border-2 border-white/30">
-                            {participantName[0]?.toUpperCase() || 'C'}
-                        </div>
-                        <div>
-                            <h2 className="font-bold text-white text-lg">{participantName}</h2>
-                            <p className="text-xs text-green-100">
-                                {typingUsers.length > 0 ?  (
-                                    <span className="font-medium animate-pulse flex items-center gap-1">
-                                        <span className="inline-block w-1. 5 h-1.5 bg-white rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></span>
-                                        <span className="inline-block w-1. 5 h-1.5 bg-white rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></span>
-                                        <span className="inline-block w-1.5 h-1.5 bg-white rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></span>
-                                        Escribiendo
+        <div className="flex flex-col h-full bg-white">
+            {/* Header - Altura fija */}
+            <div className="flex-shrink-0 px-3 py-3 sm:px-4 sm:py-4 md:px-6 bg-gradient-to-r from-green-600 to-emerald-600 shadow-md">
+                <div className="flex items-center gap-2 sm:gap-3">
+                    <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-full bg-white/20 backdrop-blur-sm flex items-center justify-center text-white font-bold text-base sm:text-lg border-2 border-white/40 shadow-lg flex-shrink-0">
+                        {participantName[0]?.toUpperCase() || 'C'}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                        <h2 className="font-bold text-white text-sm sm:text-base md:text-lg truncate">
+                            {participantName}
+                        </h2>
+                        <p className="text-[10px] sm:text-xs text-green-100 flex items-center gap-1">
+                            {typingUsers. length > 0 ? (
+                                <>
+                                    <span className="flex gap-0.5">
+                                        <span className="w-1 h-1 bg-white rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></span>
+                                        <span className="w-1 h-1 bg-white rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></span>
+                                        <span className="w-1 h-1 bg-white rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></span>
                                     </span>
-                                ) : (
-                                    'En línea'
-                                )}
-                            </p>
-                        </div>
+                                    <span>Escribiendo...</span>
+                                </>
+                            ) : (
+                                <>
+                                    <span className="w-2 h-2 bg-green-300 rounded-full"></span>
+                                    <span>En línea</span>
+                                </>
+                            )}
+                        </p>
                     </div>
                 </div>
             </div>
 
-            {/* Messages */}
+            {/* Messages - Crece para ocupar espacio disponible */}
             <div
                 ref={containerRef}
-                className="flex-1 overflow-y-auto px-6 py-4"
-                style={{
-                    backgroundImage: `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%2339B54A' fill-opacity='0.03'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")`,
-                }}
+                className="flex-1 overflow-y-auto px-3 py-4 sm:px-4 sm:py-5 md:px-6 md:py-6 bg-gradient-to-b from-gray-50 to-white"
             >
-                {messages. map((m, i) => {
+                {messages.map((m, i) => {
                     const mine = String(m.senderId) === String(currentUserId);
                     const showAvatar = i === messages.length - 1 || messages[i + 1]?.senderId !== m.senderId;
                     const showTimestamp = i === messages.length - 1 ||
                         (new Date(messages[i + 1]?.createdAt || 0).getTime() - new Date(m.createdAt || 0).getTime()) > 60000;
 
-                    // ✅ Obtener URL de imagen correctamente
-                    const imageUrl = getImageUrl(m.imageUrl);
+                    const imageUrl = getImageUrl(m. imageUrl);
 
                     return (
                         <div
                             key={m.id ??  m.tempId ??  i}
-                            className={`flex mb-3 ${mine ? 'justify-end' : 'justify-start'} animate-fade-in-up`}
+                            className={`flex mb-3 sm:mb-4 ${mine ? 'justify-end' : 'justify-start'}`}
                         >
-                            <div className={`flex gap-2 max-w-[75%] ${mine ? 'flex-row-reverse' : 'flex-row'}`}>
-                                {/* Avatar */}
+                            <div className={`flex gap-2 items-start max-w-[85%] sm:max-w-[75%] md:max-w-[70%] ${mine ? 'flex-row-reverse' : 'flex-row'}`}>
                                 {! mine && showAvatar && (
-                                    <div className="w-8 h-8 rounded-full bg-gradient-to-br from-green-500 to-emerald-600 flex items-center justify-center text-white text-xs font-bold flex-shrink-0 border-2 border-green-200">
+                                    <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-gradient-to-br from-green-500 to-emerald-600 flex items-center justify-center text-white text-xs font-bold flex-shrink-0 shadow-md mt-1">
                                         {participantName[0]?.toUpperCase() || 'U'}
                                     </div>
                                 )}
-                                {! mine && !showAvatar && <div className="w-8" />}
+                                {!mine && ! showAvatar && <div className="w-7 sm:w-8" />}
 
-                                {/* Message bubble */}
                                 <div className="flex flex-col">
                                     <div
-                                        className={`rounded-2xl px-4 py-2. 5 shadow-md transition-all hover:shadow-lg ${
+                                        className={`rounded-2xl px-3 py-2 sm:px-4 sm:py-2.5 shadow-sm transition-all ${
                                             mine
-                                                ? 'bg-gradient-to-br from-green-600 to-emerald-600 text-white rounded-br-sm'
-                                                : 'bg-white border border-green-100 text-gray-800 rounded-bl-sm'
+                                                ? 'bg-gradient-to-br from-green-600 to-emerald-600 text-white rounded-br-md'
+                                                : 'bg-white text-gray-800 rounded-bl-md border border-gray-200'
                                         }`}
                                     >
-                                        {/* ✅ Mostrar imagen si existe */}
                                         {imageUrl && (
-                                            <div className={`${m.text ?  'mb-2' : ''}`}>
+                                            <div className={`${m.text ? 'mb-2' : ''}`}>
                                                 <img
                                                     src={imageUrl}
-                                                    alt="Imagen del mensaje"
-                                                    className="rounded-lg object-contain max-h-64 w-full border-2 border-white/20"
+                                                    alt="Imagen"
+                                                    className="rounded-lg max-h-56 sm:max-h-64 w-full object-cover"
                                                     onError={(e) => {
-                                                        console.error('[ChatWindow] Error loading image:', imageUrl);
                                                         const target = e.target as HTMLImageElement;
                                                         target.style.display = 'none';
                                                     }}
                                                 />
                                             </div>
                                         )}
-                                        {/* Texto del mensaje */}
-                                        {m.text && <div className="break-words leading-relaxed">{m.text}</div>}
+                                        {m.text && (
+                                            <p className="break-words leading-relaxed text-sm sm:text-base whitespace-pre-wrap">
+                                                {m. text}
+                                            </p>
+                                        )}
                                     </div>
 
-                                    {/* Timestamp */}
                                     {showTimestamp && (
-                                        <div
-                                            className={`text-[10px] text-gray-500 mt-1 px-2 font-medium ${
-                                                mine ?  'text-right' : 'text-left'
-                                            }`}
-                                        >
+                                        <div className={`text-[10px] text-gray-400 mt-1 px-2 ${mine ? 'text-right' : 'text-left'}`}>
                                             {m.sending ? (
-                                                <span className="text-green-600 animate-pulse flex items-center gap-1 justify-end">
-                                                    <span className="inline-block w-1 h-1 bg-green-600 rounded-full animate-bounce"></span>
-                                                    Enviando
-                                                </span>
+                                                <span className="text-green-600 font-medium">Enviando...</span>
                                             ) : (
-                                                formatDate(m.createdAt)
-                                            )}
-                                            {mine && m.seenBy && m.seenBy.length > 0 && (
-                                                <span className="ml-1 text-green-600 font-bold">✓✓</span>
+                                                <>
+                                                    {formatDate(m.createdAt)}
+                                                    {mine && m.seenBy && m.seenBy.length > 0 && (
+                                                        <span className="ml-1 text-blue-500">✓✓</span>
+                                                    )}
+                                                </>
                                             )}
                                         </div>
                                     )}
@@ -356,86 +334,83 @@ const ChatWindow: React.FC<Props> = ({
                 <div ref={messagesEndRef} />
             </div>
 
-            {/* Scroll to bottom button - Verde SENA */}
+            {/* Scroll button */}
             {showScrollButton && (
                 <button
                     onClick={scrollToBottom}
-                    className="absolute bottom-24 right-6 bg-gradient-to-br from-green-600 to-emerald-600 text-white p-3 rounded-full shadow-xl hover:shadow-2xl hover:scale-110 transition-all z-10 border-2 border-green-400"
+                    className="absolute bottom-24 sm:bottom-28 md:bottom-32 right-4 sm:right-6 bg-green-600 hover:bg-green-700 text-white p-3 rounded-full shadow-lg hover:shadow-xl transition-all z-10"
                     title="Ir al final"
                 >
                     <ArrowDown className="w-5 h-5" />
                 </button>
             )}
 
-            {/* Input - Verde SENA */}
-            <form
-                onSubmit={(e) => handleSubmit(e)}
-                className="px-6 py-4 bg-white border-t-2 border-green-100 shadow-lg"
-            >
-                {/* Image Preview */}
-                {imagePreview && (
-                    <div className="mb-3 relative inline-block">
-                        <img
-                            src={imagePreview}
-                            alt="Preview"
-                            className="max-h-32 rounded-lg border-2 border-green-200"
+            {/* ✅ Input Area - SIEMPRE VISIBLE, NUNCA CORTADO */}
+            <div className="flex-shrink-0 border-t border-gray-200 bg-white">
+                <form
+                    onSubmit={handleSubmit}
+                    className="px-3 py-3 sm:px-4 sm:py-4 md:px-6"
+                >
+                    {imagePreview && (
+                        <div className="mb-3 relative inline-block">
+                            <img
+                                src={imagePreview}
+                                alt="Preview"
+                                className="max-h-32 rounded-lg border-2 border-green-200"
+                            />
+                            <button
+                                type="button"
+                                onClick={handleRemoveImage}
+                                className="absolute -top-2 -right-2 bg-red-500 hover:bg-red-600 text-white rounded-full p-1. 5 shadow-lg transition"
+                            >
+                                <X className="w-4 h-4" />
+                            </button>
+                        </div>
+                    )}
+
+                    <div className="flex items-center gap-2 sm:gap-3">
+                        <input
+                            ref={fileInputRef}
+                            type="file"
+                            accept="image/*"
+                            onChange={handleImageSelect}
+                            className="hidden"
                         />
+
                         <button
                             type="button"
-                            onClick={handleRemoveImage}
-                            className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 hover:bg-red-600 transition shadow-lg"
+                            onClick={() => fileInputRef.current?.click()}
+                            className="p-2. 5 hover:bg-gray-100 text-gray-600 hover:text-green-600 rounded-full transition flex-shrink-0"
+                            title="Adjuntar imagen"
                         >
-                            <X className="w-4 h-4" />
+                            <ImageIcon className="w-5 h-5" />
+                        </button>
+
+                        <textarea
+                            placeholder="Escribe un mensaje..."
+                            className="flex-1 border border-gray-300 rounded-2xl px-4 py-2. 5 focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent resize-none bg-gray-50 hover:bg-white transition text-sm sm:text-base"
+                            value={text}
+                            onChange={(e) => setText(e.target.value)}
+                            onKeyDown={handleKeyDown}
+                            rows={1}
+                            style={{
+                                minHeight: '44px',
+                                maxHeight: '120px',
+                                overflowY: text.split('\n').length > 3 ? 'auto' : 'hidden',
+                            }}
+                        />
+
+                        <button
+                            type="submit"
+                            disabled={!text.trim() && !selectedImage}
+                            className="p-3 bg-green-600 hover:bg-green-700 text-white rounded-full transition-all disabled:opacity-50 disabled:cursor-not-allowed flex-shrink-0 shadow-md hover:shadow-lg active:scale-95"
+                            title="Enviar"
+                        >
+                            <Send className="w-5 h-5" />
                         </button>
                     </div>
-                )}
-
-                <div className="flex items-end gap-3">
-                    {/* Hidden file input */}
-                    <input
-                        ref={fileInputRef}
-                        type="file"
-                        accept="image/*"
-                        onChange={handleImageSelect}
-                        className="hidden"
-                    />
-
-                    {/* Image button */}
-                    <button
-                        type="button"
-                        onClick={() => fileInputRef. current?.click()}
-                        className="p-2. 5 hover:bg-green-50 text-green-700 rounded-full transition flex-shrink-0 border border-transparent hover:border-green-200"
-                        title="Adjuntar imagen"
-                    >
-                        <ImageIcon className="w-5 h-5" />
-                    </button>
-
-                    {/* Text input */}
-                    <textarea
-                        placeholder="Escribe un mensaje..."
-                        className="flex-1 border-2 border-green-200 rounded-2xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500 resize-none max-h-32 transition bg-green-50/30 hover:bg-green-50/50"
-                        value={text}
-                        onChange={(e) => setText(e.target.value)}
-                        onKeyDown={handleKeyDown}
-                        rows={1}
-                        style={{
-                            minHeight: '44px',
-                            maxHeight: '128px',
-                            overflowY: text.split('\n').length > 3 ? 'auto' : 'hidden',
-                        }}
-                    />
-
-                    {/* Send button - Verde SENA */}
-                    <button
-                        type="submit"
-                        disabled={! text.trim() && !selectedImage}
-                        className="p-3 bg-gradient-to-br from-green-600 to-emerald-600 text-white rounded-full hover:from-green-700 hover:to-emerald-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed disabled:grayscale flex-shrink-0 shadow-lg hover:shadow-xl hover:scale-105 active:scale-95"
-                        title="Enviar mensaje"
-                    >
-                        <Send className="w-5 h-5" />
-                    </button>
-                </div>
-            </form>
+                </form>
+            </div>
         </div>
     );
 };

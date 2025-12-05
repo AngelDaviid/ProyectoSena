@@ -10,28 +10,27 @@ type Props = {
     onDeleted?: (id: number) => void;
 };
 
-const CommentItem: React.FC<Props> = ({ postId, comment, onUpdated, onDeleted }) => {
+const CommentItem: React. FC<Props> = ({ postId, comment, onUpdated, onDeleted }) => {
     const { user } = useAuth();
 
-    // ✅ NUEVO: Verificar si el usuario puede modificar el comentario
     const isAuthor = user?.id === comment.user?.id;
     const isDeveloper = user?.role === 'desarrollador';
     const canModifyComment = isAuthor || isDeveloper;
 
     const [editing, setEditing] = useState(false);
-    const [content, setContent] = useState(comment.content);
+    const [content, setContent] = useState(comment. content);
     const [loading, setLoading] = useState(false);
 
     const authorName =
-        comment.user?.profile?. name ||
-        comment.user?. profile?.lastName ||
-        comment. user?.email ||
+        comment.user?.profile?.name ||
+        comment.user?.profile?.lastName ||
+        comment.user?.email ||
         'Usuario';
 
     const authorAvatar =
-        comment.user?.profile?. avatar
-            ? comment.user! .profile!.avatar! .startsWith('/')
-                ?  `${(import.meta. env.SENA_API_URL || 'http://localhost:3001')}${comment.user!.profile!.avatar}`
+        comment.user?.profile?.avatar
+            ?  comment.user! .profile!.avatar! .startsWith('/')
+                ? `${(import.meta.env.SENA_API_URL || 'http://localhost:3001')}${comment.user! .profile!.avatar}`
                 : comment.user!.profile!.avatar
             : null;
 
@@ -51,10 +50,10 @@ const CommentItem: React.FC<Props> = ({ postId, comment, onUpdated, onDeleted })
     };
 
     const handleDelete = async () => {
-        if (!confirm('¿Eliminar este comentario?')) return;
+        if (! confirm('¿Eliminar este comentario?')) return;
         try {
             setLoading(true);
-            await apiDeleteComment(postId, comment.id);
+            await apiDeleteComment(postId, comment. id);
             onDeleted?.(comment.id);
         } catch (err: any) {
             console.error(err);
@@ -65,8 +64,8 @@ const CommentItem: React.FC<Props> = ({ postId, comment, onUpdated, onDeleted })
     };
 
     return (
-        <div className="flex items-start gap-3 mb-3">
-            <div className="w-8 h-8 rounded-full overflow-hidden bg-gray-200 flex items-center justify-center text-gray-600 font-semibold flex-shrink-0">
+        <div className="flex items-start gap-2 sm:gap-3 mb-3">
+            <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-full overflow-hidden bg-gray-200 flex items-center justify-center text-gray-600 font-semibold flex-shrink-0 text-xs sm:text-sm">
                 {authorAvatar ? (
                     <img src={authorAvatar} alt={authorName} className="w-full h-full object-cover" />
                 ) : (
@@ -74,18 +73,18 @@ const CommentItem: React.FC<Props> = ({ postId, comment, onUpdated, onDeleted })
                 )}
             </div>
 
-            <div className="flex-1">
-                <div className="flex items-center justify-between">
-                    <div>
-                        <div className="text-sm font-medium text-gray-900">{authorName}</div>
+            <div className="flex-1 min-w-0">
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1 sm:gap-2">
+                    <div className="min-w-0">
+                        <div className="text-xs sm:text-sm font-medium text-gray-900 truncate">{authorName}</div>
                         <div className="text-xs text-gray-500">
-                            {comment.createdAt ? new Date(comment. createdAt).toLocaleString() : ''}
+                            {comment.createdAt ? new Date(comment.createdAt).toLocaleString() : ''}
                         </div>
                     </div>
 
                     {/* ✅ MODIFICADO: Mostrar botones si el usuario puede modificar */}
                     {canModifyComment && (
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-2 flex-shrink-0">
                             {isAuthor && ! editing && (
                                 <button
                                     onClick={() => setEditing(true)}
@@ -97,7 +96,7 @@ const CommentItem: React.FC<Props> = ({ postId, comment, onUpdated, onDeleted })
                             <button
                                 onClick={handleDelete}
                                 disabled={loading}
-                                className="text-xs text-red-600 hover:underline"
+                                className="text-xs text-red-600 hover:underline disabled:opacity-50"
                             >
                                 Eliminar
                             </button>
@@ -105,30 +104,30 @@ const CommentItem: React.FC<Props> = ({ postId, comment, onUpdated, onDeleted })
                     )}
                 </div>
 
-                <div className="mt-1 text-sm text-gray-800">
-                    {! editing && <div className="whitespace-pre-wrap">{comment.content}</div>}
+                <div className="mt-1 text-xs sm:text-sm text-gray-800">
+                    {! editing && <div className="whitespace-pre-wrap break-words">{comment.content}</div>}
                     {editing && (
                         <div className="space-y-2">
                             <textarea
                                 value={content}
-                                onChange={(e) => setContent(e.target. value)}
-                                className="w-full border border-gray-200 rounded-md p-2 text-sm"
+                                onChange={(e) => setContent(e. target.value)}
+                                className="w-full border border-gray-200 rounded-md p-2 text-xs sm:text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none"
                                 rows={3}
                             />
-                            <div className="flex gap-2">
+                            <div className="flex flex-col sm:flex-row gap-2">
                                 <button
                                     onClick={handleSave}
-                                    disabled={loading}
-                                    className="px-3 py-1 rounded bg-blue-600 text-white text-sm"
+                                    disabled={loading || !content.trim()}
+                                    className="px-3 py-1. 5 sm:py-1 rounded bg-blue-600 text-white text-xs sm:text-sm font-medium hover:bg-blue-700 transition disabled:opacity-50 disabled:cursor-not-allowed"
                                 >
-                                    {loading ? 'Guardando...' : 'Guardar'}
+                                    {loading ? 'Guardando.. .' : 'Guardar'}
                                 </button>
                                 <button
                                     onClick={() => {
                                         setEditing(false);
                                         setContent(comment.content);
                                     }}
-                                    className="px-3 py-1 rounded bg-gray-100 text-sm"
+                                    className="px-3 py-1.5 sm:py-1 rounded bg-gray-100 text-xs sm:text-sm hover:bg-gray-200 transition"
                                 >
                                     Cancelar
                                 </button>
