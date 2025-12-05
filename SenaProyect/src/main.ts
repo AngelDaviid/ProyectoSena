@@ -11,14 +11,73 @@ import { existsSync } from 'fs';
 async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
 
-  app.useStaticAssets(join(__dirname, '..', 'uploads'), { prefix: '/uploads/' });
+  // === UPLOADS ===
+  app.useStaticAssets(join(__dirname, '..', 'uploads'), {
+    prefix: '/uploads/',
+  });
 
-  // 1. Servir el build del frontend solo si existe
+  // === CORS ===
+  const allowedOrigins = process.env.FRONTEND_URL
+    ? process.env.FRONTEND_URL.split(',').map((url) => url.trim())
+    : ['http://localhost:5173'];
+
+  app.enableCors({
+    origin: allowedOrigins,
+    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+    credentials: true,
+  });
+
+  // === VALIDACIÓN ===
+  app.useGlobalPipes(
+    new ValidationPipe({
+      transform: true,
+      whitelist: true,
+      forbidNonWhitelisted: false,
+      transformOptions: { enableImplicitConversion: true },
+    }),
+  );
+
+  app.useGlobalInterceptors(
+    new ClassSerializerInterceptor(app.get(Reflector)),
+  );
+
+  // === SWAGGER ===
+  const config = new DocumentBuilder()
+    .setTitle('API SenaConnect')
+    .setDescription('API del proyecto SenaConnect')
+    .setVersion('1.0')
+    .addBearerAuth()
+    .build();
+
+  const document = SwaggerModule.createDocument(app, config);
+  SwaggerModule.setup('docs', app, document);
+
+  // === SEGURIDAD ===
+  app.use(
+    helmet({
+      crossOriginResourcePolicy: { policy: 'cross-origin' },
+    }),
+  );
+
+  app.use(
+    rateLimit({
+      windowMs: 1 * 60 * 1000,
+      max: 1000,
+      message: 'Demasiadas peticiones, intenta más tarde',
+      standardHeaders: true,
+      legacyHeaders: false,
+    }),
+  );
+
+  // === SERVIR FRONTEND SOLO SI EXISTE EL BUILD ===
   const frontendDist = join(__dirname, '..', '..', 'frontend', 'dist');
-  if (existsSync(frontendDist)) {
-    app.useStaticAssets(frontendDist, { prefix: '/' });
 
-    // 2. SPA fallback: Responde index.html para rutas desconocidas por el backend
+  if (existsSync(frontendDist)) {
+    console.log('➡️ Producción detectada: sirviendo frontend desde dist/');
+
+    app.useStaticAssets(frontendDist);
+
+    // Fallback para SPA
     app.use((req, res, next) => {
       if (
         req.method === 'GET' &&
@@ -27,49 +86,22 @@ async function bootstrap() {
         !req.path.startsWith('/docs') &&
         !req.path.startsWith('/ws') &&
         !req.path.startsWith('/socket.io') &&
-        !req.path.includes('.') // no archivos estáticos
+        !req.path.includes('.') // evita tratar assets como rutas
       ) {
         res.sendFile(join(frontendDist, 'index.html'));
       } else {
         next();
       }
     });
+  } else {
+    console.log('➡️ Modo desarrollo: NO se sirve frontend');
   }
 
-  app.useGlobalPipes(new ValidationPipe({ transform: true, whitelist: true, forbidNonWhitelisted: false, transformOptions: { enableImplicitConversion: true }}));
-  app.useGlobalInterceptors(new ClassSerializerInterceptor(app.get(Reflector)));
-
-  const config = new DocumentBuilder()
-    .setTitle('Blog API')
-    .setDescription('API para manejar publicaciones con imágenes y categorías')
-    .setVersion('1.0')
-    .addBearerAuth()
-    .build();
-  const document = SwaggerModule.createDocument(app, config);
-  SwaggerModule.setup('docs', app, document);
-
-  app.use(helmet({ crossOriginResourcePolicy: { policy: 'cross-origin' } }));
-
-  const allowedOrigins = process.env.FRONTEND_URL
-    ? process.env.FRONTEND_URL.split(',').map(url => url.trim())
-    : ['http://localhost:5173'];
-  app.enableCors({
-    origin: allowedOrigins,
-    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-    credentials: true,
-    allowedHeaders: ['Content-Type', 'Authorization'],
-  });
-
-  app.use(rateLimit({
-    windowMs: 1 * 60 * 1000,
-    max: 1000,
-    message: 'Demasiadas peticiones, intenta de nuevo más tarde',
-    standardHeaders: true,
-    legacyHeaders: false,
-  }));
-
+  // === PORT ===
   const port = process.env.PORT || 3001;
   await app.listen(port);
-  console.log(`🚀 Servidor corriendo en http://localhost:${port}`);
+
+  console.log(`🚀 Backend corriendo en http://localhost:${port}`);
 }
+
 bootstrap();
