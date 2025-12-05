@@ -8,7 +8,7 @@ import { Save, X, Image as ImageIcon } from 'lucide-react';
 import PostItem from '../components/Posts/PostItem';
 import type { Post } from '../types/post';
 
-const API_BASE = import.meta.env.SENA_API_URL || 'http://localhost:3001';
+const API_BASE = import.meta.env.VITE_SENA_API_URL || 'http://localhost:3001';
 
 const Profile: React.FC = () => {
     const { user: contextUser, setUser: setContextUser, token } = useAuth();
