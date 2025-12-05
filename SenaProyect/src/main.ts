@@ -16,15 +16,44 @@ async function bootstrap() {
     prefix: '/uploads/',
   });
 
-  // === CORS ===
+  // === CORS MEJORADO ===
   const allowedOrigins = process.env.FRONTEND_URL
-    ? process.env.FRONTEND_URL.split(',').map((url) => url.trim())
-    : ['http://localhost:5173'];
+    ? process.env.FRONTEND_URL.split(','). map((url) => url.trim())
+    : [
+      'http://localhost:5173',
+      'http://localhost:3000',
+      'https://proyectosena-gkx1.onrender.com',
+    ];
 
   app.enableCors({
-    origin: allowedOrigins,
+    origin: (origin, callback) => {
+      // ✅ Permitir requests sin origin (Postman, curl, mobile)
+      if (!origin) return callback(null, true);
+
+      // ✅ Verificar si el origin está permitido
+      if (allowedOrigins.includes(origin)) {
+        return callback(null, true);
+      }
+
+      // ✅ En desarrollo, permitir localhost con cualquier puerto
+      if (process.env. NODE_ENV !== 'production' && origin.includes('localhost')) {
+        return callback(null, true);
+      }
+
+      console.warn(`❌ CORS blocked: ${origin}`);
+      callback(new Error('Not allowed by CORS'));
+    },
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+    allowedHeaders: [
+      'Content-Type',
+      'Authorization',
+      'Accept',
+      'Origin',
+      'X-Requested-With',
+    ], // ✅ Agregados más headers
+    exposedHeaders: ['Authorization'], // ✅ Exponer header de autorización
     credentials: true,
+    maxAge: 3600,
   });
 
   // === VALIDACIÓN ===
@@ -43,19 +72,20 @@ async function bootstrap() {
 
   // === SWAGGER ===
   const config = new DocumentBuilder()
-    .setTitle('API SenaConnect')
+    . setTitle('API SenaConnect')
     .setDescription('API del proyecto SenaConnect')
-    .setVersion('1.0')
+    . setVersion('1.0')
     .addBearerAuth()
     .build();
 
-  const document = SwaggerModule.createDocument(app, config);
+  const document = SwaggerModule. createDocument(app, config);
   SwaggerModule.setup('docs', app, document);
 
   // === SEGURIDAD ===
-  app.use(
+  app. use(
     helmet({
       crossOriginResourcePolicy: { policy: 'cross-origin' },
+      contentSecurityPolicy: false, // ✅ Desactivar CSP para desarrollo
     }),
   );
 
@@ -81,12 +111,12 @@ async function bootstrap() {
     app.use((req, res, next) => {
       if (
         req.method === 'GET' &&
-        !req.path.startsWith('/api') &&
-        !req.path.startsWith('/uploads') &&
-        !req.path.startsWith('/docs') &&
-        !req.path.startsWith('/ws') &&
-        !req.path.startsWith('/socket.io') &&
-        !req.path.includes('.') // evita tratar assets como rutas
+        ! req.path.startsWith('/api') &&
+        !req.path. startsWith('/uploads') &&
+        !req.path. startsWith('/docs') &&
+        !req.path. startsWith('/ws') &&
+        !req.path. startsWith('/socket.io') &&
+        !req.path. includes('. ')
       ) {
         res.sendFile(join(frontendDist, 'index.html'));
       } else {
@@ -102,6 +132,8 @@ async function bootstrap() {
   await app.listen(port);
 
   console.log(`🚀 Backend corriendo en http://localhost:${port}`);
+  console.log(`📡 CORS habilitado para:`, allowedOrigins);
+  console.log(`📚 Documentación disponible en http://localhost:${port}/docs`);
 }
 
 bootstrap();
