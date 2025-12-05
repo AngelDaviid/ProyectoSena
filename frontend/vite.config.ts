@@ -15,8 +15,7 @@ export default defineConfig(({ mode }) => {
           changeOrigin: true,
           secure: false,
         },
-        // ✅ Proxy para Socket.io
-        '/socket. io': {
+        '/socket.io': {
           target: env.VITE_SENA_API_URL || 'http://localhost:3001',
           ws: true,
           changeOrigin: true,
