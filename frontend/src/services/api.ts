@@ -1,28 +1,43 @@
 import axios from 'axios';
 
-const isDevelopment = import. meta.env.MODE === 'development';
+const isDevelopment = import.meta.env.MODE === 'development';
 
-const baseURL = import.meta. env.VITE_SENA_API_URL ||
-    (isDevelopment ? 'http://localhost:3001' : 'https://proyectosena-gkx1.onrender. com');
+const baseURL = import.meta.env.VITE_SENA_API_URL ||
+    (isDevelopment ? 'http://localhost:3001' : 'https://proyectosena-gkx1.onrender.com');
 
 const api = axios.create({
     baseURL,
     withCredentials: true,
-    headers: {
-        'Content-Type': 'application/json',
-        'Accept': 'application/json',
-    },
     timeout: 15000,
 });
 
-api.interceptors. request.use(
+api.interceptors.request.use(
     (config) => {
         const token = localStorage.getItem('access_token');
         if (token && config.headers) {
             config.headers.Authorization = `Bearer ${token}`;
         }
 
-        console.log(`[API Request] ${config.method?. toUpperCase()} ${config. url}`);
+        if (config. data && !(config.data instanceof FormData)) {
+            config.headers['Content-Type'] = 'application/json';
+        }
+
+        config.headers['Accept'] = 'application/json';
+
+        console.log(`[API Request] ${config.method?.toUpperCase()} ${config.url}`);
+
+        // Log extra para FormData (debugging)
+        if (config.data instanceof FormData) {
+            console.log('  📦 Sending FormData:');
+            for (const [key, value] of config.data.entries()) {
+                if (value instanceof File) {
+                    console.log(`     ${key}: File(${value. name}, ${value.size} bytes, ${value.type})`);
+                } else {
+                    console.log(`     ${key}: ${value}`);
+                }
+            }
+        }
+
         return config;
     },
     (error) => {
@@ -38,23 +53,21 @@ api.interceptors.response.use(
     },
     (error) => {
         console.error('[API Response Error]', {
-            url: error.config?.url,
+            url: error.config?. url,
             status: error.response?.status,
             message: error.response?.data?.message || error.message,
         });
 
-        // Manejar errores 401
-        if (error.response?.status === 401) {
+        if (error. response?.status === 401) {
             localStorage.removeItem('access_token');
-            if (! window.location.pathname.includes('/login')) {
+            if (!window.location.pathname.includes('/login')) {
                 window.location.href = '/login';
             }
         }
 
-        // Manejar errores de CORS/Network
-        if (error.message === 'Network Error' || ! error.response) {
+        if (error.message === 'Network Error' || !error.response) {
             console.error('[CORS/Network Error] Backend no accesible');
-            error.message = 'Error de conexión.  Verifica que el servidor esté activo.';
+            error.message = 'Error de conexión. Verifica que el servidor esté activo.';
         }
 
         return Promise.reject(error);

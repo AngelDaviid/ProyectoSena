@@ -48,16 +48,35 @@ export class PostsController {
   async create(
     @Body() createPostDto: CreatePostDto,
     @Req() req: Request,
-    @UploadedFile() file?: Express.Multer.File,
+    @UploadedFile() file?: Express. Multer.File,
   ) {
-    const user = req.  user as any;
+    console.log('🔍 ========== CREATE POST DEBUG ==========');
+    console.log('📦 Body (DTO):', createPostDto);
+    console.log('📎 File received:', file ?  {
+      originalname: file.originalname,
+      mimetype: file.mimetype,
+      size: file.size,
+      buffer: file.buffer ?  `${file.buffer.length} bytes` : 'NO BUFFER'
+    } : 'NO FILE');
+    console.log('🔍 =====================================');
+
+    const user = req.user as any;
     const userId = user.id;
 
     let imageUrl: string | undefined;
     if (file) {
-      imageUrl = await this.cloudinaryService.uploadImage(file, 'senaconnect/posts');
+      console.log('🚀 Uploading to Cloudinary...');
+      try {
+        imageUrl = await this.cloudinaryService.uploadImage(file, 'senaconnect/posts');
+        console.log('✅ Upload successful:', imageUrl);
+      } catch (error) {
+        console.error('❌ Cloudinary upload error:', error);
+        throw error;
+      }
     } else if (createPostDto.imageUrl) {
       imageUrl = createPostDto.imageUrl;
+    } else {
+      console.log('⚠️ No file and no imageUrl in DTO');
     }
 
     return this.postsService.create(createPostDto, userId, imageUrl);

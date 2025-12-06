@@ -4,7 +4,6 @@ dist/
 coverage/
 
 # Uploads & temporales
-uploads/
 .tmp/
 .env
 .env.*.local

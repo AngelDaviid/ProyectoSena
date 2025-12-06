@@ -62,7 +62,11 @@ async function bootstrap() {
       transform: true,
       whitelist: true,
       forbidNonWhitelisted: false,
-      transformOptions: { enableImplicitConversion: true },
+      transformOptions: {
+        enableImplicitConversion: true,
+        excludeExtraneousValues: false,
+      },
+      skipMissingProperties: true,
     }),
   );
 
