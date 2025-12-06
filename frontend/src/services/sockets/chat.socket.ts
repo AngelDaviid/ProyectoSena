@@ -103,7 +103,7 @@ export async function getMessages(
     const doRequest = async (): Promise<{ messages: Message[]; hasMore: boolean; }> => {
         try {
             console.log(`[ChatSocket] Fetching messages for conversation ${conversationId}, page ${page}, attempt ${attempt + 1}`);
-            const res = await api.get(`/messages/conversation/${conversationId}`, {
+            const res = await api.get(`/chat/messages/conversation/${conversationId}`, {
                 params: { page, limit },
             });
             const data = res.data as any;

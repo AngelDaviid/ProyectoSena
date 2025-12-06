@@ -302,42 +302,6 @@ export class ChatGateway
     }
   }
 
-  // ==================== MESSAGE SEEN ====================
-
-  @SubscribeMessage('messageSeen')
-  handleMessageSeen(
-    @MessageBody()
-    data: { conversationId: string; messageIds: number[]; userId: number },
-    @ConnectedSocket() client: Socket,
-  ) {
-    try {
-      const { conversationId, messageIds, userId } = data;
-
-      this.logger.log(
-        `👁️ User ${userId} saw ${messageIds.length} messages in conversation ${conversationId}`,
-      );
-
-      // Emitir a todos en la conversación
-      this.server.to(String(conversationId)).emit('messageSeen', {
-        conversationId,
-        messageIds,
-        userId,
-        timestamp: new Date().toISOString(),
-      });
-
-      return { ok: true };
-    } catch (err) {
-      this.logger.error('❌ Error marking message as seen:', err);
-      client.emit('error', {
-        event: 'messageSeen',
-        message: 'No se pudo procesar seen',
-      });
-      return { ok: false, error: String(err) };
-    }
-  }
-
-  // ==================== TYPING INDICATOR ====================
-
   @SubscribeMessage('typing')
   handleTyping(
     @MessageBody()

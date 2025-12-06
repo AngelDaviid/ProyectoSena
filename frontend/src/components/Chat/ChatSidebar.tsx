@@ -10,31 +10,21 @@ type Props = {
     unreadCounts?: Record<number, number>;
 };
 
-/**
- * Obtener el nombre de los participantes de una conversación
- * (excluyendo al usuario actual)
- */
 const participantName = (conv: Conversation, currentUserId?: number | null): string => {
-    const others = (conv. participants || []).filter((p) => p.id !== currentUserId);
+    const others = (conv.participants || []).filter((p) => p. id !== currentUserId);
     if (others.length === 0) return 'Tú';
     return others
         .map((o) => `${o.profile?. name ??  ''} ${o.profile?.lastName ?? ''}`. trim() || o.email)
         .join(', ');
 };
 
-/**
- * Obtener las iniciales de un nombre
- */
 const getInitials = (name: string): string => {
     const parts = name.split(' '). filter(Boolean);
     if (parts.length === 0) return '?';
-    if (parts.length === 1) return parts[0][0].toUpperCase();
+    if (parts.length === 1) return parts[0][0]. toUpperCase();
     return (parts[0][0] + parts[parts.length - 1][0]). toUpperCase();
 };
 
-/**
- * Formatear el tiempo del último mensaje de forma relativa
- */
 const formatLastMessageTime = (dateStr?: string): string => {
     if (!dateStr) return '';
 
@@ -53,16 +43,28 @@ const formatLastMessageTime = (dateStr?: string): string => {
     return date.toLocaleDateString('es-ES', { day: 'numeric', month: 'short' });
 };
 
-const ChatSidebar: React.FC<Props> = ({
-                                          conversations,
-                                          currentUserId,
-                                          activeConversationId,
-                                          onSelect,
-                                          unreadCounts = {},
-                                      }) => {
-    const [searchQuery, setSearchQuery] = React. useState('');
+const formatLastMessageText = (message: any): string => {
+    if (! message) return 'Sin mensajes aún';
 
-    // ✅ ELIMINAR DUPLICADOS: Usar Map para mantener solo conversaciones únicas por ID
+    if (message.imageUrl) {
+        if (message.text && message.text.trim()) {
+            return `${message.text}`;
+        }
+        return 'Imagen';
+    }
+
+    return message.text || 'Sin mensajes aún';
+};
+
+const ChatSidebar: React.FC<Props> = ({
+ conversations,
+ currentUserId,
+ activeConversationId,
+ onSelect,
+ unreadCounts = {},
+}) => {
+    const [searchQuery, setSearchQuery] = React.useState('');
+
     const uniqueConversations = useMemo(() => {
         console.log('[ChatSidebar] Raw conversations count:', conversations.length);
 
@@ -77,36 +79,29 @@ const ChatSidebar: React.FC<Props> = ({
         });
 
         const unique = Array.from(conversationMap.values());
-        console.log('[ChatSidebar] Unique conversations count:', unique.length);
+        console. log('[ChatSidebar] Unique conversations count:', unique.length);
 
         return unique;
     }, [conversations]);
 
-    // Filtrar por búsqueda
-    const filteredConversations = useMemo(() => {
-        if (!searchQuery.trim()) {
-            return uniqueConversations;
-        }
-
-        return uniqueConversations.filter((conv) => {
-            const name = participantName(conv, currentUserId). toLowerCase();
+    const sortedConversations = useMemo(() => {
+        const filtered = uniqueConversations.filter((conv) => {
+            if (!searchQuery) return true;
+            const name = participantName(conv, currentUserId).toLowerCase();
             return name.includes(searchQuery.toLowerCase());
         });
-    }, [uniqueConversations, currentUserId, searchQuery]);
 
-    // Ordenar por último mensaje (más reciente primero)
-    const sortedConversations = useMemo(() => {
-        return [... filteredConversations].sort((a, b) => {
+        return filtered.sort((a, b) => {
             const aTime = a.messages?.[a.messages.length - 1]?.createdAt || '';
             const bTime = b. messages?.[b.messages.length - 1]?.createdAt || '';
 
-            if (! aTime && !bTime) return 0;
+            if (!aTime && !bTime) return 0;
             if (!aTime) return 1;
             if (!bTime) return -1;
 
-            return new Date(bTime). getTime() - new Date(aTime).getTime();
+            return new Date(bTime).getTime() - new Date(aTime).getTime();
         });
-    }, [filteredConversations]);
+    }, [uniqueConversations, searchQuery, currentUserId]);
 
     return (
         <aside className="bg-gradient-to-b from-white to-green-50 border-r-2 border-green-100 flex flex-col h-full">
@@ -123,7 +118,7 @@ const ChatSidebar: React.FC<Props> = ({
                         placeholder="Buscar conversaciones..."
                         className="w-full bg-white/20 backdrop-blur-sm border border-white/30 rounded-lg pl-10 pr-4 py-2 text-sm text-white placeholder-white/70 focus:outline-none focus:ring-2 focus:ring-white/50 focus:bg-white/30 transition"
                         value={searchQuery}
-                        onChange={(e) => setSearchQuery(e.target. value)}
+                        onChange={(e) => setSearchQuery(e.target.value)}
                     />
                 </div>
             </div>
@@ -145,9 +140,9 @@ const ChatSidebar: React.FC<Props> = ({
                         const initials = getInitials(name);
                         const isActive = activeConversationId === conv.id;
                         const unreadCount = unreadCounts[conv.id] || 0;
-                        const lastMessage = conv.messages?.[conv. messages.length - 1];
+                        const lastMessage = conv. messages?.[conv.messages.length - 1];
                         const lastMessageTime = lastMessage?.createdAt;
-                        const lastMessageText = lastMessage?.text || 'Sin mensajes aún';
+                        const lastMessageText = formatLastMessageText(lastMessage);
 
                         return (
                             <button
@@ -157,7 +152,6 @@ const ChatSidebar: React.FC<Props> = ({
                                     isActive ?  'bg-green-50 border-l-4 border-l-green-600' : ''
                                 }`}
                             >
-                                {/* Avatar */}
                                 <div className="relative flex-shrink-0">
                                     <div
                                         className={`w-12 h-12 rounded-full flex items-center justify-center font-bold text-white shadow-md transition-all ${
@@ -168,16 +162,14 @@ const ChatSidebar: React.FC<Props> = ({
                                     >
                                         {initials}
                                     </div>
-                                    {/* Online indicator */}
                                     <div className="absolute bottom-0 right-0 w-3 h-3 bg-green-400 border-2 border-white rounded-full shadow-sm" />
                                 </div>
 
-                                {/* Content */}
                                 <div className="flex-1 min-w-0">
                                     <div className="flex items-center justify-between mb-1">
                                         <span
                                             className={`font-semibold text-sm truncate ${
-                                                isActive ? 'text-green-700' : 'text-gray-800'
+                                                isActive ?  'text-green-700' : 'text-gray-800'
                                             }`}
                                         >
                                             {name}

@@ -76,8 +76,13 @@ export class ConversationsService {
       this.logger.log(`Finding conversations${userId ? ` for user: ${userId}` : ' (all)'}`);
 
       const allConversations = await this.conversationsRepo.find({
-        relations: ['participants', 'participants.profile', 'messages'],
-        order: { id: 'DESC' },
+        relations: ['participants', 'participants.profile', 'messages', 'messages.sender'],
+        order: {
+          id: 'DESC',
+          messages: {
+            createdAt: 'ASC'
+          }
+        },
       });
 
       if (!userId) {

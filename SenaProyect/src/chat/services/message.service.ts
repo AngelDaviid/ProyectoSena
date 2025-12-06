@@ -48,6 +48,19 @@ export class MessagesService {
     });
   }
 
+  async findOne(messageId: number): Promise<Message> {
+    const message = await this.messagesRepo.findOne({
+      where: { id: messageId },
+      relations: ['sender', 'sender.profile', 'conversation'],
+    });
+
+    if (!message) {
+      throw new NotFoundException(`Message with ID ${messageId} not found`);
+    }
+
+    return message;
+  }
+
   async update(messageId: number, text: string): Promise<Message> {
     const message = await this.messagesRepo.findOneBy({ id: messageId });
     if (!message) {

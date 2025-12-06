@@ -5,10 +5,14 @@ export class CreateMessageDto {
   conversationId: number;
 
   @IsString()
-  @IsNotEmpty()
-  text: string;
+  @IsOptional()
+  text?: string;
 
   @IsOptional()
   @IsString()
   imageUrl?: string;
+
+  @IsOptional()
+  @IsString()
+  tempId?: string;
 }
