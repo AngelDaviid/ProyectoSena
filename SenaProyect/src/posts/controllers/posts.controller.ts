@@ -20,7 +20,7 @@ import { PostsService } from '../services/posts.service';
 import { Post as PostEntity } from '../entities/post.entity';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { CreatePostDto } from '../dto/create-post.dto';
-import { CloudinaryService } from '../../common/services/cloudinary.services';
+import { CloudinaryService } from '../../common/services/cloudinary.service';
 
 @Controller('posts')
 export class PostsController {

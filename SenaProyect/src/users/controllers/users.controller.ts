@@ -9,7 +9,7 @@ import { Post as PostEntity } from "../../posts/entities/post.entity";
 import { AuthGuard } from '@nestjs/passport';
 import { FileInterceptor } from '@nestjs/platform-express';
 import type { Request } from 'express';
-import { CloudinaryService } from '../../common/services/cloudinary.services';
+import { CloudinaryService } from '../../common/services/cloudinary.service';
 
 @Controller('users')
 export class UsersController {

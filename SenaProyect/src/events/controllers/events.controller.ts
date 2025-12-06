@@ -21,7 +21,7 @@ import { ApiBearerAuth, ApiConsumes, ApiBody, ApiOperation, ApiResponse } from '
 import { CreateEventDto } from '../dto/events.dto';
 import { FilterEventsDto } from '../dto/filter-events.dto';
 import { UpdateEventDto } from '../dto/update-event.dto';
-import { CloudinaryService } from '../../common/services/cloudinary.services';
+import { CloudinaryService } from '../../common/services/cloudinary.service';
 
 @Controller('events')
 export class EventsController {

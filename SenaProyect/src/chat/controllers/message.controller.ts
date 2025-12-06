@@ -23,7 +23,7 @@ import { AuthGuard } from '@nestjs/passport';
 import { ApiOperation } from '@nestjs/swagger';
 import { Payload } from '../../auth/models/payload.model';
 import { ChatGateway } from '../chat.gateway';
-import { CloudinaryService } from '../../common/services/cloudinary.services';
+import { CloudinaryService } from '../../common/services/cloudinary.service';
 
 interface RequestWithUser extends Request {
   user: Payload;

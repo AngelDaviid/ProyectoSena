@@ -8,7 +8,7 @@ import { MessagesController } from './controllers/message.controller';
 import { ConversationsService } from './services/conversation.service';
 import { ConversationController } from './controllers/conversation.controller';
 import { ChatGateway } from './chat.gateway';
-import { CloudinaryService } from '../common/services/cloudinary.services';
+import { CloudinaryService } from '../common/services/cloudinary.service';
 
 @Module({
   imports: [TypeOrmModule.forFeature([Message, Conversation, User])],
