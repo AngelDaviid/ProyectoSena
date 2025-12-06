@@ -11,6 +11,7 @@ import {
 import { Server, Socket } from 'socket.io';
 import { Injectable, Logger } from '@nestjs/common';
 import { MessagesService } from './services/message.service';
+import { ConversationsService } from './services/conversation.service';
 
 @Injectable()
 @WebSocketGateway({
@@ -37,7 +38,10 @@ export class ChatGateway
   // Map socketId -> userId
   private socketToUser = new Map<string, number>();
 
-  constructor(private messagesService: MessagesService) {}
+  constructor(
+    private messagesService: MessagesService,
+    private conversationsService: ConversationsService
+  ) {}
 
   afterInit(server: Server) {
     this.logger. log('✅ ChatGateway initialized (namespace /ws)');
@@ -364,28 +368,40 @@ export class ChatGateway
     }
   }
 
-  // ==================== NOTIFICACIÓN GLOBAL ====================
 
   private async notifyNewMessage(conversationId: number, messagePayload: any) {
     try {
       this.logger.log(`🔔 Sending new message notification`);
       this.logger.log(`📢 Conversation: ${conversationId}`);
       this.logger.log(`📢 Sender: ${messagePayload.senderId}`);
-      this.logger. log(`📢 Text: ${messagePayload.text?. substring(0, 50)}...`);
+      this.logger.log(`📢 Text: ${messagePayload.text?. substring(0, 50)}...`);
 
-      // Emitir notificación global a todos los usuarios conectados
-      this.server.emit('newMessageNotification', {
-        conversationId,
-        message: messagePayload,
-        timestamp: new Date().toISOString(),
+      const conversation = await this.conversationsService.findOne(conversationId);
+
+      if (!conversation || !conversation.participants) {
+        this.logger.warn(`⚠️ Conversation ${conversationId} not found or has no participants`);
+        return;
+      }
+
+      const recipientIds = conversation.participants
+        .map(p => p.id)
+        .filter(id => id !== Number(messagePayload.senderId));
+
+      this.logger.log(`📤 Notifying ${recipientIds.length} recipients:`, recipientIds);
+
+      recipientIds.forEach(userId => {
+        this.emitToUser(userId, 'newMessageNotification', {
+          conversationId,
+          message: messagePayload,
+          timestamp: new Date().toISOString(),
+        });
       });
 
-      this.logger.log(`✅ Message notification broadcasted`);
+      this.logger.log(`✅ Message notification sent to ${recipientIds.length} user(s)`);
     } catch (err) {
-      this.logger.error('❌ Error sending message notification:', err);
+      this.logger. error('❌ Error sending message notification:', err);
     }
   }
-
   // ==================== HELPER METHODS ====================
 
   emitToUser(userId: number, event: string, data: any) {
@@ -404,20 +420,20 @@ export class ChatGateway
     );
   }
 
-  emitToConversation(conversationId: number, event: string, data: any) {
-    this.server.to(String(conversationId)).emit(event, data);
-    this.logger.log(`📤 Emitted ${event} to conversation ${conversationId}`);
-  }
-
-  isUserConnected(userId: number): boolean {
-    return this.clients.has(userId);
-  }
-
-  getStats() {
-    return {
-      connectedUsers: this.clients.size,
-      activeConversations: this.conversations. size,
-      totalSockets: this.socketToUser.size,
-    };
-  }
+  // emitToConversation(conversationId: number, event: string, data: any) {
+  //   this.server.to(String(conversationId)).emit(event, data);
+  //   this.logger.log(`📤 Emitted ${event} to conversation ${conversationId}`);
+  // }
+  //
+  // isUserConnected(userId: number): boolean {
+  //   return this.clients.has(userId);
+  // }
+  //
+  // getStats() {
+  //   return {
+  //     connectedUsers: this.clients.size,
+  //     activeConversations: this.conversations. size,
+  //     totalSockets: this.socketToUser.size,
+  //   };
+  // }
 }

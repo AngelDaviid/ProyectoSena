@@ -1,11 +1,26 @@
-import { Controller, Get, Post, Body, Param, Delete, Put, UseGuards } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Body,
+  Param,
+  Delete,
+  Put,
+  UseGuards,
+  UnauthorizedException,
+  Request,
+  Logger,
+} from '@nestjs/common';
 import { ConversationsService } from '../services/conversation.service';
 import { CreateConversationDto } from '../dtos/create-conversation.dto';
 import { UpdateConversationDto } from '../dtos/update-conversation.dto';
+import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 
 @Controller('chat/conversations')
+@UseGuards(JwtAuthGuard)
 export class ConversationController {
   constructor(private readonly conversationsService: ConversationsService) {}
+  private readonly logger = new Logger(ConversationController.name);
 
   @Post()
   async create(@Body() createConversationDto: CreateConversationDto) {
@@ -18,10 +33,21 @@ export class ConversationController {
   }
 
   @Get()
-  async findAll() {
+  async findAll(@Request() req) {
     try {
-      return await this.conversationsService.findAll();
+      const userId = req.user?. id;
+
+      if (!userId) {
+        this.logger.error('User ID not found in request');
+        throw new UnauthorizedException('Usuario no autenticado');
+      }
+
+      this.logger.log(`Fetching conversations for user: ${userId}`);
+
+      // ✅ Pasar userId al servicio para filtrar
+      return await this.conversationsService.findAll(userId);
     } catch (error) {
+      this.logger.error('Error in findAll:', error);
       throw error;
     }
   }

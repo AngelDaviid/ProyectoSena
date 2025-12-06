@@ -18,6 +18,7 @@ interface ChatNotificationsContextType {
     unreadCount: number;
     clearNotification: (conversationId: number) => void;
     clearAllNotifications: () => void;
+    setActiveConversation: (conversationId: number | null) => void;
 }
 
 const ChatNotificationsContext = createContext<ChatNotificationsContextType | undefined>(undefined);
@@ -26,21 +27,26 @@ export const ChatNotificationsProvider: React.FC<{ children: React. ReactNode }>
     const { user } = useAuth();
     const { socket, isConnected } = useSocketContext();
     const [notifications, setNotifications] = useState<ChatNotification[]>([]);
+    const [activeConversationId, setActiveConversationId] = useState<number | null>(null);
 
     useEffect(() => {
-        if (! socket || !isConnected || !user) {
+        if (! socket || !isConnected || ! user) {
             console.log('[ChatNotifications] Socket not connected or user not authenticated');
             return;
         }
 
-        console.log('[ChatNotifications] Setting up notification listener');
+        console. log('[ChatNotifications] Setting up notification listener');
 
         const handleNewMessageNotification = (payload: ChatNotification) => {
             console.log('[ChatNotifications] New message notification received:', payload);
 
-            // No notificar mensajes propios
             if (payload.message.senderId === user.id) {
                 console.log('[ChatNotifications] Ignoring own message');
+                return;
+            }
+
+            if (activeConversationId === payload.conversationId) {
+                console.log('[ChatNotifications] User is in active conversation, ignoring notification');
                 return;
             }
 
@@ -54,7 +60,7 @@ export const ChatNotificationsProvider: React.FC<{ children: React. ReactNode }>
                     return prev;
                 }
 
-                console.log('[ChatNotifications] Adding new notification');
+                console. log('[ChatNotifications] Adding new notification');
                 return [...prev, payload];
             });
         };
@@ -65,7 +71,7 @@ export const ChatNotificationsProvider: React.FC<{ children: React. ReactNode }>
             console.log('[ChatNotifications] Cleaning up notification listener');
             socket. off('newMessageNotification', handleNewMessageNotification);
         };
-    }, [socket, isConnected, user]);
+    }, [socket, isConnected, user, activeConversationId]);
 
     const clearNotification = useCallback((conversationId: number) => {
         console.log('[ChatNotifications] Clearing notifications for conversation:', conversationId);
@@ -77,6 +83,15 @@ export const ChatNotificationsProvider: React.FC<{ children: React. ReactNode }>
         setNotifications([]);
     }, []);
 
+    const setActiveConversation = useCallback((conversationId: number | null) => {
+        console.log('[ChatNotifications] Setting active conversation:', conversationId);
+        setActiveConversationId(conversationId);
+
+        if (conversationId !== null) {
+            clearNotification(conversationId);
+        }
+    }, [clearNotification]);
+
     const unreadCount = notifications.length;
 
     return (
@@ -86,6 +101,7 @@ export const ChatNotificationsProvider: React.FC<{ children: React. ReactNode }>
                 unreadCount,
                 clearNotification,
                 clearAllNotifications,
+                setActiveConversation,
             }}
         >
             {children}
@@ -93,6 +109,7 @@ export const ChatNotificationsProvider: React.FC<{ children: React. ReactNode }>
     );
 };
 
+// eslint-disable-next-line react-refresh/only-export-components
 export const useChatNotifications = () => {
     const context = useContext(ChatNotificationsContext);
     if (context === undefined) {

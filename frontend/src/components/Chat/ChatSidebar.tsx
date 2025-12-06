@@ -110,14 +110,12 @@ const ChatSidebar: React.FC<Props> = ({
 
     return (
         <aside className="bg-gradient-to-b from-white to-green-50 border-r-2 border-green-100 flex flex-col h-full">
-            {/* Header verde SENA */}
             <div className="p-4 bg-gradient-to-r from-green-600 to-emerald-600 text-white shadow-md">
                 <div className="flex items-center gap-2 mb-3">
                     <MessageCircle className="w-6 h-6" />
                     <h2 className="text-xl font-bold">Mensajes</h2>
                 </div>
 
-                {/* Search */}
                 <div className="relative">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/60" />
                     <input
@@ -130,7 +128,6 @@ const ChatSidebar: React.FC<Props> = ({
                 </div>
             </div>
 
-            {/* Conversations List */}
             <div className="flex-1 overflow-y-auto">
                 {sortedConversations.length === 0 ? (
                     <div className="flex flex-col items-center justify-center h-full text-center p-6">
@@ -213,7 +210,6 @@ const ChatSidebar: React.FC<Props> = ({
                 )}
             </div>
 
-            {/* Footer Stats - Verde SENA */}
             <div className="p-3 bg-gradient-to-r from-green-50 to-emerald-50 border-t-2 border-green-100 shadow-inner">
                 <div className="flex items-center justify-between text-xs text-gray-600">
                     <span className="font-medium">

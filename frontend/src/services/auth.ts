@@ -10,7 +10,7 @@ const TOKEN_KEY = 'access_token';
 export function setAuthToken(token: string | null) {
     if (token) {
         localStorage.setItem(TOKEN_KEY, token);
-        api.defaults. headers.common.Authorization = `Bearer ${token}`;
+        api.defaults.headers.common.Authorization = `Bearer ${token}`;
         console.log('[Auth] Token set successfully');
     } else {
         localStorage.removeItem(TOKEN_KEY);

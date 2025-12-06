@@ -1,8 +1,9 @@
 import React, { useEffect, useState, useCallback, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { ArrowLeft, MessageCircle, ChevronLeft } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
 import { useSocketContext } from '../hooks/useSocketContext';
+import { useChatNotifications } from '../context/chat-notifications-context';
 import { getConversations, getMessages } from '../services/sockets/chat.socket';
 import type { Conversation, Message } from '../types/chat';
 import ChatSidebar from '../components/Chat/ChatSidebar';
@@ -22,12 +23,14 @@ const REPORT_SEEN_DEBOUNCE_MS = 500;
 const ChatPage: React.FC = () => {
     const { user } = useAuth();
     const { socket, isConnected } = useSocketContext();
+    const { setActiveConversation: setActiveConversationNotif } = useChatNotifications();
     const navigate = useNavigate();
+    const location = useLocation();
 
     const [conversations, setConversations] = useState<Conversation[]>([]);
     const [activeConversation, setActiveConversation] = useState<Conversation | null>(null);
     const [messages, setMessages] = useState<MsgWithMeta[]>([]);
-    const [showSidebar, setShowSidebar] = useState(true); // Mobile sidebar toggle
+    const [showSidebar, setShowSidebar] = useState(true);
 
     const conversationsLoadedRef = useRef(false);
     const prevConversationRef = useRef<number | null>(null);
@@ -39,6 +42,20 @@ const ChatPage: React.FC = () => {
         activeConvIdRef.current = activeConversation?.id || null;
     }, [activeConversation]);
 
+    useEffect(() => {
+        if (activeConversation?.id) {
+            console.log('[Chat] Setting active conversation in notifications context:', activeConversation.id);
+            setActiveConversationNotif(activeConversation.id);
+        }
+    }, [activeConversation, setActiveConversationNotif]);
+
+    useEffect(() => {
+        return () => {
+            console.log('[Chat] Component unmounting, clearing active conversation');
+            setActiveConversationNotif(null);
+        };
+    }, [setActiveConversationNotif]);
+
     const loadConversations = useCallback(async () => {
         if (conversationsLoadedRef.current) {
             console.log('[Chat] Conversations already loaded, skipping');
@@ -48,18 +65,71 @@ const ChatPage: React.FC = () => {
         try {
             console.log('[Chat] Loading conversations.. .');
             const data = await getConversations();
-            console.log('[Chat] Conversations loaded successfully:', data?. length || 0);
+            console.log('[Chat] Conversations loaded successfully:', data?.length || 0);
             setConversations(data || []);
-            conversationsLoadedRef. current = true;
+            conversationsLoadedRef.current = true;
         } catch (err: any) {
             console.error('[Chat] Error loading conversations:', err);
             setConversations([]);
         }
     }, []);
 
+    // ✅ NUEVO: Función para actualizar conversación en la lista cuando llega un mensaje
+    const updateConversationWithNewMessage = useCallback((conversationId: number, message: MsgWithMeta) => {
+        setConversations(prev => {
+            const updated = prev.map(conv => {
+                if (conv.id === conversationId) {
+                    const existingMessages = conv.messages || [];
+                    const messageExists = existingMessages.some(m => m.id === message.id);
+
+                    if (! messageExists && message.id) {
+                        return {
+                            ...conv,
+                            messages: [...existingMessages, message as Message]
+                        };
+                    }
+                }
+                return conv;
+            });
+
+            return updated.sort((a, b) => {
+                const aTime = a.messages?.[a.messages.length - 1]?.createdAt || '';
+                const bTime = b. messages?.[b.messages.length - 1]?.createdAt || '';
+
+                if (! aTime && !bTime) return 0;
+                if (!aTime) return 1;
+                if (!bTime) return -1;
+
+                return new Date(bTime).getTime() - new Date(aTime).getTime();
+            });
+        });
+    }, []);
+
     useEffect(() => {
         void loadConversations();
     }, [loadConversations]);
+
+    useEffect(() => {
+        const openConversationFromNotification = async () => {
+            const state = location.state as { openConversationId?: number };
+
+            if (state?.openConversationId && conversations.length > 0 && ! activeConversation) {
+                console.log('[Chat] Opening conversation from notification:', state.openConversationId);
+
+                const conversation = conversations. find(c => c.id === state.openConversationId);
+
+                if (conversation) {
+                    await openConversation(conversation);
+
+                    navigate(location.pathname, { replace: true, state: {} });
+                } else {
+                    console. warn('[Chat] Conversation not found:', state.openConversationId);
+                }
+            }
+        };
+
+        void openConversationFromNotification();
+    }, [conversations, location.state, activeConversation]);
 
     const normalizeIncoming = useCallback((m: any): MsgWithMeta => {
         const msg: Partial<MsgWithMeta> = { ...m };
@@ -69,7 +139,7 @@ const ChatPage: React.FC = () => {
             if (!Number.isNaN(n)) msg.id = n;
         }
 
-        if ((typeof m.senderId === 'undefined' || m.senderId === null) && m.sender && typeof m.sender. id !== 'undefined') {
+        if ((typeof m.senderId === 'undefined' || m.senderId === null) && m.sender && typeof m.sender.id !== 'undefined') {
             msg.senderId = Number(m.sender.id);
         } else if (typeof m.senderId !== 'undefined' && m.senderId !== null) {
             msg.senderId = Number(m. senderId);
@@ -111,7 +181,7 @@ const ChatPage: React.FC = () => {
                     window.clearTimeout(seenTimerRef.current);
                 }
 
-                seenTimerRef.current = window. setTimeout(() => {
+                seenTimerRef.current = window.setTimeout(() => {
                     const ids = Array.from(seenBufferRef.current);
                     if (ids.length === 0) return;
 
@@ -119,7 +189,7 @@ const ChatPage: React.FC = () => {
                         console.debug('[Chat] Emitting messageSeen', {
                             conversationId: activeId,
                             messageIds: ids,
-                            userId: user?. id
+                            userId: user?.id
                         });
                         socket?. emit('messageSeen', {
                             conversationId: String(activeId),
@@ -156,6 +226,10 @@ const ChatPage: React.FC = () => {
             console.debug('[Socket] newMessage received', rawMsg);
             const normalized = normalizeIncoming(rawMsg);
 
+            if (normalized.conversationId && normalized.id) {
+                updateConversationWithNewMessage(normalized.conversationId, normalized);
+            }
+
             setMessages((prev) => {
                 if (normalized.tempId) {
                     const idx = prev.findIndex((m) => String(m.tempId) === String(normalized.tempId));
@@ -164,7 +238,7 @@ const ChatPage: React.FC = () => {
                         copy[idx] = {
                             ...copy[idx],
                             ...normalized,
-                            senderId: normalized.senderId ??  copy[idx].senderId,
+                            senderId: normalized.senderId ?? copy[idx].senderId,
                             sending: false,
                         };
                         console.debug('[Chat] Replaced optimistic message with server message', copy[idx]);
@@ -195,7 +269,7 @@ const ChatPage: React.FC = () => {
             console.debug('[Socket] messageSeen received', payload);
             setMessages((prev) =>
                 prev.map((m) => {
-                    if (m.id && payload.messageIds.includes(m.id)) {
+                    if (m.id && payload.messageIds.includes(m. id)) {
                         const seenSet = new Set<number>(m.seenBy || []);
                         seenSet.add(payload.userId);
                         return { ...m, seenBy: Array.from(seenSet) };
@@ -221,7 +295,7 @@ const ChatPage: React.FC = () => {
             }
             seenBufferRef.current.clear();
         };
-    }, [socket, isConnected, user, normalizeIncoming, scheduleReportSeenIfNeeded, activeConversation]);
+    }, [socket, isConnected, user, normalizeIncoming, scheduleReportSeenIfNeeded, activeConversation, updateConversationWithNewMessage]);
 
     const openConversation = useCallback(async (conv: Conversation) => {
         if (!socket) {
@@ -230,7 +304,10 @@ const ChatPage: React.FC = () => {
         }
 
         try {
-            console. log('[Chat] Opening conversation:', conv.id);
+            console.log('[Chat] Opening conversation:', conv.id);
+
+            // ✅ Notificar al contexto de notificaciones ANTES de cambiar la conversación
+            setActiveConversationNotif(conv.id);
 
             if (prevConversationRef.current) {
                 console.log('[Chat] Leaving previous conversation:', prevConversationRef.current);
@@ -238,8 +315,8 @@ const ChatPage: React.FC = () => {
             }
 
             setActiveConversation(conv);
-            setShowSidebar(false); // Hide sidebar on mobile when conversation selected
-            prevConversationRef.current = conv. id;
+            setShowSidebar(false);
+            prevConversationRef.current = conv.id;
             activeConvIdRef.current = conv.id;
 
             console.log('[Chat] Loading messages for conversation:', conv.id);
@@ -248,7 +325,7 @@ const ChatPage: React.FC = () => {
 
             console.log('[Chat] Loaded messages:', msgs.length);
 
-            msgs.sort((a: any, b: any) => new Date(a.createdAt || 0). getTime() - new Date(b.createdAt || 0). getTime());
+            msgs.sort((a: any, b: any) => new Date(a.createdAt || 0).getTime() - new Date(b.createdAt || 0).getTime());
 
             const normalized = msgs.map((m: any) => {
                 const nm = normalizeIncoming(m);
@@ -259,8 +336,8 @@ const ChatPage: React.FC = () => {
 
             setMessages(normalized);
 
-            console.log('[Chat] Joining conversation room:', conv.id);
-            socket. emit('joinConversation', { conversationId: String(conv. id) });
+            console. log('[Chat] Joining conversation room:', conv.id);
+            socket.emit('joinConversation', { conversationId: String(conv.id) });
 
             const unseenIds = normalized
                 .filter((m) => Number(m.senderId) !== Number(user?.id))
@@ -273,7 +350,7 @@ const ChatPage: React.FC = () => {
                     messageIds: unseenIds,
                     userId: user?.id
                 });
-                socket.emit('messageSeen', {
+                socket. emit('messageSeen', {
                     conversationId: String(conv.id),
                     messageIds: unseenIds,
                     userId: user?.id
@@ -282,15 +359,15 @@ const ChatPage: React.FC = () => {
         } catch (err) {
             console.error('[Chat] Error opening conversation', err);
         }
-    }, [socket, user?. id, normalizeIncoming]);
+    }, [socket, user?. id, normalizeIncoming, setActiveConversationNotif]);
 
     const handleSend = useCallback((text: string, image?: string | File) => {
-        if (! activeConversation || !user || !socket) {
+        if (!activeConversation || !user || !socket) {
             console.warn('[Chat] Cannot send message: missing activeConversation, user, or socket');
             return;
         }
 
-        const tempId = `temp-${Date.now()}-${Math.random(). toString(36).slice(2, 8)}`;
+        const tempId = `temp-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
         let imageUrl: string | null = null;
 
         if (image instanceof File) {
@@ -312,7 +389,9 @@ const ChatPage: React.FC = () => {
         };
 
         console.log('[Chat] Adding optimistic message to UI', tempMessage);
-        setMessages((prev) => [...prev, tempMessage]);
+        setMessages((prev) => [... prev, tempMessage]);
+
+        updateConversationWithNewMessage(activeConversation.id, tempMessage);
 
         console.debug('[Chat] Emitting sendMessage', {
             conversationId: activeConversation.id,
@@ -329,7 +408,7 @@ const ChatPage: React.FC = () => {
             imageUrl,
             tempId,
         });
-    }, [activeConversation, user, socket]);
+    }, [activeConversation, user, socket, updateConversationWithNewMessage]);
 
     const handleLoadMore = useCallback(async (): Promise<number> => {
         if (!activeConversation) {
@@ -338,29 +417,29 @@ const ChatPage: React.FC = () => {
         }
 
         try {
-            console.log('[Chat] Loading more messages for conversation:', activeConversation.id);
-            const raw = await getMessages(activeConversation.id);
+            console.log('[Chat] Loading more messages for conversation:', activeConversation. id);
+            const raw = await getMessages(activeConversation. id);
             const all: Message[] = Array.isArray(raw) ? raw : raw.messages || [];
 
-            const normalized = all.map((m: any) => {
+            const normalized = all. map((m: any) => {
                 const nm = normalizeIncoming(m);
                 nm.conversationId = activeConversation.id;
-                nm.seenBy = nm. seenBy || [];
+                nm.seenBy = nm.seenBy || [];
                 return nm;
             }) as MsgWithMeta[];
 
             normalized.sort((a, b) => +new Date(a.createdAt ??  0) - +new Date(b.createdAt ?? 0));
 
             const earliest = messages[0];
-            if (! earliest) {
+            if (!earliest) {
                 console.log('[Chat] No messages in state, setting all loaded messages');
                 setMessages(normalized);
                 return normalized.length;
             }
 
-            const older = normalized.filter((m) => new Date(m.createdAt || 0). getTime() < new Date(earliest.createdAt || 0).getTime());
+            const older = normalized.filter((m) => new Date(m.createdAt || 0).getTime() < new Date(earliest.createdAt || 0).getTime());
             if (older.length === 0) {
-                console. log('[Chat] No older messages found');
+                console.log('[Chat] No older messages found');
                 return 0;
             }
 
@@ -373,21 +452,26 @@ const ChatPage: React.FC = () => {
         }
     }, [activeConversation, messages, normalizeIncoming]);
 
+    const handleCloseConversation = useCallback(() => {
+        console.log('[Chat] Closing active conversation');
+        setShowSidebar(true);
+        setActiveConversation(null);
+        setActiveConversationNotif(null);
+    }, [setActiveConversationNotif]);
+
     return (
         <div className="min-h-screen bg-gray-50">
-            {/* ✅ Header Responsive */}
             <div className="bg-gradient-to-r from-green-600 to-emerald-600 shadow-lg">
                 <div className="max-w-7xl mx-auto px-4 py-3 sm:py-4">
                     <div className="flex items-center justify-between">
                         <div className="flex items-center gap-2 sm:gap-4">
                             <button
                                 onClick={() => {
-                                    if (activeConversation && !showSidebar) {
-                                        setShowSidebar(true);
+                                    if (activeConversation) {
+                                        setActiveConversationNotif(null);
                                         setActiveConversation(null);
-                                    } else {
-                                        navigate('/');
                                     }
+                                    navigate('/');
                                 }}
                                 className="flex items-center gap-1 sm:gap-2 bg-white/20 hover:bg-white/30 text-white px-2 sm:px-4 py-2 rounded-lg transition-all backdrop-blur-sm"
                             >
@@ -410,10 +494,8 @@ const ChatPage: React.FC = () => {
                 </div>
             </div>
 
-            {/* ✅ Chat container Responsive */}
             <div className="max-w-7xl mx-auto p-2 sm:p-4">
                 <div className="grid grid-cols-1 md:grid-cols-[320px_1fr] lg:grid-cols-[380px_1fr] gap-2 sm:gap-4 h-[calc(100vh-120px)] sm:h-[calc(100vh-140px)]">
-                    {/* ✅ Sidebar - Conditional rendering on mobile */}
                     <div className={`${showSidebar ? 'block' : 'hidden md:block'} bg-white rounded-lg sm:rounded-xl shadow-md border-2 border-green-100 overflow-hidden min-h-0`}>
                         <ChatSidebar
                             conversations={conversations}
@@ -422,14 +504,11 @@ const ChatPage: React.FC = () => {
                         />
                     </div>
 
-                    <div className={`${!showSidebar || activeConversation ? 'block' : 'hidden md:block'} bg-white rounded-lg sm:rounded-xl shadow-md border-2 border-green-100 overflow-hidden flex flex-col min-h-0`}>
+                    <div className={`${! showSidebar || activeConversation ? 'block' : 'hidden md:block'} bg-white rounded-lg sm:rounded-xl shadow-md border-2 border-green-100 overflow-hidden flex flex-col min-h-0`}>
                         {activeConversation ?  (
                             <>
                                 <button
-                                    onClick={() => {
-                                        setShowSidebar(true);
-                                        setActiveConversation(null);
-                                    }}
+                                    onClick={handleCloseConversation}
                                     className="md:hidden flex items-center gap-2 p-3 bg-green-50 border-b border-green-100"
                                 >
                                     <ChevronLeft className="w-5 h-5 text-green-600" />
@@ -445,7 +524,7 @@ const ChatPage: React.FC = () => {
                                 />
                             </>
                         ) : (
-                            <div className="flex flex-col items-center justify-center flex-1 text-gray-400 p-4">
+                            <div className="flex flex-col h-full items-center justify-center flex-1 text-gray-400 p-4">
                                 <MessageCircle className="w-16 h-16 sm:w-20 sm:h-20 mb-4 text-green-200" />
                                 <p className="text-lg sm:text-xl font-medium text-gray-500 text-center">Selecciona una conversación</p>
                                 <p className="text-xs sm:text-sm text-gray-400 mt-2 text-center">Elige un contacto para comenzar a chatear</p>

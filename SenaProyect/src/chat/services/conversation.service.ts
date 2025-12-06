@@ -71,14 +71,27 @@ export class ConversationsService {
     }
   }
 
-  async findAll() {
+  async findAll(userId?: number) {
     try {
-      return await this.conversationsRepo.find({
+      this.logger.log(`Finding conversations${userId ? ` for user: ${userId}` : ' (all)'}`);
+
+      const allConversations = await this.conversationsRepo.find({
         relations: ['participants', 'participants.profile', 'messages'],
-        order: {
-          id: 'DESC',
-        },
+        order: { id: 'DESC' },
       });
+
+      if (!userId) {
+        this.logger.warn('Returning all conversations without user filter');
+        return allConversations;
+      }
+
+      const userConversations = allConversations.filter(conv =>
+        conv.participants?. some(p => p.id === userId)
+      );
+
+      this.logger.log(`Found ${userConversations.length} conversations for user ${userId} out of ${allConversations.length} total`);
+
+      return userConversations;
     } catch (error) {
       this.logger.error('Error finding conversations:', error);
       throw error;
