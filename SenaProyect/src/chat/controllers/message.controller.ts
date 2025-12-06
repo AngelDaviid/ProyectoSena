@@ -19,13 +19,11 @@ import { CreateMessageDto } from '../dtos/create-message.dto';
 import { UpdateMessageDto } from '../dtos/update-message.dto';
 import { Message } from '../entities/message.entity';
 import { FileInterceptor } from '@nestjs/platform-express';
-import { diskStorage } from 'multer';
-import { extname } from 'path';
-import { v4 as uuidv4 } from 'uuid';
 import { AuthGuard } from '@nestjs/passport';
 import { ApiOperation } from '@nestjs/swagger';
 import { Payload } from '../../auth/models/payload.model';
 import { ChatGateway } from '../chat.gateway';
+import { CloudinaryService } from '../../common/services/cloudinary.services';
 
 interface RequestWithUser extends Request {
   user: Payload;
@@ -33,11 +31,12 @@ interface RequestWithUser extends Request {
 
 @Controller('chat/messages')
 export class MessagesController {
-  private readonly logger = new Logger(MessagesController.name);
+  private readonly logger = new Logger(MessagesController. name);
 
   constructor(
     private readonly messagesService: MessagesService,
     private readonly chatGateway: ChatGateway,
+    private readonly cloudinaryService: CloudinaryService,
   ) {}
 
   @ApiOperation({ summary: 'Enviar un nuevo mensaje' })
@@ -45,18 +44,11 @@ export class MessagesController {
   @Post()
   @UseInterceptors(
     FileInterceptor('image', {
-      storage: diskStorage({
-        destination: './uploads',
-        filename: (req, file, cb) => {
-          const filename = `${uuidv4()}${extname(file.originalname)}`;
-          cb(null, filename);
-        },
-      }),
       fileFilter: (req, file, cb) => {
-        if (! file.mimetype.match(/\/(jpg|jpeg|png|gif)$/)) {
+        if (!file.mimetype.match(/\/(jpg|jpeg|png|gif|webp)$/)) {
           cb(
             new BadRequestException(
-              'Solo se permiten imágenes (jpg, jpeg, png, gif)',
+              'Solo se permiten imágenes (jpg, jpeg, png, gif, webp)',
             ),
             false,
           );
@@ -74,10 +66,17 @@ export class MessagesController {
   ): Promise<Message> {
     const user = req.user as any;
     const senderId = user.id;
-    const imageUrl = file
-      ? `/uploads/${file.filename}`
-      : createMessageDto.imageUrl;
     const { conversationId, text, tempId } = createMessageDto;
+
+    let imageUrl: string | null = null;
+
+    if (file) {
+      this.logger.log('Uploading image to Cloudinary...');
+      imageUrl = await this.cloudinaryService.uploadImage(file, 'senaconnect/chat');
+      this.logger.log(`Image uploaded: ${imageUrl}`);
+    } else if (createMessageDto.imageUrl) {
+      imageUrl = createMessageDto.imageUrl;
+    }
 
     this.logger.log(
       `Creating message from user ${senderId} to conversation ${conversationId}, tempId=${tempId || 'none'}`,
@@ -87,7 +86,7 @@ export class MessagesController {
       conversationId,
       senderId,
       text || '',
-      imageUrl,
+      imageUrl || undefined,
     );
 
     this.logger.log(`Message ${message.id} created successfully`);
@@ -100,7 +99,7 @@ export class MessagesController {
       imageUrl: fullMessage.imageUrl || null,
       createdAt:
         fullMessage.createdAt instanceof Date
-          ? fullMessage. createdAt. toISOString()
+          ? fullMessage.createdAt. toISOString()
           : fullMessage.createdAt,
       senderId: fullMessage.sender?. id || senderId,
       conversationId: conversationId,
@@ -110,10 +109,10 @@ export class MessagesController {
 
     this.chatGateway.server
       .to(String(conversationId))
-      . emit('newMessage', payload);
+      .emit('newMessage', payload);
 
     this.logger.log(
-      `Message ${fullMessage.id} broadcasted to conversation ${conversationId} with tempId=${tempId || 'none'}`,
+      `Message ${fullMessage.id} broadcasted to conversation ${conversationId}`,
     );
 
     return fullMessage;
@@ -123,7 +122,6 @@ export class MessagesController {
   async findByConversation(
     @Param('conversationId', ParseIntPipe) conversationId: number,
   ): Promise<Message[]> {
-    this.logger.log(`Fetching messages for conversation ${conversationId}`);
     return this.messagesService.findByConversation(conversationId);
   }
 
@@ -132,7 +130,6 @@ export class MessagesController {
     @Param('id', ParseIntPipe) id: number,
     @Body() dto: UpdateMessageDto,
   ): Promise<Message> {
-    this.logger.log(`Updating message ${id}`);
     return this.messagesService.update(id, dto. text);
   }
 
@@ -140,7 +137,6 @@ export class MessagesController {
   async remove(
     @Param('id', ParseIntPipe) id: number,
   ): Promise<{ deleted: boolean }> {
-    this.logger.log(`Deleting message ${id}`);
     return this.messagesService.delete(id);
   }
 }

@@ -8,15 +8,15 @@ import { Post as PostEntity } from "../../posts/entities/post.entity";
 
 import { AuthGuard } from '@nestjs/passport';
 import { FileInterceptor } from '@nestjs/platform-express';
-import { diskStorage } from 'multer';
-import { extname, join } from 'path';
-import * as fs from 'fs';
-import { v4 as uuidv4 } from 'uuid';
 import type { Request } from 'express';
+import { CloudinaryService } from '../../common/services/cloudinary.services';
 
 @Controller('users')
 export class UsersController {
-  constructor(private usersService: UsersService) { }
+  constructor(
+    private usersService: UsersService,
+    private cloudinaryService: CloudinaryService,
+) { }
 
   @ApiResponse({ status: 200, description: 'Get all Users' })
   @ApiOperation({ summary: 'Get all users' })
@@ -66,29 +66,16 @@ export class UsersController {
    */
   @Put(':id/avatar')
   @UseGuards(AuthGuard('jwt'))
-  @UseInterceptors(FileInterceptor('avatar', {
-    storage: diskStorage({
-      destination: (req, file, cb) => {
-        const uploadPath = join(process.cwd(), 'uploads');
-        try {
-          fs.mkdirSync(uploadPath, { recursive: true });
-          cb(null, uploadPath);
-        } catch (err) {
-          cb(err, uploadPath);
-        }
+  @UseInterceptors(
+    FileInterceptor('avatar', {
+      fileFilter: (req, file, cb) => {
+        if (!file.mimetype.match(/\/(jpg|jpeg|png|gif|webp)$/)) {
+          cb(new BadRequestException('Solo imágenes permitidas'), false);
+        } else cb(null, true);
       },
-      filename: (req, file, cb) => {
-        const filename = `${uuidv4()}${extname(file.originalname)}`;
-        cb(null, filename);
-      }
+      limits: { fileSize: 5 * 1024 * 1024 },
     }),
-    fileFilter: (req, file, cb) => {
-      if (!file.mimetype.match(/\/(jpg|jpeg|png|gif|webp)$/)) {
-        cb(new BadRequestException('Solo imágenes permitidas'), false);
-      } else cb(null, true);
-    },
-    limits: { fileSize: 5 * 1024 * 1024 },
-  }))
+  )
   async uploadAvatar(
     @Param('id', ParseIntPipe) id: number,
     @UploadedFile() file: Express.Multer.File,
@@ -99,10 +86,15 @@ export class UsersController {
       throw new BadRequestException('No tienes permisos para actualizar este avatar');
     }
 
-    const avatarUrl = file ? `/uploads/${file.filename}` : null;
-    const updated = await this.usersService.updateProfileAvatar(id, avatarUrl, authUser?.id);
+    let avatarUrl: string | null = null;
+    if (file) {
+      avatarUrl = await this.cloudinaryService.uploadImage(file, 'senaconnect/avatars');
+    }
+
+    const updated = await this.usersService.updateProfileAvatar(id, avatarUrl, authUser?. id);
     return updated;
   }
+
 
   @ApiOperation({ summary: 'Delete user by ID' })
   @Delete(':id')

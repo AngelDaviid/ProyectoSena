@@ -13,43 +13,27 @@ import {
   BadRequestException,
   UploadedFile,
 } from '@nestjs/common';
-import { join } from 'path';
-import * as fs from 'fs';
 import { AuthGuard } from '@nestjs/passport';
 import { ApiOperation, ApiResponse } from '@nestjs/swagger';
 import type { Request } from 'express';
 import { PostsService } from '../services/posts.service';
 import { Post as PostEntity } from '../entities/post.entity';
 import { FileInterceptor } from '@nestjs/platform-express';
-import { diskStorage } from 'multer';
-import { extname } from 'path';
-import { v4 as uuidv4 } from 'uuid';
 import { CreatePostDto } from '../dto/create-post.dto';
+import { CloudinaryService } from '../../common/services/cloudinary.services';
 
 @Controller('posts')
 export class PostsController {
-  constructor(private readonly postsService: PostsService) {}
+  constructor(
+    private readonly postsService: PostsService,
+    private readonly cloudinaryService: CloudinaryService,
+  ) {}
 
   // ✅ CREAR POST - Requiere autenticación (todos los roles)
   @Post()
   @UseGuards(AuthGuard('jwt'))
   @UseInterceptors(
     FileInterceptor('image', {
-      storage: diskStorage({
-        destination: (req, file, cb) => {
-          const uploadPath = join(process.cwd(), 'uploads');
-          try {
-            fs.mkdirSync(uploadPath, { recursive: true });
-            cb(null, uploadPath);
-          } catch (err) {
-            cb(err, uploadPath);
-          }
-        },
-        filename: (req, file, cb) => {
-          const filename = `${uuidv4()}${extname(file.originalname)}`;
-          cb(null, filename);
-        },
-      }),
       fileFilter: (req, file, cb) => {
         if (! file.mimetype.match(/\/(jpg|jpeg|png|gif|webp)$/)) {
           cb(
@@ -61,19 +45,22 @@ export class PostsController {
       limits: { fileSize: 5 * 1024 * 1024 },
     }),
   )
-  create(
+  async create(
     @Body() createPostDto: CreatePostDto,
     @Req() req: Request,
     @UploadedFile() file?: Express.Multer.File,
   ) {
-    const user = req.user as any;
+    const user = req.  user as any;
     const userId = user.id;
-    const imageUrl = file ? `/uploads/${file.filename}` : createPostDto.imageUrl;
 
-    console.log('🖼️ Archivo:', file);
-    console.log('📦 DTO:', createPostDto);
+    let imageUrl: string | undefined;
+    if (file) {
+      imageUrl = await this.cloudinaryService.uploadImage(file, 'senaconnect/posts');
+    } else if (createPostDto.imageUrl) {
+      imageUrl = createPostDto.imageUrl;
+    }
 
-    return this.postsService. create(createPostDto, userId, imageUrl);
+    return this.postsService.create(createPostDto, userId, imageUrl);
   }
 
   // ✅ VER TODOS LOS POSTS - Público (no requiere autenticación)
@@ -98,23 +85,16 @@ export class PostsController {
     return this.postsService.findOne(id);
   }
 
-  // ✅ ACTUALIZAR POST - Solo el autor o desarrollador
-  @ApiOperation({ summary: 'Update a post by ID' })
   @Put(':id')
   @UseGuards(AuthGuard('jwt'))
   @UseInterceptors(
     FileInterceptor('image', {
-      storage: diskStorage({
-        destination: (req, file, cb) => {
-          const uploadPath = join(process.cwd(), 'uploads');
-          fs.mkdirSync(uploadPath, { recursive: true });
-          cb(null, uploadPath);
-        },
-        filename: (req, file, cb) => {
-          const filename = `${uuidv4()}${extname(file.originalname)}`;
-          cb(null, filename);
-        },
-      }),
+      fileFilter: (req, file, cb) => {
+        if (!file. mimetype.match(/\/(jpg|jpeg|png|gif|webp)$/)) {
+          cb(new BadRequestException('Solo imágenes permitidas'), false);
+        } else cb(null, true);
+      },
+      limits: { fileSize: 5 * 1024 * 1024 },
     }),
   )
   async update(
@@ -124,10 +104,10 @@ export class PostsController {
     @Req() req: Request,
   ) {
     const user = req.user as any;
-    const userId = user?. id;
-    const userRole = user?.role; // ✅ AGREGAR ESTO
+    const userId = user?.id;
+    const userRole = user?.role;
 
-    if (typeof updatePostDto. categoryIds === 'string') {
+    if (typeof updatePostDto.categoryIds === 'string') {
       try {
         updatePostDto.categoryIds = JSON.parse(updatePostDto.categoryIds);
       } catch {
@@ -136,14 +116,14 @@ export class PostsController {
     }
 
     let imageUrl: string | null | undefined = updatePostDto.imageUrl ??  undefined;
+
     if (file) {
-      imageUrl = `/uploads/${file.filename}`;
+      imageUrl = await this.cloudinaryService.uploadImage(file, 'senaconnect/posts');
     } else if (updatePostDto.removeImage === 'true' || updatePostDto.removeImage === true) {
       imageUrl = null;
     }
 
-    // ✅ PASAR userRole como parámetro
-    const updated = await this.postsService. update(id, updatePostDto, userId, userRole, imageUrl);
+    const updated = await this.postsService.update(id, updatePostDto, userId, userRole, imageUrl);
     return updated;
   }
 

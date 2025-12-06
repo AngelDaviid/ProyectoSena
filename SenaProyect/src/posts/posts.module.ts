@@ -8,11 +8,12 @@ import {CategoriesController} from "./controllers/categories.controller";
 import {CategoriesService} from "./services/categories.service";
 import { Comment } from './entities/comment.entity';
 import { Like } from './entities/like.entity';
+import { CloudinaryService } from '../common/services/cloudinary.services';
 
 @Module({
   imports: [TypeOrmModule.forFeature([Post, Category, Comment, Like])],
   controllers: [PostsController, CategoriesController],
-  providers: [PostsService, CategoriesService],
-  exports: [PostsService, CategoriesService],
+  providers: [PostsService, CategoriesService, CloudinaryService],
+  exports: [PostsService, CategoriesService, CloudinaryService],
 })
 export class PostsModule {}

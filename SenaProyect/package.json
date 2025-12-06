@@ -27,7 +27,6 @@
     "postdeploy": "npm run migration:run",
     "seed": "ts-node src/seeds/run-seeds.ts"
   },
-
   "dependencies": {
     "@nestjs/common": "^11.0.1",
     "@nestjs/config": "^4.0.2",
@@ -44,9 +43,11 @@
     "bcrypt": "^6.0.0",
     "class-transformer": "^0.5.1",
     "class-validator": "^0.14.2",
+    "cloudinary": "^1.41.3",
     "express-rate-limit": "^8.2.1",
     "helmet": "^8.1.0",
     "multer": "^2.0.2",
+    "multer-storage-cloudinary": "^4.0.0",
     "passport": "^0.7.0",
     "passport-jwt": "^4.0.1",
     "passport-local": "^1.0.0",

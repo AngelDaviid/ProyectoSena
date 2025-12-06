@@ -8,11 +8,12 @@ import { MessagesController } from './controllers/message.controller';
 import { ConversationsService } from './services/conversation.service';
 import { ConversationController } from './controllers/conversation.controller';
 import { ChatGateway } from './chat.gateway';
+import { CloudinaryService } from '../common/services/cloudinary.services';
 
 @Module({
   imports: [TypeOrmModule.forFeature([Message, Conversation, User])],
   controllers: [MessagesController, ConversationController],
-  providers: [MessagesService, ConversationsService, ChatGateway],
-  exports: [MessagesService, ConversationsService, ChatGateway],
+  providers: [MessagesService, ConversationsService, ChatGateway, CloudinaryService],
+  exports: [MessagesService, ConversationsService, ChatGateway, CloudinaryService],
 })
 export class ChatModule {}

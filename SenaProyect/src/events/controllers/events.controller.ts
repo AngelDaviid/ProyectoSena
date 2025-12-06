@@ -17,38 +17,32 @@ import { RolesGuards } from '../../auth/guards/roles.guards';
 import { Roles } from '../../auth/decorators/roles.decorator';
 import { EventsService } from '../services/events.service';
 import { FileInterceptor } from '@nestjs/platform-express';
-import { diskStorage } from 'multer';
-import { extname } from 'path';
 import { ApiBearerAuth, ApiConsumes, ApiBody, ApiOperation, ApiResponse } from '@nestjs/swagger';
 import { CreateEventDto } from '../dto/events.dto';
 import { FilterEventsDto } from '../dto/filter-events.dto';
 import { UpdateEventDto } from '../dto/update-event.dto';
+import { CloudinaryService } from '../../common/services/cloudinary.services';
 
 @Controller('events')
 export class EventsController {
-  constructor(private readonly eventsService: EventsService) {}
+  constructor(
+    private readonly eventsService: EventsService,
+    private readonly cloudinaryService: CloudinaryService,
+    ) {}
 
-  // ✅ CREAR EVENTO - Solo instructor y desarrollador
   @Post()
   @UseGuards(JwtAuthGuard, RolesGuards)
   @Roles('instructor', 'desarrollador')
   @ApiBearerAuth()
   @UseInterceptors(
     FileInterceptor('image', {
-      storage: diskStorage({
-        destination: './uploads/events',
-        filename: (req, file, cb) => {
-          const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
-          cb(null, `event-${uniqueSuffix}${extname(file.originalname)}`);
-        },
-      }),
       fileFilter: (req, file, cb) => {
-        if (! file.mimetype.match(/\/(jpg|jpeg|png|gif|webp)$/)) {
+        if (! file. mimetype.match(/\/(jpg|jpeg|png|gif|webp)$/)) {
           return cb(new Error('Solo se permiten imágenes'), false);
         }
         cb(null, true);
       },
-      limits: { fileSize: 5 * 1024 * 1024 }, // 5MB
+      limits: { fileSize: 5 * 1024 * 1024 },
     }),
   )
   @ApiConsumes('multipart/form-data')
@@ -72,19 +66,16 @@ export class EventsController {
       },
     },
   })
-  create(
+  async create(
     @Body() createEventDto: CreateEventDto,
     @Request() req,
     @UploadedFile() file?: Express.Multer.File,
   ) {
-    console.log('========== 🔍 CONTROLLER CREATE ==========');
-    console.log('📥 Body:', createEventDto);
-    console.log('📥 isDraft:', createEventDto.isDraft);
-    console.log('📥 typeof isDraft:', typeof createEventDto.isDraft);
-    console.log('📥 user:', req.user.id);
-    console.log('==========================================');
+    let imageUrl: string | undefined;
+    if (file) {
+      imageUrl = await this.cloudinaryService.uploadImage(file, 'senaconnect/events');
+    }
 
-    const imageUrl = file ? `/uploads/events/${file.filename}` : undefined;
     return this.eventsService.create(createEventDto, req.user.id, imageUrl);
   }
 
@@ -105,21 +96,13 @@ export class EventsController {
     return this.eventsService.findOne(+id, userId);
   }
 
-  // ✅ ACTUALIZAR EVENTO - Solo creador o desarrollador
   @Patch(':id')
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth()
   @UseInterceptors(
     FileInterceptor('image', {
-      storage: diskStorage({
-        destination: './uploads/events',
-        filename: (req, file, cb) => {
-          const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
-          cb(null, `event-${uniqueSuffix}${extname(file.originalname)}`);
-        },
-      }),
       fileFilter: (req, file, cb) => {
-        if (!file.mimetype. match(/\/(jpg|jpeg|png|gif|webp)$/)) {
+        if (! file.mimetype.match(/\/(jpg|jpeg|png|gif|webp)$/)) {
           return cb(new Error('Solo se permiten imágenes'), false);
         }
         cb(null, true);
@@ -128,13 +111,17 @@ export class EventsController {
     }),
   )
   @ApiConsumes('multipart/form-data')
-  update(
+  async update(
     @Param('id') id: string,
     @Body() updateEventDto: UpdateEventDto,
     @Request() req,
-    @UploadedFile() file?: Express.Multer.File,
+    @UploadedFile() file?: Express. Multer.File,
   ) {
-    const imageUrl = file ? `/uploads/events/${file.filename}` : undefined;
+    let imageUrl: string | undefined;
+    if (file) {
+      imageUrl = await this.cloudinaryService.uploadImage(file, 'senaconnect/events');
+    }
+
     return this.eventsService.update(+id, updateEventDto, req.user.id, req.user.role, imageUrl);
   }
 
