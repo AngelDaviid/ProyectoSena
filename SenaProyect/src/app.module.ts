@@ -12,6 +12,7 @@ import { ChatModule } from './chat/chat.module';
 import { MessagesController } from './chat/controllers/message.controller';
 import { UploadsController } from './uploads/uploads/uploads.controller';
 import { FriendModule } from './friend/friend.module';
+import { CommonModule } from './common/common.module';
 
 @Module({
   imports: [
@@ -35,6 +36,7 @@ import { FriendModule } from './friend/friend.module';
       }),
       inject: [ConfigService]
     }),
+    CommonModule,
     UsersModule,
     PostsModule,
     AuthModule,
