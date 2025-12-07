@@ -21,7 +21,6 @@ export class FriendsService {
   async searchUsers(query: string, excludeUserId?: number) {
     const q = (query || '').trim();
 
-    // Obtener listas relevantes para anotar estado
     const pendingSent = excludeUserId
       ? await this.frRepo.find({ where: { sender: { id: excludeUserId }, status: FriendRequestStatus.PENDING }, relations: ['receiver'] })
       : [];
@@ -38,15 +37,12 @@ export class FriendsService {
       friendIds = me?.friends?.map(f => f.id) ?? [];
     }
 
-    // Construir query principal
     const qb = this.usersRepo.createQueryBuilder('u')
       .leftJoinAndSelect('u.profile', 'p')
       .where('(u.email ILIKE :q OR p.name ILIKE :q OR p.lastName ILIKE :q)', { q: `%${q}%` });
 
-    // Excluir propio usuario
     if (excludeUserId) qb.andWhere('u.id != :id', { id: excludeUserId });
 
-    // Evitar pasar arrays vacíos a NOT IN (comportamiento SQL)
     const excludeIds = Array.from(new Set([...(friendIds || []), ...(pendingSentIds || []), ...(pendingReceivedIds || [])]));
     if (excludeIds.length > 0) {
       qb.andWhere('u.id NOT IN (:...ids)', { ids: excludeIds });
@@ -54,7 +50,6 @@ export class FriendsService {
 
     const users = await qb.take(20).getMany();
 
-    // Mapear resultados y agregar friendStatus (solo para info rápida en UI)
     const results = users.map(u => {
       let status: 'friend' | 'request_sent' | 'request_received' | 'none' = 'none';
       if (friendIds.includes(u.id)) status = 'friend';
@@ -76,7 +71,7 @@ export class FriendsService {
     ]);
     if (!sender || !receiver) throw new NotFoundException('Usuario no encontrado');
 
-    // Verificar si ya son amigos (mejor comprobar por existencia en relación)
+    // Verificar si ya son amigos
     const areFriends = await this.usersRepo.createQueryBuilder()
       .relation(User, 'friends')
       .of(sender)
@@ -84,23 +79,33 @@ export class FriendsService {
       .then(f => f.some(fr => fr.id === receiver.id));
     if (areFriends) throw new BadRequestException('Ya son amigos');
 
-    // Evitar duplicados de solicitudes pendientes (en ambas direcciones)
     const existing = await this.frRepo.findOne({
       where: [
-        { sender: { id: senderId }, receiver: { id: receiverId }, status: FriendRequestStatus.PENDING },
-        { sender: { id: receiverId }, receiver: { id: senderId }, status: FriendRequestStatus.PENDING },
+        { sender: { id: senderId }, receiver: { id: receiverId } },
+        { sender: { id: receiverId }, receiver: { id: senderId } },
       ],
     });
-    if (existing) throw new BadRequestException('Solicitud ya existe');
+
+    if (existing) {
+      if (existing.status === FriendRequestStatus.PENDING) {
+        throw new BadRequestException('Solicitud ya existe');
+      }
+
+      if (existing.status === FriendRequestStatus. REJECTED) {
+        await this. frRepo.remove(existing);
+      }
+
+      if (existing.status === FriendRequestStatus.ACCEPTED) {
+        throw new BadRequestException('Ya son amigos');
+      }
+    }
 
     const fr = this.frRepo.create({ sender, receiver });
     const saved = await this.frRepo.save(fr);
 
-    // Emitir evento socket al receiver
     try {
       this.gateway.notifyRequestSent(saved);
     } catch (e) {
-      // no blockear la respuesta si falla la notificación
       console.warn('Error notifying via gateway', e);
     }
 
@@ -223,6 +228,25 @@ export class FriendsService {
   async getBlockedUsers(userId: number) {
     const user = await this.usersRepo.findOne({ where: { id: userId }, relations: ['blockedUsers'] });
     return user?.blockedUsers || [];
+  }
+
+  async cancelRequest(requestId: number, userId: number) {
+    const fr = await this.frRepo.findOne({
+      where: { id: requestId },
+      relations: ['sender', 'receiver'],
+    });
+    if (!fr) throw new NotFoundException('Solicitud no encontrada');
+
+    if (fr.sender.id !== userId) {
+      throw new ForbiddenException('Solo puedes cancelar tus propias solicitudes');
+    }
+
+    if (fr.status !== FriendRequestStatus.PENDING) {
+      throw new BadRequestException('Solo puedes cancelar solicitudes pendientes');
+    }
+
+    await this.frRepo.remove(fr);
+    return { message: 'Solicitud cancelada exitosamente' };
   }
 
 

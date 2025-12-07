@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Body, Param, ParseIntPipe, UseGuards, Req, Query, Put } from '@nestjs/common';
+import { Controller, Get, Post, Body, Param, ParseIntPipe, UseGuards, Req, Query, Put, Delete, Request } from '@nestjs/common';
 import { FriendsService } from '../services/friend.service';
 import { AuthGuard } from '@nestjs/passport';
 
@@ -52,5 +52,15 @@ export class FriendsController {
   @Get('blocked')
   async getBlocked(@Req() req: any) {
     return this.friendsService.getBlockedUsers(req.user.id);
+  }
+
+  @Delete('requests/:id')
+  @UseGuards(AuthGuard('jwt'))
+  async cancelRequest(
+    @Param('id', ParseIntPipe) requestId: number,
+    @Request() req,
+  ) {
+    const userId = req.user.id;
+    return this.friendsService.cancelRequest(requestId, userId);
   }
 }

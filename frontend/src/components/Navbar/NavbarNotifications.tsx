@@ -1,29 +1,51 @@
 import {useEffect, useState, useRef, useCallback} from 'react';
 import {useNavigate} from 'react-router-dom';
+import {type FriendRequestDTO, getIncomingRequests} from "../../services/friends.ts";
 import {
-    getIncomingRequests,
-} from '../../services/friends';
-
-import type {FriendRequestDTO} from '../../services/friends';
-import {
-    onFriendRequestSent,
+    offFriendRequestAccepted,
     offFriendRequestSent,
     onFriendRequestAccepted,
-    offFriendRequestAccepted,
-} from '../../services/sockets/friend-request.socket';
+    onFriendRequestSent
+} from "../../services/socket.ts";
+import {BellIcon} from "../Icon/Bell-icon.tsx";
 
-const API_BASE = import.meta.env.VITE_SENA_API_URL || 'http://localhost:3001';
+
+const API_BASE =
+    import.meta.env.VITE_SENA_API_URL || 'http://localhost:3001';
 
 export default function NavbarNotifications() {
     const [incomingCount, setIncomingCount] = useState(0);
     const [preview, setPreview] = useState<FriendRequestDTO[]>([]);
     const [open, setOpen] = useState(false);
+
     const ref = useRef<HTMLDivElement>(null);
     const navigate = useNavigate();
 
-    /**
-     * 🔄 Fetch inicial de solicitudes
-     */
+    const getInitials = (name: string, lastName: string, email: string) => {
+        if (name && lastName) return `${name.charAt(0)}${lastName.charAt(0)}`.toUpperCase();
+        if (name) return name.charAt(0).toUpperCase();
+        if (email) return email.charAt(0).toUpperCase();
+        return '?';
+    };
+
+    const getColorFromName = (name: string) => {
+        const colors = [
+            'bg-blue-500',
+            'bg-green-500',
+            'bg-purple-500',
+            'bg-pink-500',
+            'bg-indigo-500',
+            'bg-yellow-500',
+            'bg-red-500',
+            'bg-teal-500',
+            'bg-orange-500',
+            'bg-cyan-500',
+        ];
+
+        const charCode = name.charCodeAt(0) || 0;
+        return colors[charCode % colors.length];
+    };
+
     useEffect(() => {
         let active = true;
 
@@ -41,21 +63,14 @@ export default function NavbarNotifications() {
         };
 
         loadRequests();
-
         return () => {
             active = false;
         };
     }, []);
 
-    /**
-     * ⚡ Handlers para eventos en tiempo real (sockets)
-     */
     const handleNewRequest = useCallback((payload: FriendRequestDTO) => {
         setIncomingCount((count) => count + 1);
-        setPreview((prev) => {
-            const next = [payload, ...prev];
-            return next.slice(0, 4);
-        });
+        setPreview((prev) => [payload, ...prev].slice(0, 4));
     }, []);
 
     const handleAcceptedRequest = useCallback((payload: any) => {
@@ -64,131 +79,182 @@ export default function NavbarNotifications() {
         setIncomingCount((count) => Math.max(0, count - 1));
     }, []);
 
-    /**
-     * 🧩 Subscribir / desubscribir eventos socket
-     */
     useEffect(() => {
         onFriendRequestSent(handleNewRequest);
         onFriendRequestAccepted(handleAcceptedRequest);
+
         return () => {
             offFriendRequestSent(handleNewRequest);
             offFriendRequestAccepted(handleAcceptedRequest);
         };
     }, [handleNewRequest, handleAcceptedRequest]);
 
-    /**
-     * 🖱️ Cerrar dropdown al hacer click afuera
-     */
+    /* =========================
+       CLICK OUTSIDE
+    ========================= */
+
     useEffect(() => {
         const handleClickOutside = (event: MouseEvent) => {
             if (ref.current && !ref.current.contains(event.target as Node)) {
                 setOpen(false);
             }
         };
+
         document.addEventListener('mousedown', handleClickOutside);
-        return () => document.removeEventListener('mousedown', handleClickOutside);
+        return () =>
+            document.removeEventListener('mousedown', handleClickOutside);
     }, []);
 
-    /**
-     * 🎨 Render
-     */
     return (
         <div ref={ref} className="relative">
-            {/* 🔔 Botón del ícono */}
             <button
                 onClick={() => setOpen((v) => !v)}
-                className="relative p-2 focus:outline-none"
+                aria-label="Notificaciones"
+                className="relative p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 transition-all focus:outline-none focus:ring-2 focus:ring-green-500 active:scale-95"
             >
-                <svg
-                    className="w-5 h-5 sm:w-6 sm:h-6 text-gray-700"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                >
-                    <path
-                        strokeWidth="2"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6 6 0 10-12 0v3.159c0 .538-.214 1.055-.595 1.436L4 17h11z"
-                    />
-                </svg>
+                <BellIcon size={24} className="text-gray-700 dark:text-gray-200  cursor-pointer"/>
 
                 {incomingCount > 0 && (
                     <span
-                        className="absolute -top-1 -right-1 flex items-center justify-center px-1. 5 sm:px-2 py-0.5 sm:py-1 text-xs font-bold text-white bg-red-600 rounded-full min-w-[18px] sm:min-w-[20px]">
-                        {incomingCount > 99 ? '99+' : incomingCount}
-                    </span>
+                        className="absolute top-0 right-0 flex items-center justify-center min-w-[20px] h-5 px-1.5 text-xs font-bold text-white bg-red-500 rounded-full border-2 border-white dark:border-gray-900">
+            {incomingCount > 99 ? '99+' : incomingCount}
+          </span>
                 )}
             </button>
 
-            {/* 🧭 Dropdown de notificaciones */}
             {open && (
-                <div className="absolute right-0 mt-2 w-72 sm:w-80 bg-white border rounded-lg shadow-lg z-50">
-                    <div className="p-2. 5 sm:p-3 border-b flex items-center justify-between">
-                        <strong className="text-sm sm:text-base">Notificaciones</strong>
-                        <button
-                            onClick={() => {
-                                setOpen(false);
-                                navigate('/notifications');
-                            }}
-                            className="text-xs sm:text-sm text-green-600 hover:underline"
-                        >
-                            Ver todo
-                        </button>
-                    </div>
+                <>
+                    <div
+                        className="fixed inset-0 bg-black/20 backdrop-blur-sm z-40 sm:hidden"
+                        onClick={() => setOpen(false)}
+                    />
 
-                    <div className="max-h-60 sm:max-h-64 overflow-auto">
-                        {preview.length === 0 ? (
-                            <div className="p-4 text-xs sm:text-sm text-gray-500 text-center">
-                                No hay solicitudes nuevas.
+                    <div
+                        className="fixed left-4 mt-4 right-4 top-20 sm:left-auto sm:right-4 sm:top-16 sm:w-96 bg-white dark:bg-gray-800 rounded-xl shadow-2xl border border-gray-200 dark:border-gray-700 z-50 overflow-hidden">
+                        {/* HEADER */}
+                        <div
+                            className="px-4 py-3 bg-green-50 dark:bg-gray-700 border-b border-gray-200 dark:border-gray-600">
+                            <div className="flex items-center justify-between">
+                                <div className="flex items-center gap-2.5">
+                                    <BellIcon
+                                        size={20}
+                                        variant="solid"
+                                        className="text-green-600 dark:text-green-400"
+                                    />
+                                    <h3 className="text-base font-semibold text-gray-900 dark:text-white">
+                                        Notificaciones
+                                    </h3>
+
+                                    {incomingCount > 0 && (
+                                        <span
+                                            className="min-w-[20px] h-5 px-1.5 text-xs font-semibold text-green-700 bg-green-100 dark:bg-green-900/50 dark:text-green-300 rounded-full flex items-center justify-center">
+                                  {incomingCount}
+                                </span>
+                                    )}
+                                </div>
+
+                                <button
+                                    onClick={() => {
+                                        setOpen(false);
+                                        navigate('/friends');
+                                    }}
+                                    className="text-sm font-medium text-green-600 hover:text-green-700 dark:text-green-400 cursor-pointer"
+                                >
+                                    Ver todas
+                                </button>
                             </div>
-                        ) : (
-                            preview.map((req) => {
-                                const {id, sender} = req;
-                                const avatar = sender?.profile?.avatar
-                                    ? sender.profile.avatar.startsWith('/')
-                                        ? `${API_BASE}${sender.profile.avatar}`
-                                        : sender.profile.avatar
-                                    : '/default. png';
-                                const fullName = `${sender?.profile?.name ?? ''} ${
-                                    sender?.profile?.lastName ?? ''
-                                }`.trim();
+                        </div>
 
-                                return (
-                                    <div
-                                        key={id}
-                                        className="p-2. 5 sm:p-3 flex gap-2 sm:gap-3 items-center border-b hover:bg-gray-50 cursor-pointer transition"
-                                        onClick={() => {
-                                            setOpen(false);
-                                            navigate('/notifications');
-                                        }}
-                                    >
-                                        <img
-                                            src={avatar}
-                                            alt="avatar"
-                                            className="w-8 h-8 sm:w-10 sm:h-10 rounded-full object-cover flex-shrink-0"
-                                        />
-                                        <div className="flex-1 min-w-0 text-xs sm:text-sm">
-                                            <div className="font-medium truncate">{fullName || sender?.email}</div>
-                                            <div className="text-xs text-gray-500">
-                                                Te ha enviado una solicitud
+                        {/* BODY */}
+                        <div className="max-h-[60vh] sm:max-h-96 overflow-y-auto">
+                            {preview.length === 0 ? (
+                                <div className="flex flex-col items-center py-12">
+                                    <BellIcon size={32} className="text-gray-400 mb-2 cursor-pointer"/>
+                                    <p className="font-medium">¡Todo al día!</p>
+                                    <p className="text-sm text-gray-500">
+                                        No tienes solicitudes nuevas
+                                    </p>
+                                </div>
+                            ) : (
+                                <div className="divide-y divide-gray-100 dark:divide-gray-700">
+                                    {preview.map((req) => {
+                                        const {id, sender} = req;
+
+                                        const name = sender?.profile?.name ?? '';
+                                        const lastName = sender?.profile?.lastName ?? '';
+                                        const email = sender?.email ?? '';
+                                        const fullName = `${name} ${lastName}`.trim();
+                                        const displayName = fullName || email;
+
+                                        const avatar = sender?.profile?.avatar;
+                                        const hasAvatar =
+                                            avatar && avatar !== '' && avatar !== '/default.png';
+
+                                        const avatarUrl = hasAvatar
+                                            ? avatar.startsWith('/')
+                                                ? `${API_BASE}${avatar}`
+                                                : avatar
+                                            : null;
+
+                                        const initials = getInitials(name, lastName, email);
+                                        const avatarColor = getColorFromName(displayName);
+
+                                        return (
+                                            <div
+                                                key={id}
+                                                onClick={() => {
+                                                    setOpen(false);
+                                                    navigate('/friends');
+                                                }}
+                                                className="p-4 flex gap-3 items-center hover:bg-gray-50 dark:hover:bg-gray-700/50 cursor-pointer"
+                                            >
+                                                {/* AVATAR */}
+                                                <div className="relative">
+                                                    {avatarUrl ? (
+                                                        <img
+                                                            src={avatarUrl}
+                                                            alt={displayName}
+                                                            className="w-12 h-12 rounded-full object-cover border"
+                                                        />
+                                                    ) : (
+                                                        <div
+                                                            className={`w-12 h-12 rounded-full ${avatarColor} flex items-center justify-center`}
+                                                        >
+                              <span className="text-white font-semibold">
+                                {initials}
+                              </span>
+                                                        </div>
+                                                    )}
+                                                    <span
+                                                        className="absolute bottom-0 right-0 w-3.5 h-3.5 bg-green-500 border-2 border-white rounded-full"/>
+                                                </div>
+
+                                                <div className="flex-1 min-w-0">
+                                                    <p className="font-semibold truncate">
+                                                        {displayName}
+                                                    </p>
+                                                    <p className="text-sm text-gray-600">
+                                                        Te ha enviado una solicitud de amistad
+                                                    </p>
+                                                </div>
+
+                                                <button
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        navigate('/friends');
+                                                    }}
+                                                    className="px-3 py-1.5 text-sm text-green-700 bg-green-50 rounded-lg cursor-pointer"
+                                                >
+                                                    Ver solicitud
+                                                </button>
                                             </div>
-                                        </div>
-                                        <button
-                                            onClick={(e) => {
-                                                e.stopPropagation();
-                                                navigate('/notifications');
-                                            }}
-                                            className="text-xs sm:text-sm text-green-600 hover:underline flex-shrink-0"
-                                        >
-                                            Ver
-                                        </button>
-                                    </div>
-                                );
-                            })
-                        )}
+                                        );
+                                    })}
+                                </div>
+                            )}
+                        </div>
                     </div>
-                </div>
+                </>
             )}
         </div>
     );
