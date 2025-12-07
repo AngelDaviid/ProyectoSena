@@ -20,46 +20,84 @@ export class EventsService {
     private readonly eventsGateway: EventsGateway,
   ) {}
 
-  /**
-   * Crear un nuevo evento
-   */
+
+  private isDateInPast(date: Date): boolean {
+    const inputDate = new Date(date);
+    const today = new Date();
+
+    inputDate.setHours(0, 0, 0, 0);
+    today.setHours(0, 0, 0, 0);
+
+    return inputDate < today;
+  }
+
+
   async create(createEventDto: CreateEventDto, userId: number, imageUrl?: string): Promise<Event> {
     console.log('========== 🔍 DEBUG CREATE EVENT ==========');
-    console.log('📥 createEventDto:', JSON.stringify(createEventDto, null, 2));
-    console. log('📥 createEventDto.isDraft:', createEventDto.isDraft);
+    console. log('📥 RAW createEventDto:', createEventDto);
+    console.log('📥 createEventDto.isDraft:', createEventDto.isDraft);
     console.log('📥 typeof createEventDto.isDraft:', typeof createEventDto.isDraft);
+
+    let isDraft: boolean;
+
+    if (createEventDto.isDraft === undefined || createEventDto.isDraft === null) {
+      isDraft = false;
+      console.log('  → isDraft era undefined/null, usando false (PUBLICAR)');
+    } else if (typeof createEventDto.isDraft === 'string') {
+      isDraft = createEventDto.isDraft === 'true';
+      console.log(`  → isDraft era string "${createEventDto. isDraft}", convertido a boolean ${isDraft}`);
+    } else if (typeof createEventDto.isDraft === 'boolean') {
+      isDraft = createEventDto.isDraft;
+      console.log(`  → isDraft era boolean ${isDraft}`);
+    } else {
+      isDraft = false;
+      console.log(`  → isDraft era tipo desconocido, usando false (PUBLICAR)`);
+    }
+
+    console.log('🎯 ✅ VALOR FINAL de isDraft:', isDraft);
+    console.log('🎯 ✅ Tipo:', typeof isDraft);
     console.log('==========================================');
 
-    // Validar fechas
     const startDate = new Date(createEventDto.startDate);
     const endDate = new Date(createEventDto.endDate);
-    const now = new Date();
+    const todayStart = new Date();
+    todayStart.setHours(0, 0, 0, 0);
 
-    if (startDate < now) {
-      throw new BadRequestException('La fecha de inicio no puede ser en el pasado');
+    const startDateOnly = new Date(startDate);
+    startDateOnly.setHours(0, 0, 0, 0);
+
+    const endDateOnly = new Date(endDate);
+    endDateOnly.setHours(0, 0, 0, 0);
+
+    if (startDateOnly < todayStart) {
+      throw new BadRequestException('La fecha de inicio no puede ser de días pasados');
     }
 
-    if (endDate <= startDate) {
-      throw new BadRequestException('La fecha de fin debe ser posterior a la fecha de inicio');
+    if (endDateOnly < todayStart) {
+      throw new BadRequestException('La fecha de fin no puede ser de días pasados');
     }
 
-    const isDraft = createEventDto.isDraft ??  false;
+    if (endDate < startDate) {
+      throw new BadRequestException('La fecha de fin debe ser igual o posterior a la fecha de inicio');
+    }
 
-    console.log('🎯 isDraft calculado:', isDraft);
-    console.log('🎯 Lógica: createEventDto.isDraft !== false');
-    console.log('🎯 Resultado:', createEventDto.isDraft, '! ==', false, '=', isDraft);
+    console.log('🔨 Creando evento con isDraft =', isDraft);
 
     const event = this.eventsRepository.create({
       ...createEventDto,
       startDate,
       endDate,
       user: { id: userId } as any,
-      categories: createEventDto.categoryIds?. map((id) => ({ id })) as any,
+      categories: createEventDto.categoryIds?.map((id) => ({ id })) as any,
       imageUrl: imageUrl,
-      isDraft,
+      isDraft: isDraft,
     });
 
+    console.log('📦 Evento creado (antes de guardar), isDraft:', event.isDraft);
+
     const savedEvent = await this.eventsRepository.save(event);
+
+    console.log('💾 Evento guardado, isDraft:', savedEvent.isDraft);
 
     const fullEvent = await this.eventsRepository.findOne({
       where: { id: savedEvent.id },
@@ -70,13 +108,11 @@ export class EventsService {
       throw new NotFoundException('Error al crear el evento');
     }
 
-    console.log('📊 fullEvent. isDraft:', fullEvent.isDraft);
-    console.log('📊 ! isDraft (should publish?):', !isDraft);
-    console.log('📊 fullEvent.title:', fullEvent.title);
+    console.log('📊 fullEvent desde DB, isDraft:', fullEvent.isDraft);
+    console.log('📊 fullEvent.title:', fullEvent. title);
 
-    // Notificar según el estado
-    if (! isDraft) {
-      console.log('🚀 ✅ PUBLISHING EVENT:', fullEvent.title);
+    if (!isDraft) {
+      console.log('🚀 ✅ PUBLISHING EVENT:', fullEvent. title);
       this.eventsGateway.notifyEventPublished(fullEvent);
     } else {
       console.log('📝 ⚠️ CREATING DRAFT:', fullEvent.title);

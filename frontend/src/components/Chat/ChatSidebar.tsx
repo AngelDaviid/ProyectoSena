@@ -2,67 +2,78 @@ import React, { useMemo } from 'react';
 import { MessageCircle, Search } from 'lucide-react';
 import type { Conversation } from '../../types/chat';
 
-type Props = {
+interface Props {
     conversations: Conversation[];
-    currentUserId?: number | null;
-    activeConversationId?: number | null;
-    onSelect: (c: Conversation) => void;
+    currentUserId: number;
+    activeConversationId: number | null;
+    onSelect: (conv: Conversation) => void;
     unreadCounts?: Record<number, number>;
-};
+}
 
-const participantName = (conv: Conversation, currentUserId?: number | null): string => {
-    const others = (conv.participants || []).filter((p) => p. id !== currentUserId);
-    if (others.length === 0) return 'Tú';
+const API_BASE = import.meta.env.VITE_SENA_API_URL || 'http://localhost:3001';
+
+function participantName(conv: Conversation, currentUserId: number): string {
+    const others = conv.participants?. filter((p) => p.id !== currentUserId) || [];
+    if (others.length === 0) return 'Chat';
     return others
-        .map((o) => `${o.profile?. name ??  ''} ${o.profile?.lastName ?? ''}`. trim() || o.email)
+        .map((p) => {
+            const fullName = `${p.profile?. name || ''} ${p.profile?.lastName || ''}`. trim();
+            return fullName || p.email || 'Usuario';
+        })
         .join(', ');
-};
+}
 
-const getInitials = (name: string): string => {
-    const parts = name.split(' '). filter(Boolean);
-    if (parts.length === 0) return '?';
-    if (parts.length === 1) return parts[0][0]. toUpperCase();
-    return (parts[0][0] + parts[parts.length - 1][0]). toUpperCase();
-};
+function getParticipantAvatar(conv: Conversation, currentUserId: number): string | null {
+    const others = conv.participants?.filter((p) => p.id !== currentUserId) || [];
+    if (others. length === 0 || !others[0]?.profile?.avatar) {
+        return null;
+    }
 
-const formatLastMessageTime = (dateStr?: string): string => {
-    if (!dateStr) return '';
+    const avatar = others[0]. profile.avatar;
+    return avatar. startsWith('/')
+        ? `${API_BASE}${avatar}`
+        : avatar;
+}
 
-    const date = new Date(dateStr);
+function lastMessageText(conv: Conversation): string {
+    const lastMsg = conv. messages?.[conv.messages.length - 1];
+    if (!lastMsg) return 'Sin mensajes';
+
+    if (lastMsg.imageUrl && ! lastMsg.text) return '📷 Imagen';
+    if (lastMsg.text) {
+        return lastMsg.text. length > 50
+            ? lastMsg.text.substring(0, 50) + '...'
+            : lastMsg. text;
+    }
+    return 'Sin mensajes';
+}
+
+function lastMessageTime(conv: Conversation): string {
+    const lastMsg = conv. messages?.[conv.messages.length - 1];
+    if (! lastMsg?. createdAt) return '';
+
+    const date = new Date(lastMsg.createdAt);
     const now = new Date();
     const diffMs = now.getTime() - date.getTime();
     const diffMins = Math.floor(diffMs / 60000);
-    const diffHours = Math.floor(diffMins / 60);
-    const diffDays = Math.floor(diffHours / 24);
+    const diffHours = Math. floor(diffMs / 3600000);
+    const diffDays = Math.floor(diffMs / 86400000);
 
     if (diffMins < 1) return 'Ahora';
     if (diffMins < 60) return `${diffMins}m`;
     if (diffHours < 24) return `${diffHours}h`;
     if (diffDays < 7) return `${diffDays}d`;
 
-    return date.toLocaleDateString('es-ES', { day: 'numeric', month: 'short' });
-};
-
-const formatLastMessageText = (message: any): string => {
-    if (! message) return 'Sin mensajes aún';
-
-    if (message.imageUrl) {
-        if (message.text && message.text.trim()) {
-            return `${message.text}`;
-        }
-        return 'Imagen';
-    }
-
-    return message.text || 'Sin mensajes aún';
-};
+    return date.toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit' });
+}
 
 const ChatSidebar: React.FC<Props> = ({
- conversations,
- currentUserId,
- activeConversationId,
- onSelect,
- unreadCounts = {},
-}) => {
+                                          conversations,
+                                          currentUserId,
+                                          activeConversationId,
+                                          onSelect,
+                                          unreadCounts = {},
+                                      }) => {
     const [searchQuery, setSearchQuery] = React.useState('');
 
     const uniqueConversations = useMemo(() => {
@@ -79,7 +90,7 @@ const ChatSidebar: React.FC<Props> = ({
         });
 
         const unique = Array.from(conversationMap.values());
-        console. log('[ChatSidebar] Unique conversations count:', unique.length);
+        console.log('[ChatSidebar] Unique conversations count:', unique.length);
 
         return unique;
     }, [conversations]);
@@ -92,8 +103,8 @@ const ChatSidebar: React.FC<Props> = ({
         });
 
         return filtered.sort((a, b) => {
-            const aTime = a.messages?.[a.messages.length - 1]?.createdAt || '';
-            const bTime = b. messages?.[b.messages.length - 1]?.createdAt || '';
+            const aTime = a.messages?.[a.messages. length - 1]?.createdAt || '';
+            const bTime = b.messages?.[b.messages.length - 1]?.createdAt || '';
 
             if (!aTime && !bTime) return 0;
             if (!aTime) return 1;
@@ -118,17 +129,17 @@ const ChatSidebar: React.FC<Props> = ({
                         placeholder="Buscar conversaciones..."
                         className="w-full bg-white/20 backdrop-blur-sm border border-white/30 rounded-lg pl-10 pr-4 py-2 text-sm text-white placeholder-white/70 focus:outline-none focus:ring-2 focus:ring-white/50 focus:bg-white/30 transition"
                         value={searchQuery}
-                        onChange={(e) => setSearchQuery(e.target.value)}
+                        onChange={(e) => setSearchQuery(e.target. value)}
                     />
                 </div>
             </div>
 
             <div className="flex-1 overflow-y-auto">
-                {sortedConversations.length === 0 ? (
+                {sortedConversations.length === 0 ?  (
                     <div className="flex flex-col items-center justify-center h-full text-center p-6">
                         <MessageCircle className="w-16 h-16 text-green-200 mb-3" />
                         <p className="text-sm text-gray-600 font-medium">
-                            {searchQuery ? 'No se encontraron conversaciones' : 'No hay conversaciones'}
+                            {searchQuery ?  'No se encontraron conversaciones' : 'No hay conversaciones'}
                         </p>
                         <p className="text-xs text-gray-400 mt-1">
                             {searchQuery ?  'Intenta con otro término' : 'Inicia una nueva conversación desde Amigos'}
@@ -137,84 +148,109 @@ const ChatSidebar: React.FC<Props> = ({
                 ) : (
                     sortedConversations.map((conv) => {
                         const name = participantName(conv, currentUserId);
-                        const initials = getInitials(name);
-                        const isActive = activeConversationId === conv.id;
-                        const unreadCount = unreadCounts[conv.id] || 0;
-                        const lastMessage = conv. messages?.[conv.messages.length - 1];
-                        const lastMessageTime = lastMessage?.createdAt;
-                        const lastMessageText = formatLastMessageText(lastMessage);
+                        const avatar = getParticipantAvatar(conv, currentUserId);
+                        const lastMsg = lastMessageText(conv);
+                        const time = lastMessageTime(conv);
+                        const unread = unreadCounts[conv.id] || 0;
+                        const isActive = conv.id === activeConversationId;
 
                         return (
-                            <button
+                            <div
                                 key={conv.id}
                                 onClick={() => onSelect(conv)}
-                                className={`w-full text-left px-4 py-3 border-b border-gray-100 hover:bg-green-50 transition-all duration-200 flex items-center gap-3 ${
-                                    isActive ?  'bg-green-50 border-l-4 border-l-green-600' : ''
-                                }`}
+                                className={`
+                                    flex items-center gap-3 p-4 cursor-pointer transition-all border-b border-green-100/50
+                                    ${isActive
+                                    ? 'bg-gradient-to-r from-green-100 to-emerald-50 border-l-4 border-l-green-600'
+                                    : 'hover:bg-green-50/50'
+                                }
+                                `}
                             >
                                 <div className="relative flex-shrink-0">
-                                    <div
-                                        className={`w-12 h-12 rounded-full flex items-center justify-center font-bold text-white shadow-md transition-all ${
-                                            isActive
-                                                ? 'bg-gradient-to-br from-green-600 to-emerald-600 scale-105'
-                                                : 'bg-gradient-to-br from-green-500 to-emerald-500'
-                                        }`}
-                                    >
-                                        {initials}
-                                    </div>
-                                    <div className="absolute bottom-0 right-0 w-3 h-3 bg-green-400 border-2 border-white rounded-full shadow-sm" />
+                                    {avatar ?  (
+                                        <img
+                                            src={avatar}
+                                            alt={name}
+                                            className={`
+                                                w-12 h-12 rounded-full object-cover 
+                                                ${isActive
+                                                ? 'ring-2 ring-green-600'
+                                                : 'ring-2 ring-gray-200'
+                                            }
+                                            `}
+                                            onError={(e) => {
+                                                const target = e.target as HTMLImageElement;
+                                                target.style.display = 'none';
+
+                                                const fallback = document.createElement('div');
+                                                fallback.className = `w-12 h-12 rounded-full flex items-center justify-center font-bold text-lg ${
+                                                    isActive
+                                                        ? 'bg-green-600 text-white ring-2 ring-green-600'
+                                                        : 'bg-gray-300 text-gray-700 ring-2 ring-gray-200'
+                                                }`;
+                                                fallback.textContent = name[0]?.toUpperCase() || 'U';
+
+                                                const parent = target.parentNode;
+                                                if (parent) {
+                                                    parent. insertBefore(fallback, target as Node);
+                                                }
+                                            }}
+                                        />
+                                    ) : (
+                                        <div className={`
+                                            w-12 h-12 rounded-full flex items-center justify-center font-bold text-lg
+                                            ${isActive
+                                            ? 'bg-green-600 text-white ring-2 ring-green-600'
+                                            : 'bg-gray-300 text-gray-700 ring-2 ring-gray-200'
+                                        }
+                                        `}>
+                                            {name[0]?.toUpperCase() || 'U'}
+                                        </div>
+                                    )}
+
+                                    {/* Indicador de en línea (opcional) */}
+                                    <span className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 border-2 border-white rounded-full"></span>
                                 </div>
 
+                                {/* Información del chat */}
                                 <div className="flex-1 min-w-0">
                                     <div className="flex items-center justify-between mb-1">
-                                        <span
-                                            className={`font-semibold text-sm truncate ${
-                                                isActive ?  'text-green-700' : 'text-gray-800'
-                                            }`}
-                                        >
+                                        <h3 className={`
+                                            font-semibold truncate
+                                            ${isActive ?  'text-green-700' : 'text-gray-800'}
+                                            ${unread > 0 ? 'font-bold' : ''}
+                                        `}>
                                             {name}
-                                        </span>
-                                        {lastMessageTime && (
-                                            <span className={`text-xs flex-shrink-0 ml-2 font-medium ${
-                                                isActive ? 'text-green-600' : 'text-gray-400'
-                                            }`}>
-                                                {formatLastMessageTime(lastMessageTime)}
+                                        </h3>
+                                        {time && (
+                                            <span className={`
+                                                text-xs flex-shrink-0 ml-2
+                                                ${unread > 0 ? 'text-green-600 font-semibold' : 'text-gray-400'}
+                                            `}>
+                                                {time}
                                             </span>
                                         )}
                                     </div>
 
-                                    <div className="flex items-center justify-between gap-2">
-                                        <p className={`text-xs truncate flex-1 ${
-                                            unreadCount > 0 ? 'text-gray-700 font-medium' : 'text-gray-500'
-                                        }`}>
-                                            {lastMessageText}
+                                    <div className="flex items-center justify-between">
+                                        <p className={`
+                                            text-sm truncate flex-1
+                                            ${unread > 0 ? 'text-gray-700 font-medium' : 'text-gray-500'}
+                                        `}>
+                                            {lastMsg}
                                         </p>
-                                        {unreadCount > 0 && (
-                                            <span className="flex-shrink-0 bg-gradient-to-br from-green-600 to-emerald-600 text-white text-xs font-bold rounded-full min-w-[20px] h-5 px-1. 5 flex items-center justify-center shadow-md">
-                                                {unreadCount > 9 ? '9+' : unreadCount}
+
+                                        {unread > 0 && (
+                                            <span className="ml-2 flex-shrink-0 bg-green-600 text-white text-xs font-bold rounded-full min-w-[20px] h-5 flex items-center justify-center px-1. 5">
+                                                {unread > 99 ? '99+' : unread}
                                             </span>
                                         )}
                                     </div>
                                 </div>
-                            </button>
+                            </div>
                         );
                     })
                 )}
-            </div>
-
-            <div className="p-3 bg-gradient-to-r from-green-50 to-emerald-50 border-t-2 border-green-100 shadow-inner">
-                <div className="flex items-center justify-between text-xs text-gray-600">
-                    <span className="font-medium">
-                        {sortedConversations.length}{' '}
-                        {sortedConversations.length === 1 ? 'conversación' : 'conversaciones'}
-                    </span>
-                    {Object.values(unreadCounts).reduce((a, b) => a + b, 0) > 0 && (
-                        <span className="text-green-700 font-bold flex items-center gap-1">
-                            <span className="w-2 h-2 bg-green-600 rounded-full animate-pulse"></span>
-                            {Object.values(unreadCounts).reduce((a, b) => a + b, 0)} sin leer
-                        </span>
-                    )}
-                </div>
             </div>
         </aside>
     );

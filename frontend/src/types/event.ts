@@ -361,6 +361,22 @@ export interface EventValidationError {
     message: string;
 }
 
+// ... código anterior sin cambios ...
+
+/**
+ * ✅ Helper: Verificar si una fecha es de días pasados (ignora la hora)
+ */
+function isDateInPast(date: Date): boolean {
+    const inputDate = new Date(date);
+    const today = new Date();
+
+    // Resetear horas para comparar solo fechas
+    inputDate.setHours(0, 0, 0, 0);
+    today.setHours(0, 0, 0, 0);
+
+    return inputDate < today;
+}
+
 export function validateEvent(data: Partial<CreateEventDto>): EventValidationError[] {
     const errors: EventValidationError[] = [];
 
@@ -375,33 +391,44 @@ export function validateEvent(data: Partial<CreateEventDto>): EventValidationErr
     }
 
     if (!data.location || data.location.trim().length === 0) {
-        errors. push({ field: 'location', message: 'La ubicación es requerida' });
+        errors.push({ field: 'location', message: 'La ubicación es requerida' });
     }
 
+    // ✅ Validación de fecha de inicio - ACTUALIZADO
     if (!data.startDate) {
         errors.push({ field: 'startDate', message: 'La fecha de inicio es requerida' });
     } else {
         const startDate = new Date(data.startDate);
-        const now = new Date();
 
-        if (startDate < now) {
-            errors.push({ field: 'startDate', message: 'La fecha de inicio no puede ser en el pasado' });
+        // ✅ Verificar que NO sea de días pasados (pero permite hoy)
+        if (isDateInPast(startDate)) {
+            errors.push({ field: 'startDate', message: 'La fecha de inicio no puede ser de días pasados' });
         }
     }
 
+    // ✅ Validación de fecha de fin - ACTUALIZADO
     if (!data.endDate) {
         errors.push({ field: 'endDate', message: 'La fecha de fin es requerida' });
-    } else if (data.startDate) {
-        const startDate = new Date(data.startDate);
+    } else {
         const endDate = new Date(data.endDate);
 
-        if (endDate <= startDate) {
-            errors.push({ field: 'endDate', message: 'La fecha de fin debe ser posterior a la de inicio' });
+        // ✅ Verificar que NO sea de días pasados
+        if (isDateInPast(endDate)) {
+            errors.push({ field: 'endDate', message: 'La fecha de fin no puede ser de días pasados' });
+        }
+
+        // ✅ La fecha de fin debe ser igual o posterior a la de inicio
+        if (data.startDate) {
+            const startDate = new Date(data.startDate);
+
+            if (endDate < startDate) {
+                errors.push({ field: 'endDate', message: 'La fecha de fin debe ser igual o posterior a la de inicio' });
+            }
         }
     }
 
     if (data.maxAttendees !== undefined && data.maxAttendees < 1) {
-        errors. push({ field: 'maxAttendees', message: 'El máximo de asistentes debe ser al menos 1' });
+        errors.push({ field: 'maxAttendees', message: 'El máximo de asistentes debe ser al menos 1' });
     }
 
     return errors;

@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import type { Event } from '../../types/event';
 import { getEvent, deleteEvent, registerToEvent, unregisterFromEvent, publishEvent } from '../../services/events';
+import { getEventImageUrl } from '../../types/event';
 import { useAuth } from '../../hooks/useAuth';
 import {
     Calendar,
@@ -74,7 +75,7 @@ export default function EventDetail() {
 
     const handleUnregister = async () => {
         if (!event) return;
-        if (!  confirm('¿Estás seguro de que quieres cancelar tu registro?')) return;
+        if (! confirm('¿Estás seguro de que quieres cancelar tu registro?')) return;
 
         try {
             setActionLoading(true);
@@ -90,7 +91,7 @@ export default function EventDetail() {
 
     const handleDelete = async () => {
         if (!event) return;
-        if (! confirm('¿Estás seguro de que quieres eliminar este evento?  Esta acción no se puede deshacer.')) return;
+        if (!confirm('¿Estás seguro de que quieres eliminar este evento?  Esta acción no se puede deshacer.')) return;
 
         try {
             setActionLoading(true);
@@ -138,6 +139,15 @@ export default function EventDetail() {
         });
     };
 
+    // ✅ Helper para obtener URL de avatar
+    const getAvatarUrl = (avatar?: string): string => {
+        if (!avatar) return '';
+        if (avatar.startsWith('http://') || avatar.startsWith('https://')) {
+            return avatar;
+        }
+        return `${API_BASE}${avatar}`;
+    };
+
     if (loading) {
         return (
             <div className="flex justify-center items-center min-h-screen">
@@ -155,12 +165,11 @@ export default function EventDetail() {
     }
 
     const isOwner = user?.id === event.user?.id;
-    const spotsLeft = event.maxAttendees ?   event.maxAttendees - (event.attendeesCount || 0) : null;
+    const spotsLeft = event.maxAttendees ?  event.maxAttendees - (event.attendeesCount || 0) : null;
     const isFull = spotsLeft !== null && spotsLeft <= 0;
 
     return (
         <div className="max-w-5xl mx-auto p-4 sm:p-6 lg:p-8">
-            {/* ✅ NUEVO: Botón para volver atrás */}
             <button
                 onClick={() => navigate('/events')}
                 className="flex items-center gap-2 text-gray-600 hover:text-gray-900 mb-4 sm:mb-6 transition-colors"
@@ -169,13 +178,15 @@ export default function EventDetail() {
                 <span className="font-medium text-sm sm:text-base">Volver a Eventos</span>
             </button>
 
-            {/* Imagen de portada */}
             <div className="relative h-64 sm:h-80 lg:h-96 bg-gray-200 rounded-lg overflow-hidden mb-4 sm:mb-6">
                 {event.imageUrl ?  (
                     <img
-                        src={`${API_BASE}${event. imageUrl}`}
+                        src={getEventImageUrl(event, API_BASE)}
                         alt={event.title}
                         className="w-full h-full object-cover"
+                        onError={(e) => {
+                            e.currentTarget.src = '/default-event.png';
+                        }}
                     />
                 ) : (
                     <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-green-400 to-blue-500">
@@ -183,42 +194,33 @@ export default function EventDetail() {
                     </div>
                 )}
 
-                {/* Badge Borrador */}
-                {event. isDraft && (
+                {event.isDraft && (
                     <div className="absolute top-3 sm:top-4 left-3 sm:left-4 bg-yellow-500 text-white px-3 sm:px-4 py-1. 5 sm:py-2 rounded-full font-semibold text-xs sm:text-sm">
-                        📝 Borrador
+                        Borrador
                     </div>
                 )}
 
-                {/* Badge Tipo */}
                 <div className="absolute top-3 sm:top-4 right-3 sm:right-4 bg-white/90 backdrop-blur-sm px-3 sm:px-4 py-1.5 sm:py-2 rounded-full font-semibold text-gray-800 text-xs sm:text-sm">
                     {eventTypeLabels[event.eventType]}
                 </div>
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 sm:gap-8">
-                {/* Columna principal */}
                 <div className="lg:col-span-2 space-y-4 sm:space-y-6">
-                    {/* Título y acciones */}
                     <div>
                         <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-gray-900 mb-3 sm:mb-4">{event.title}</h1>
 
-                        {/* ✅ ARREGLADO: Información del creador con foto de perfil */}
                         <div className="flex items-center gap-2 sm:gap-3 mb-4 sm:mb-6">
                             <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-full bg-gradient-to-br from-green-400 to-blue-500 overflow-hidden flex-shrink-0">
                                 {event.user?.profile?.avatar ? (
                                     <img
-                                        src={
-                                            event.user.profile.avatar. startsWith('/')
-                                                ? `${API_BASE}${event.user. profile.avatar}`
-                                                : event.user.profile.avatar
-                                        }
+                                        src={getAvatarUrl(event.user. profile.avatar)}
                                         alt={event.user.profile.name || event.user.email}
                                         className="w-full h-full object-cover"
                                     />
                                 ) : (
                                     <div className="w-full h-full flex items-center justify-center text-white font-bold text-sm sm:text-lg">
-                                        {event. user?.profile?.name?.[0] || event.user?. email[0]. toUpperCase()}
+                                        {event.user?.profile?.name?.[0] || event.user?.email[0].toUpperCase()}
                                     </div>
                                 )}
                             </div>
@@ -230,7 +232,6 @@ export default function EventDetail() {
                             </div>
                         </div>
 
-                        {/* Botones de acción */}
                         <div className="flex flex-col sm:flex-row flex-wrap gap-2 sm:gap-3">
                             {isOwner ?  (
                                 <>
@@ -263,7 +264,7 @@ export default function EventDetail() {
                                 </>
                             ) : (
                                 <>
-                                    {! event.isDraft && (
+                                    {!event.isDraft && (
                                         <>
                                             {event.isRegistered ?  (
                                                 <button
@@ -299,14 +300,12 @@ export default function EventDetail() {
                         </div>
                     </div>
 
-                    {/* Descripción */}
                     <div className="bg-white rounded-lg shadow p-4 sm:p-6">
                         <h2 className="text-xl sm:text-2xl font-semibold mb-3 sm:mb-4">Acerca del Evento</h2>
                         <p className="text-gray-700 whitespace-pre-wrap text-sm sm:text-base">{event.description}</p>
                     </div>
 
-                    {/* Categorías */}
-                    {event.categories && event.categories. length > 0 && (
+                    {event.categories && event.categories.length > 0 && (
                         <div className="bg-white rounded-lg shadow p-4 sm:p-6">
                             <h3 className="text-lg sm:text-xl font-semibold mb-3">Categorías</h3>
                             <div className="flex flex-wrap gap-2">
@@ -322,7 +321,6 @@ export default function EventDetail() {
                         </div>
                     )}
 
-                    {/* Asistentes */}
                     {event.attendees && event.attendees.length > 0 && (
                         <div className="bg-white rounded-lg shadow p-4 sm:p-6">
                             <h3 className="text-lg sm:text-xl font-semibold mb-4">
@@ -331,16 +329,11 @@ export default function EventDetail() {
                             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
                                 {event.attendees.map(attendee => (
                                     <div key={attendee. id} className="flex items-center gap-2">
-                                        {/* ✅ ARREGLADO: Foto de perfil de asistentes */}
                                         <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-gradient-to-br from-green-400 to-blue-500 overflow-hidden flex-shrink-0">
                                             {attendee.profile?.avatar ? (
                                                 <img
-                                                    src={
-                                                        attendee.profile.avatar.startsWith('/')
-                                                            ? `${API_BASE}${attendee.profile.avatar}`
-                                                            : attendee. profile.avatar
-                                                    }
-                                                    alt={attendee.profile?. name || attendee.email}
+                                                    src={getAvatarUrl(attendee.profile.avatar)}
+                                                    alt={attendee.profile?.name || attendee.email}
                                                     className="w-full h-full object-cover"
                                                 />
                                             ) : (
@@ -362,14 +355,11 @@ export default function EventDetail() {
                     )}
                 </div>
 
-                {/* Sidebar */}
                 <div className="space-y-4">
-                    {/* Info del evento */}
                     <div className="bg-white rounded-lg shadow p-4 sm:p-6 lg:sticky lg:top-4">
                         <h3 className="text-base sm:text-lg font-semibold mb-4">Información</h3>
 
                         <div className="space-y-3 sm:space-y-4">
-                            {/* Fecha inicio */}
                             <div className="flex items-start gap-2 sm:gap-3">
                                 <Calendar className="w-4 h-4 sm:w-5 sm:h-5 text-green-600 mt-0.5 flex-shrink-0" />
                                 <div>
@@ -378,7 +368,6 @@ export default function EventDetail() {
                                 </div>
                             </div>
 
-                            {/* Fecha fin */}
                             <div className="flex items-start gap-2 sm:gap-3">
                                 <Clock className="w-4 h-4 sm:w-5 sm:h-5 text-green-600 mt-0.5 flex-shrink-0" />
                                 <div>
@@ -387,7 +376,6 @@ export default function EventDetail() {
                                 </div>
                             </div>
 
-                            {/* Ubicación */}
                             <div className="flex items-start gap-2 sm:gap-3">
                                 <MapPin className="w-4 h-4 sm:w-5 sm:h-5 text-green-600 mt-0.5 flex-shrink-0" />
                                 <div>
@@ -396,7 +384,6 @@ export default function EventDetail() {
                                 </div>
                             </div>
 
-                            {/* Asistentes */}
                             <div className="flex items-start gap-2 sm:gap-3">
                                 <Users className="w-4 h-4 sm:w-5 sm:h-5 text-green-600 mt-0.5 flex-shrink-0" />
                                 <div>
@@ -414,8 +401,7 @@ export default function EventDetail() {
                             </div>
                         </div>
 
-                        {/* Estado de registro */}
-                        {event.isRegistered && ! isOwner && (
+                        {event.isRegistered && !isOwner && (
                             <div className="mt-4 sm:mt-6 p-3 sm:p-4 bg-green-50 border border-green-200 rounded-lg">
                                 <p className="text-xs sm:text-sm text-green-800 font-medium">
                                     ✓ Estás registrado en este evento

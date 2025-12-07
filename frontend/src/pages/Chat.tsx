@@ -591,6 +591,7 @@ const ChatPage: React.FC = () => {
                         <ChatSidebar
                             conversations={conversations}
                             currentUserId={user?.id}
+                            activeConversationId={activeConversation?.id || null}
                             onSelect={openConversation}
                         />
                     </div>
@@ -616,7 +617,7 @@ const ChatPage: React.FC = () => {
                                 />
                             </>
                         ) : (
-                            <div className="flex flex-col items-center justify-center flex-1 text-gray-400 p-4">
+                            <div className="flex flex-col items-center justify-center h-full flex-1 text-gray-400 p-4">
                                 <MessageCircle className="w-16 h-16 sm:w-20 sm:h-20 mb-4 text-green-200"/>
                                 <p className="text-lg sm:text-xl font-medium text-gray-500 text-center">Selecciona una
                                     conversación</p>
