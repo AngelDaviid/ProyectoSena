@@ -14,7 +14,6 @@ const ChatNotificationToast: React. FC = () => {
     const [conversations, setConversations] = useState<Conversation[]>([]);
     const timersRef = useRef<Map<number, number>>(new Map());
 
-    // Cargar conversaciones para obtener los nombres
     useEffect(() => {
         const loadConversations = async () => {
             try {
@@ -41,7 +40,6 @@ const ChatNotificationToast: React. FC = () => {
             }
 
             const timer = window.setTimeout(() => {
-                console.log('[ChatNotificationToast] Auto-closing notification for conversation:', conversationId);
                 clearNotification(conversationId);
                 timersRef.current.delete(conversationId);
             }, 10000);
@@ -73,16 +71,15 @@ const ChatNotificationToast: React. FC = () => {
         const sender = conversation.participants.find(p => p.id === notif.message.senderId);
 
         if (!sender) {
-            return { name: 'Usuario', avatar: '/default. png' };
+            return { name: 'Usuario', avatar: '/default.png' };
         }
 
         const fullName = `${sender.profile?.name || ''} ${sender.profile?.lastName || ''}`. trim();
         const name = fullName || sender.email || 'Usuario';
 
-        // Construir la URL del avatar
         let avatar = '/default.png';
         if (sender.profile?.avatar) {
-            avatar = sender.profile.avatar. startsWith('/')
+            avatar = sender.profile.avatar.startsWith('/')
                 ?  `${API_BASE}${sender.profile.avatar}`
                 : sender.profile.avatar;
         }
@@ -91,7 +88,6 @@ const ChatNotificationToast: React. FC = () => {
     };
 
     const handleClick = (notification: any) => {
-        console.log('[ChatNotificationToast] Opening conversation:', notification.conversationId);
 
         const timer = timersRef.current.get(notification.conversationId);
         if (timer) {
@@ -139,7 +135,7 @@ const ChatNotificationToast: React. FC = () => {
                                 alt={senderInfo.name}
                                 className="w-10 h-10 rounded-full object-cover ring-2 ring-white/40 flex-shrink-0"
                                 onError={(e) => {
-                                    (e.target as HTMLImageElement). src = '/default.png';
+                                    (e.target as HTMLImageElement).src = '/default.png';
                                 }}
                             />
                             <div className="flex-1 min-w-0">

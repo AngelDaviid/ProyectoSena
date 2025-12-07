@@ -1,5 +1,6 @@
 import React, {useEffect, useRef, useState} from 'react';
 import {useAuth} from '../../hooks/useAuth.ts';
+import {useToast} from '../Toast-context.tsx';
 import api from '../../services/api.ts';
 import type {Post, Category} from '../../types/post.ts';
 import {Image as ImageIcon, X} from 'lucide-react';
@@ -12,13 +13,13 @@ const API_BASE = import.meta.env.SENA_API_URL || 'http://localhost:3001';
 
 const NewPostForm: React.FC<Props> = ({onCreated}) => {
     const {user, token} = useAuth();
+    const toast = useToast();
     const [title, setTitle] = useState('');
     const [content, setContent] = useState('');
     const [summary, setSummary] = useState('');
     const [file, setFile] = useState<File | null>(null);
     const [preview, setPreview] = useState<string | null>(null);
     const [loading, setLoading] = useState(false);
-    const [error, setError] = useState<string | null>(null);
 
     const [categories, setCategories] = useState<Category[]>([]);
     const [openDropdown, setOpenDropdown] = useState(false);
@@ -42,7 +43,7 @@ const NewPostForm: React.FC<Props> = ({onCreated}) => {
         (async () => {
             try {
                 const res = await api.get<Category[]>('/categories');
-                setCategories(res.data ?? res);
+                setCategories(res.data ??  res);
             } catch {
                 console.warn('No se pudieron cargar categorías');
             }
@@ -50,15 +51,15 @@ const NewPostForm: React.FC<Props> = ({onCreated}) => {
     }, []);
 
     const toggleSelect = (id: number) => {
-        setSelectedIds((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
+        setSelectedIds((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [... prev, id]));
     };
 
     const removeSelected = (id: number) => {
         setSelectedIds((prev) => prev.filter((x) => x !== id));
     };
 
-    const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        const f = e.target.files?.[0] ?? null;
+    const handleFileChange = (e: React. ChangeEvent<HTMLInputElement>) => {
+        const f = e.target.files?.[0] ??  null;
         setFile(f);
         if (f) {
             const reader = new FileReader();
@@ -71,8 +72,11 @@ const NewPostForm: React.FC<Props> = ({onCreated}) => {
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        setError(null);
-        if (!title.trim()) return setError('El título es obligatorio');
+
+        if (!title.trim()) {
+            toast.error('El título es obligatorio');
+            return;
+        }
 
         const fd = new FormData();
         fd.append('title', title);
@@ -87,15 +91,18 @@ const NewPostForm: React.FC<Props> = ({onCreated}) => {
             setLoading(true);
             const {createPost} = await import('../../services/posts.ts');
             const created = await createPost(fd);
+
             setTitle('');
             setContent('');
             setSummary('');
             setFile(null);
             setPreview(null);
             setSelectedIds([]);
+
+            toast.success('¡Publicación creada exitosamente!  🎉');
             onCreated?.(created);
         } catch (err: any) {
-            setError(err?.response?.data?.message || err?.message || 'Error al crear la publicación');
+            toast.error(err?.response?.data?.message || err?.message || 'Error al crear la publicación');
         } finally {
             setLoading(false);
         }
@@ -109,7 +116,7 @@ const NewPostForm: React.FC<Props> = ({onCreated}) => {
     const avatarSrc =
         user?.profile?.avatar && user.profile.avatar.startsWith('/')
             ? `${API_BASE}${user.profile.avatar}`
-            : user?.profile?.avatar ?? null;
+            : user?.profile?.avatar ??  null;
 
     return (
         <div
@@ -172,7 +179,7 @@ const NewPostForm: React.FC<Props> = ({onCreated}) => {
                                 className="absolute top-1 right-1 bg-white/80 rounded-full p-1 hover:bg-white transition"
                                 aria-label="Quitar imagen"
                             >
-                                <X className="w-3. 5 h-3.5 sm:w-4 sm:h-4 text-gray-700"/>
+                                <X className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-gray-700"/>
                             </button>
                         </div>
                     )}
@@ -192,7 +199,7 @@ const NewPostForm: React.FC<Props> = ({onCreated}) => {
                         className="w-full text-left px-3 sm:px-4 py-2 border border-gray-300 rounded-2xl bg-white flex items-center justify-between cursor-pointer"
                     >
                         <div className="flex flex-wrap gap-1. 5 sm:gap-2">
-                            {selectedIds.length === 0 ? (
+                            {selectedIds.length === 0 ?  (
                                 <span className="text-xs sm:text-sm text-gray-500">Seleccionar categorías</span>
                             ) : (
                                 selectedIds.map((id) => {
@@ -200,7 +207,7 @@ const NewPostForm: React.FC<Props> = ({onCreated}) => {
                                     return (
                                         <span key={id}
                                               className="inline-flex items-center bg-blue-100 text-blue-800 text-xs px-2 py-0.5 rounded-full">
-                                            {cat?.name ?? id}
+                                            {cat?.name ??  id}
                                             <button
                                                 type="button"
                                                 onClick={(ev) => {
@@ -221,7 +228,7 @@ const NewPostForm: React.FC<Props> = ({onCreated}) => {
                              fill="currentColor" aria-hidden>
                             <path
                                 fillRule="evenodd"
-                                d="M5.23 7.21a. 75.75 0 011. 06.02L10 11. 584l3.71-4. 354a.75.75 0 011.14.976l-4.25 5a.75.75 0 01-1.14 0l-4.25-5a.75.75 0 01.02-1.06z"
+                                d="M5.23 7.21a.75. 75 0 011.06.02L10 11.584l3.71-4.354a.75.75 0 011.14. 976l-4.25 5a.75.75 0 01-1.14 0l-4.25-5a.75.75 0 01.02-1.06z"
                                 clipRule="evenodd"
                             />
                         </svg>
@@ -244,13 +251,13 @@ const NewPostForm: React.FC<Props> = ({onCreated}) => {
                                     <li className="text-xs sm:text-sm text-gray-500 px-2 py-1">No hay categorías</li>
                                 ) : (
                                     filtered.map((c) => {
-                                        const checked = selectedIds.includes(c.id);
+                                        const checked = selectedIds.includes(c. id);
                                         return (
                                             <li key={c.id}>
                                                 <label
                                                     className="flex items-center gap-2 px-2 py-1 rounded hover:bg-gray-50 cursor-pointer">
                                                     <input type="checkbox" checked={checked}
-                                                           onChange={() => toggleSelect(c.id)}
+                                                           onChange={() => toggleSelect(c. id)}
                                                            className="h-3. 5 w-3.5 sm:h-4 sm:w-4"/>
                                                     <span className="text-xs sm:text-sm">{c.name}</span>
                                                 </label>
@@ -263,8 +270,6 @@ const NewPostForm: React.FC<Props> = ({onCreated}) => {
                     )}
                 </div>
 
-                {error && <div className="text-red-500 text-xs sm:text-sm">{error}</div>}
-
                 <div className="flex justify-end">
                     <button
                         type="submit"
@@ -273,7 +278,7 @@ const NewPostForm: React.FC<Props> = ({onCreated}) => {
                             loading || !title.trim() ? 'bg-gray-400 cursor-not-allowed' : 'bg-blue-500 hover:bg-blue-600'
                         }`}
                     >
-                        {loading ? 'Publicando...' : 'Publicar'}
+                        {loading ? 'Publicando.. .' : 'Publicar'}
                     </button>
                 </div>
             </form>

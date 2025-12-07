@@ -19,6 +19,7 @@ interface ToastContextType {
 
 const ToastContext = createContext<ToastContextType | undefined>(undefined);
 
+// eslint-disable-next-line react-refresh/only-export-components
 export const useToast = () => {
     const context = useContext(ToastContext);
     if (!context) {
@@ -93,7 +94,6 @@ export const ToastProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         <ToastContext.Provider value={{ success, error, info, warning }}>
             {children}
 
-            {/* Toast Container - Fixed position en la esquina superior derecha */}
             <div className="fixed top-4 right-4 z-50 space-y-2 pointer-events-none max-w-md">
                 {toasts.map((toast) => (
                     <div

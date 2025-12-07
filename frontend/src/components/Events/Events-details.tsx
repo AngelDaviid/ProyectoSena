@@ -4,6 +4,7 @@ import type { Event } from '../../types/event';
 import { getEvent, deleteEvent, registerToEvent, unregisterFromEvent, publishEvent } from '../../services/events';
 import { getEventImageUrl } from '../../types/event';
 import { useAuth } from '../../hooks/useAuth';
+import { useToast } from '../Toast-context';
 import {
     Calendar,
     MapPin,
@@ -35,9 +36,13 @@ export default function EventDetail() {
     const { id } = useParams<{ id: string }>();
     const navigate = useNavigate();
     const { user } = useAuth();
+    const toast = useToast();
     const [event, setEvent] = useState<Event | null>(null);
     const [loading, setLoading] = useState(true);
     const [actionLoading, setActionLoading] = useState(false);
+    const [confirmDelete, setConfirmDelete] = useState(false);
+    const [confirmUnregister, setConfirmUnregister] = useState(false);
+    const [confirmPublish, setConfirmPublish] = useState(false);
 
     useEffect(() => {
         if (id) {
@@ -52,7 +57,7 @@ export default function EventDetail() {
             setEvent(data);
         } catch (error) {
             console.error('Error loading event:', error);
-            alert('Error al cargar el evento');
+            toast. error('Error al cargar el evento');
             navigate('/events');
         } finally {
             setLoading(false);
@@ -64,10 +69,10 @@ export default function EventDetail() {
         try {
             setActionLoading(true);
             await registerToEvent(event.id);
-            alert('¡Te has registrado exitosamente!');
+            toast.success('¡Te has registrado exitosamente!');
             loadEvent();
         } catch (error: any) {
-            alert(error.response?.data?.message || 'Error al registrarse');
+            toast.error(error.response?.data?.message || 'Error al registrarse');
         } finally {
             setActionLoading(false);
         }
@@ -75,47 +80,47 @@ export default function EventDetail() {
 
     const handleUnregister = async () => {
         if (!event) return;
-        if (! confirm('¿Estás seguro de que quieres cancelar tu registro?')) return;
 
         try {
             setActionLoading(true);
             await unregisterFromEvent(event.id);
-            alert('Te has desregistrado del evento');
+            toast.success('Te has desregistrado del evento');
+            setConfirmUnregister(false);
             loadEvent();
         } catch (error: any) {
-            alert(error.response?.data?.message || 'Error al desregistrarse');
+            toast.error(error.response?.data?.message || 'Error al desregistrarse');
         } finally {
             setActionLoading(false);
         }
     };
 
     const handleDelete = async () => {
-        if (!event) return;
-        if (!confirm('¿Estás seguro de que quieres eliminar este evento?  Esta acción no se puede deshacer.')) return;
+        if (! event) return;
 
         try {
             setActionLoading(true);
             await deleteEvent(event.id);
-            alert('Evento eliminado exitosamente');
+            toast.success('Evento eliminado exitosamente');
             navigate('/events');
         } catch (error: any) {
-            alert(error.response?.data?.message || 'Error al eliminar el evento');
+            toast.error(error.response?.data?.message || 'Error al eliminar el evento');
         } finally {
             setActionLoading(false);
+            setConfirmDelete(false);
         }
     };
 
     const handlePublish = async () => {
         if (!event) return;
-        if (!confirm('¿Publicar este evento para que todos lo vean?')) return;
 
         try {
             setActionLoading(true);
             await publishEvent(event.id);
-            alert('Evento publicado exitosamente');
+            toast.success('Evento publicado exitosamente');
+            setConfirmPublish(false);
             loadEvent();
         } catch (error: any) {
-            alert(error.response?.data?.message || 'Error al publicar el evento');
+            toast.error(error.response?.data?.message || 'Error al publicar el evento');
         } finally {
             setActionLoading(false);
         }
@@ -124,7 +129,7 @@ export default function EventDetail() {
     const handleShare = () => {
         const url = window.location.href;
         navigator.clipboard.writeText(url);
-        alert('Enlace copiado al portapapeles');
+        toast.success('Enlace copiado al portapapeles');
     };
 
     const formatDate = (dateString: string) => {
@@ -139,7 +144,6 @@ export default function EventDetail() {
         });
     };
 
-    // ✅ Helper para obtener URL de avatar
     const getAvatarUrl = (avatar?: string): string => {
         if (!avatar) return '';
         if (avatar.startsWith('http://') || avatar.startsWith('https://')) {
@@ -178,6 +182,81 @@ export default function EventDetail() {
                 <span className="font-medium text-sm sm:text-base">Volver a Eventos</span>
             </button>
 
+            {confirmDelete && (
+                <div className="mb-6 bg-red-50 border-l-4 border-red-500 rounded-r-lg p-4">
+                    <h3 className="font-semibold text-red-800 mb-2">¿Eliminar este evento?</h3>
+                    <p className="text-sm text-red-700 mb-4">
+                        Esta acción no se puede deshacer.  Todos los datos del evento se eliminarán permanentemente.
+                    </p>
+                    <div className="flex gap-2">
+                        <button
+                            onClick={handleDelete}
+                            disabled={actionLoading}
+                            className="px-4 py-2 bg-red-600 text-white text-sm font-medium rounded-lg hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                        >
+                            {actionLoading ? 'Eliminando...' : 'Confirmar Eliminación'}
+                        </button>
+                        <button
+                            onClick={() => setConfirmDelete(false)}
+                            disabled={actionLoading}
+                            className="px-4 py-2 bg-white border border-gray-300 text-gray-700 text-sm font-medium rounded-lg hover:bg-gray-50 transition-colors"
+                        >
+                            Cancelar
+                        </button>
+                    </div>
+                </div>
+            )}
+
+            {confirmPublish && (
+                <div className="mb-6 bg-green-50 border-l-4 border-green-500 rounded-r-lg p-4">
+                    <h3 className="font-semibold text-green-800 mb-2">¿Publicar este evento? </h3>
+                    <p className="text-sm text-green-700 mb-4">
+                        El evento será visible para todos los usuarios y podrán registrarse.
+                    </p>
+                    <div className="flex gap-2">
+                        <button
+                            onClick={handlePublish}
+                            disabled={actionLoading}
+                            className="px-4 py-2 bg-green-600 text-white text-sm font-medium rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                        >
+                            {actionLoading ? 'Publicando...' : 'Confirmar Publicación'}
+                        </button>
+                        <button
+                            onClick={() => setConfirmPublish(false)}
+                            disabled={actionLoading}
+                            className="px-4 py-2 bg-white border border-gray-300 text-gray-700 text-sm font-medium rounded-lg hover:bg-gray-50 transition-colors"
+                        >
+                            Cancelar
+                        </button>
+                    </div>
+                </div>
+            )}
+
+            {confirmUnregister && (
+                <div className="mb-6 bg-yellow-50 border-l-4 border-yellow-500 rounded-r-lg p-4">
+                    <h3 className="font-semibold text-yellow-800 mb-2">¿Cancelar tu registro?</h3>
+                    <p className="text-sm text-yellow-700 mb-4">
+                        Dejarás de estar registrado en este evento y perderás tu lugar.
+                    </p>
+                    <div className="flex gap-2">
+                        <button
+                            onClick={handleUnregister}
+                            disabled={actionLoading}
+                            className="px-4 py-2 bg-yellow-600 text-white text-sm font-medium rounded-lg hover:bg-yellow-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                        >
+                            {actionLoading ?  'Cancelando...' : 'Confirmar Cancelación'}
+                        </button>
+                        <button
+                            onClick={() => setConfirmUnregister(false)}
+                            disabled={actionLoading}
+                            className="px-4 py-2 bg-white border border-gray-300 text-gray-700 text-sm font-medium rounded-lg hover:bg-gray-50 transition-colors"
+                        >
+                            Mantener Registro
+                        </button>
+                    </div>
+                </div>
+            )}
+
             <div className="relative h-64 sm:h-80 lg:h-96 bg-gray-200 rounded-lg overflow-hidden mb-4 sm:mb-6">
                 {event.imageUrl ?  (
                     <img
@@ -214,13 +293,13 @@ export default function EventDetail() {
                             <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-full bg-gradient-to-br from-green-400 to-blue-500 overflow-hidden flex-shrink-0">
                                 {event.user?.profile?.avatar ? (
                                     <img
-                                        src={getAvatarUrl(event.user. profile.avatar)}
-                                        alt={event.user.profile.name || event.user.email}
+                                        src={getAvatarUrl(event. user.profile.avatar)}
+                                        alt={event.user. profile.name || event.user.email}
                                         className="w-full h-full object-cover"
                                     />
                                 ) : (
                                     <div className="w-full h-full flex items-center justify-center text-white font-bold text-sm sm:text-lg">
-                                        {event.user?.profile?.name?.[0] || event.user?.email[0].toUpperCase()}
+                                        {event. user?.profile?.name?.[0] || event.user?. email[0]. toUpperCase()}
                                     </div>
                                 )}
                             </div>
@@ -237,9 +316,9 @@ export default function EventDetail() {
                                 <>
                                     {event.isDraft && (
                                         <button
-                                            onClick={handlePublish}
+                                            onClick={() => setConfirmPublish(true)}
                                             disabled={actionLoading}
-                                            className="px-3 sm:px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 flex items-center justify-center gap-2 text-sm sm:text-base"
+                                            className="px-3 sm:px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 flex items-center justify-center gap-2 text-sm sm:text-base transition-colors"
                                         >
                                             <Eye className="w-4 h-4" />
                                             Publicar Evento
@@ -248,15 +327,15 @@ export default function EventDetail() {
                                     <button
                                         onClick={() => navigate(`/events/edit/${event.id}`)}
                                         disabled={actionLoading}
-                                        className="px-3 sm:px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 flex items-center justify-center gap-2 text-sm sm:text-base"
+                                        className="px-3 sm:px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 flex items-center justify-center gap-2 text-sm sm:text-base transition-colors"
                                     >
                                         <Edit className="w-4 h-4" />
                                         Editar
                                     </button>
                                     <button
-                                        onClick={handleDelete}
+                                        onClick={() => setConfirmDelete(true)}
                                         disabled={actionLoading}
-                                        className="px-3 sm:px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50 flex items-center justify-center gap-2 text-sm sm:text-base"
+                                        className="px-3 sm:px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50 flex items-center justify-center gap-2 text-sm sm:text-base transition-colors"
                                     >
                                         <Trash2 className="w-4 h-4" />
                                         Eliminar
@@ -266,11 +345,11 @@ export default function EventDetail() {
                                 <>
                                     {!event.isDraft && (
                                         <>
-                                            {event.isRegistered ?  (
+                                            {event.isRegistered ? (
                                                 <button
-                                                    onClick={handleUnregister}
+                                                    onClick={() => setConfirmUnregister(true)}
                                                     disabled={actionLoading}
-                                                    className="px-4 sm:px-6 py-2. 5 sm:py-3 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50 flex items-center justify-center gap-2 text-sm sm:text-base flex-1 sm:flex-initial"
+                                                    className="px-4 sm:px-6 py-2. 5 sm:py-3 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50 flex items-center justify-center gap-2 text-sm sm:text-base flex-1 sm:flex-initial transition-colors"
                                                 >
                                                     <UserMinus className="w-4 h-4 sm:w-5 sm:h-5" />
                                                     Cancelar Registro
@@ -279,7 +358,7 @@ export default function EventDetail() {
                                                 <button
                                                     onClick={handleRegister}
                                                     disabled={actionLoading || isFull}
-                                                    className="px-4 sm:px-6 py-2. 5 sm:py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 text-sm sm:text-base flex-1 sm:flex-initial"
+                                                    className="px-4 sm:px-6 py-2. 5 sm:py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 text-sm sm:text-base flex-1 sm:flex-initial transition-colors"
                                                 >
                                                     <UserPlus className="w-4 h-4 sm:w-5 sm:h-5" />
                                                     {isFull ? 'Sin Cupos' : 'Registrarse'}
@@ -292,7 +371,7 @@ export default function EventDetail() {
 
                             <button
                                 onClick={handleShare}
-                                className="px-3 sm:px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 flex items-center justify-center gap-2 text-sm sm:text-base"
+                                className="px-3 sm:px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 flex items-center justify-center gap-2 text-sm sm:text-base transition-colors"
                             >
                                 <Share2 className="w-4 h-4" />
                                 Copiar Link
@@ -302,7 +381,7 @@ export default function EventDetail() {
 
                     <div className="bg-white rounded-lg shadow p-4 sm:p-6">
                         <h2 className="text-xl sm:text-2xl font-semibold mb-3 sm:mb-4">Acerca del Evento</h2>
-                        <p className="text-gray-700 whitespace-pre-wrap text-sm sm:text-base">{event.description}</p>
+                        <p className="text-gray-700 whitespace-pre-wrap text-sm sm:text-base leading-relaxed">{event.description}</p>
                     </div>
 
                     {event.categories && event.categories.length > 0 && (
@@ -328,7 +407,7 @@ export default function EventDetail() {
                             </h3>
                             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
                                 {event.attendees.map(attendee => (
-                                    <div key={attendee. id} className="flex items-center gap-2">
+                                    <div key={attendee.id} className="flex items-center gap-2">
                                         <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-gradient-to-br from-green-400 to-blue-500 overflow-hidden flex-shrink-0">
                                             {attendee.profile?.avatar ? (
                                                 <img
@@ -390,10 +469,10 @@ export default function EventDetail() {
                                     <p className="text-xs sm:text-sm text-gray-500">Asistentes</p>
                                     <p className="font-medium text-sm sm:text-base">
                                         {event.attendeesCount || 0}
-                                        {event.maxAttendees && ` / ${event.maxAttendees}`}
+                                        {event.maxAttendees && ` /${event.maxAttendees}`}
                                     </p>
                                     {spotsLeft !== null && (
-                                        <p className={`text-xs sm:text-sm ${spotsLeft > 0 ? 'text-green-600' : 'text-red-600'}`}>
+                                        <p className={`text-xs sm:text-sm font-medium ${spotsLeft > 0 ? 'text-green-600' : 'text-red-600'}`}>
                                             {spotsLeft > 0 ? `${spotsLeft} cupos disponibles` : 'Sin cupos'}
                                         </p>
                                     )}

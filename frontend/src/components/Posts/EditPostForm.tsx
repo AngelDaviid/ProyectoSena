@@ -1,5 +1,6 @@
 import React, {useEffect, useRef, useState} from "react";
 import {Save, X, Image as ImageIcon, Trash, Search} from "lucide-react";
+import {useToast} from '../Toast-context.tsx';
 import type {Post, Category} from "../../types/post.ts";
 import api from "../../services/api.ts";
 
@@ -9,22 +10,22 @@ type Props = {
     onSaved?: (p: Post) => void;
 };
 
-const EditPostForm: React.FC<Props> = ({post, onCancel, onSaved}) => {
+const EditPostForm: React. FC<Props> = ({post, onCancel, onSaved}) => {
     const API_BASE = import.meta.env.SENA_API_URL || "http://localhost:3001";
+    const toast = useToast();
 
     const initialPreview =
         post.imageUrl && post.imageUrl.startsWith("/")
             ? `${API_BASE}${post.imageUrl}`
-            : post.imageUrl ?? null;
+            : post.imageUrl ??  null;
 
-    const [title, setTitle] = useState(post.title ?? "");
+    const [title, setTitle] = useState(post.title ??  "");
     const [content, setContent] = useState(post.content ?? "");
     const [summary, setSummary] = useState(post.summary ?? "");
     const [file, setFile] = useState<File | null>(null);
     const [preview, setPreview] = useState<string | null>(initialPreview);
     const [removeImage, setRemoveImage] = useState<boolean>(false);
     const [loading, setLoading] = useState(false);
-    const [error, setError] = useState<string | null>(null);
 
     const [categories, setCategories] = useState<Category[]>([]);
     const [openDropdown, setOpenDropdown] = useState(false);
@@ -34,7 +35,6 @@ const EditPostForm: React.FC<Props> = ({post, onCancel, onSaved}) => {
     );
     const dropdownRef = useRef<HTMLDivElement | null>(null);
 
-    // Close dropdown on outside click
     useEffect(() => {
         function onDoc(e: MouseEvent) {
             if (!dropdownRef.current) return;
@@ -47,7 +47,6 @@ const EditPostForm: React.FC<Props> = ({post, onCancel, onSaved}) => {
         return () => document.removeEventListener("click", onDoc);
     }, []);
 
-    // Load categories
     useEffect(() => {
         (async () => {
             try {
@@ -59,7 +58,6 @@ const EditPostForm: React.FC<Props> = ({post, onCancel, onSaved}) => {
         })();
     }, []);
 
-    // File input handling
     const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const f = e.target.files?.[0] ?? null;
         setFile(f);
@@ -80,7 +78,6 @@ const EditPostForm: React.FC<Props> = ({post, onCancel, onSaved}) => {
         setRemoveImage(true);
     };
 
-    // Category selection helpers
     const toggleSelect = (id: number) => {
         setSelectedIds((prev) =>
             prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
@@ -88,16 +85,14 @@ const EditPostForm: React.FC<Props> = ({post, onCancel, onSaved}) => {
     };
 
     const removeSelected = (id: number) => {
-        setSelectedIds((prev) => prev.filter((x) => x !== id));
+        setSelectedIds((prev) => prev. filter((x) => x !== id));
     };
 
-    // Form submit
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        setError(null);
 
         if (!title.trim()) {
-            setError("El título es obligatorio");
+            toast.error("El título es obligatorio");
             return;
         }
 
@@ -117,12 +112,13 @@ const EditPostForm: React.FC<Props> = ({post, onCancel, onSaved}) => {
 
                 const {updatePost} = await import("../../services/posts.ts");
                 const updated = await updatePost(post.id, fd);
+                toast.success("¡Publicación actualizada exitosamente!  ✨");
                 onSaved?.(updated);
                 return;
             }
 
             const payload: any = {
-                title: title.trim(),
+                title: title. trim(),
                 categoryIds: selectedIds.map(Number),
             };
             if (content) payload.content = content;
@@ -131,9 +127,10 @@ const EditPostForm: React.FC<Props> = ({post, onCancel, onSaved}) => {
 
             const {updatePost} = await import("../../services/posts.ts");
             const updated = await updatePost(post.id, payload);
+            toast.success("¡Publicación actualizada exitosamente! ✨");
             onSaved?.(updated);
         } catch (err: any) {
-            setError(
+            toast.error(
                 err?.response?.data?.message ||
                 err?.message ||
                 "Error al actualizar la publicación"
@@ -143,15 +140,14 @@ const EditPostForm: React.FC<Props> = ({post, onCancel, onSaved}) => {
         }
     };
 
-    // Filtered categories
-    const filtered = categories.filter((c) =>
-        c.name?.toLowerCase().includes(filter.trim().toLowerCase())
+    const filtered = categories. filter((c) =>
+        c.name?.toLowerCase(). includes(filter.trim().toLowerCase())
     );
 
-    const toggleDropdown = () => setOpenDropdown((s) => !s);
+    const toggleDropdown = () => setOpenDropdown((s) => ! s);
 
     const onKeyToggle = (e: React.KeyboardEvent) => {
-        if (e.key === "Enter" || e.key === " ") {
+        if (e. key === "Enter" || e. key === " ") {
             e.preventDefault();
             toggleDropdown();
         }
@@ -162,21 +158,14 @@ const EditPostForm: React.FC<Props> = ({post, onCancel, onSaved}) => {
             className="bg-white rounded-2xl sm:rounded-3xl shadow-md border border-gray-200 p-3 sm:p-5 mb-4 transition hover:shadow-lg">
             <form onSubmit={handleSubmit} className="flex flex-col space-y-3 sm:space-y-4">
                 <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
-                    <h4 className="text-base sm:text-lg font-semibold text-gray-800">✏️ Editar publicación</h4>
-                    <div className="text-xs sm:text-sm text-gray-500">ID: {post.id}</div>
+                    <h4 className="text-base sm:text-lg font-semibold text-gray-800">Editar publicación</h4>
                 </div>
-
-                {error && (
-                    <div className="text-red-600 text-xs sm:text-sm bg-red-50 border border-red-100 p-2 rounded-md">
-                        {error}
-                    </div>
-                )}
 
                 <input
                     value={title}
                     onChange={(e) => setTitle(e.target.value)}
                     placeholder="Título"
-                    className="w-full text-base sm:text-lg font-medium border border-gray-200 rounded-xl px-3 sm:px-4 py-2 focus:ring-2 focus:ring-blue-500 focus:outline-none placeholder-gray-500 bg-transparent"
+                    className="w-full text-base sm:text-lg font-medium border border-gray-200 rounded-xl px-3 sm:px-4 py-2 focus:ring-2 focus:ring-blue-500 focus:outline-none placeholder-gray-500"
                     aria-label="Título"
                 />
 
@@ -198,7 +187,6 @@ const EditPostForm: React.FC<Props> = ({post, onCancel, onSaved}) => {
                     aria-label="Resumen"
                 />
 
-                {/* Imagen y Categorías */}
                 <div className="flex flex-col lg:flex-row lg:items-start lg:gap-6 gap-4">
                     <div className="flex-1">
                         <label
@@ -217,7 +205,7 @@ const EditPostForm: React.FC<Props> = ({post, onCancel, onSaved}) => {
                         />
 
                         <div className="mt-3 flex items-center gap-3">
-                            {preview ? (
+                            {preview ?  (
                                 <div
                                     className="relative w-24 h-24 sm:w-28 sm:h-28 rounded-xl overflow-hidden border border-gray-200">
                                     <img src={preview} alt="preview" className="w-full h-full object-cover"/>
@@ -227,7 +215,7 @@ const EditPostForm: React.FC<Props> = ({post, onCancel, onSaved}) => {
                                         className="absolute top-1 right-1 bg-white/90 rounded-full p-1 hover:bg-white transition"
                                         aria-label="Quitar imagen"
                                     >
-                                        <X className="w-3. 5 h-3.5 sm:w-4 sm:h-4 text-gray-700"/>
+                                        <X className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-gray-700"/>
                                     </button>
                                 </div>
                             ) : post.imageUrl && !file && !removeImage ? (
@@ -251,7 +239,6 @@ const EditPostForm: React.FC<Props> = ({post, onCancel, onSaved}) => {
                         </div>
                     </div>
 
-                    {/* Categorías */}
                     <div className="w-full lg:w-96 relative" ref={dropdownRef}>
                         <div
                             role="button"
@@ -260,10 +247,10 @@ const EditPostForm: React.FC<Props> = ({post, onCancel, onSaved}) => {
                             onKeyDown={onKeyToggle}
                             aria-haspopup="listbox"
                             aria-expanded={openDropdown}
-                            className="w-full text-left px-3 sm:px-4 py-2 border border-gray-300 rounded-2xl bg-white flex items-center justify-between cursor-pointer focus:ring-2 focus:ring-blue-300"
+                            className="w-full text-left px-3 sm:px-4 py-2 border border-gray-300 rounded-2xl bg-white flex items-center justify-between cursor-pointer focus:ring-2 focus:ring-blue-500"
                         >
-                            <div className="flex flex-wrap gap-1. 5 sm:gap-2">
-                                {selectedIds.length === 0 ? (
+                            <div className="flex flex-wrap gap-1.5 sm:gap-2">
+                                {selectedIds.length === 0 ?  (
                                     <span className="text-xs sm:text-sm text-gray-500">Seleccionar categorías</span>
                                 ) : (
                                     selectedIds.map((id) => {
@@ -298,7 +285,7 @@ const EditPostForm: React.FC<Props> = ({post, onCancel, onSaved}) => {
                             >
                                 <path
                                     fillRule="evenodd"
-                                    d="M5.23 7.21a. 75.75 0 011. 06. 02L10 11.584l3.71-4.354a.75.75 0 011.14. 976l-4.25 5a.75.75 0 01-1.14 0l-4.25-5a.75.75 0 01.02-1.06z"
+                                    d="M5.23 7.21a.75.75 0 011.06.02L10 11.584l3.71-4.354a.75.75 0 011.14. 976l-4.25 5a.75.75 0 01-1.14 0l-4.25-5a. 75.75 0 01. 02-1.06z"
                                     clipRule="evenodd"
                                 />
                             </svg>
@@ -308,7 +295,7 @@ const EditPostForm: React.FC<Props> = ({post, onCancel, onSaved}) => {
                             <div
                                 className="absolute z-50 left-0 right-0 mt-2 bg-white border border-gray-200 rounded-xl shadow-lg max-h-64 overflow-auto">
                                 <div className="p-2 border-b flex items-center gap-2">
-                                    <Search className="w-3. 5 h-3.5 sm:w-4 sm:h-4 text-gray-400 flex-shrink-0"/>
+                                    <Search className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-gray-400 flex-shrink-0"/>
                                     <input
                                         value={filter}
                                         onChange={(e) => setFilter(e.target.value)}
@@ -324,7 +311,7 @@ const EditPostForm: React.FC<Props> = ({post, onCancel, onSaved}) => {
                                             categorías</li>
                                     ) : (
                                         filtered.map((c) => {
-                                            const checked = selectedIds.includes(c.id);
+                                            const checked = selectedIds.includes(c. id);
                                             return (
                                                 <li key={c.id}>
                                                     <label
@@ -333,7 +320,7 @@ const EditPostForm: React.FC<Props> = ({post, onCancel, onSaved}) => {
                                                             type="checkbox"
                                                             checked={checked}
                                                             onChange={() => toggleSelect(c.id)}
-                                                            className="h-3. 5 w-3.5 sm:h-4 sm:w-4"
+                                                            className="h-3.5 w-3.5 sm:h-4 sm:w-4"
                                                             aria-checked={checked}
                                                         />
                                                         <span className="text-xs sm:text-sm">{c.name}</span>
@@ -351,7 +338,6 @@ const EditPostForm: React.FC<Props> = ({post, onCancel, onSaved}) => {
                     </div>
                 </div>
 
-                {/* Botones */}
                 <div className="flex flex-col sm:flex-row justify-end gap-2 sm:gap-3 pt-2">
                     <button
                         type="button"
@@ -366,7 +352,7 @@ const EditPostForm: React.FC<Props> = ({post, onCancel, onSaved}) => {
                         type="submit"
                         disabled={loading}
                         className={`flex items-center justify-center gap-2 px-4 sm:px-5 py-2 rounded-full text-white font-medium transition text-sm sm:text-base ${
-                            loading ? "bg-gray-400 cursor-not-allowed" : "bg-blue-600 hover:bg-blue-700"
+                            loading ?  "bg-gray-400 cursor-not-allowed" : "bg-blue-600 hover:bg-blue-700"
                         }`}
                     >
                         <Save className="w-4 h-4"/>
