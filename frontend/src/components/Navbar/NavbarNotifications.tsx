@@ -110,13 +110,13 @@ export default function NavbarNotifications() {
             <button
                 onClick={() => setOpen((v) => !v)}
                 aria-label="Notificaciones"
-                className="relative p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 transition-all focus:outline-none focus:ring-2 focus:ring-green-500 active:scale-95"
+                className="relative p-2 rounded-full hover:bg-gray-100  transition-all focus:outline-none focus:ring-2 focus:ring-green-500 active:scale-95"
             >
-                <BellIcon size={24} className="text-gray-700 dark:text-gray-200  cursor-pointer"/>
+                <BellIcon size={24} className="text-gray-700 cursor-pointer"/>
 
                 {incomingCount > 0 && (
                     <span
-                        className="absolute top-0 right-0 flex items-center justify-center min-w-[20px] h-5 px-1.5 text-xs font-bold text-white bg-red-500 rounded-full border-2 border-white dark:border-gray-900">
+                        className="absolute top-0 right-0 flex items-center justify-center min-w-[20px] h-5 px-1.5 text-xs font-bold text-white bg-red-500 rounded-full border-2 border-white ">
             {incomingCount > 99 ? '99+' : incomingCount}
           </span>
                 )}
@@ -125,29 +125,29 @@ export default function NavbarNotifications() {
             {open && (
                 <>
                     <div
-                        className="fixed inset-0 bg-black/20 backdrop-blur-sm z-40 sm:hidden"
+                        className="fixed inset-0  z-40 sm:hidden"
                         onClick={() => setOpen(false)}
                     />
 
                     <div
-                        className="fixed left-4 mt-4 right-4 top-20 sm:left-auto sm:right-4 sm:top-16 sm:w-96 bg-white dark:bg-gray-800 rounded-xl shadow-2xl border border-gray-200 dark:border-gray-700 z-50 overflow-hidden">
+                        className="fixed left-4 mt-4 right-4 top-20 sm:left-auto sm:right-4 sm:top-16 sm:w-96 bg-white  rounded-xl shadow-2xl border border-gray-200  z-50 overflow-hidden">
                         {/* HEADER */}
                         <div
-                            className="px-4 py-3 bg-green-50 dark:bg-gray-700 border-b border-gray-200 dark:border-gray-600">
+                            className="px-4 py-3 bg-green-50  border-b border-gray-200 ">
                             <div className="flex items-center justify-between">
                                 <div className="flex items-center gap-2.5">
                                     <BellIcon
                                         size={20}
                                         variant="solid"
-                                        className="text-green-600 dark:text-green-400"
+                                        className="text-green-600 "
                                     />
-                                    <h3 className="text-base font-semibold text-gray-900 dark:text-white">
+                                    <h3 className="text-base font-semibold text-gray-900 ">
                                         Notificaciones
                                     </h3>
 
                                     {incomingCount > 0 && (
                                         <span
-                                            className="min-w-[20px] h-5 px-1.5 text-xs font-semibold text-green-700 bg-green-100 dark:bg-green-900/50 dark:text-green-300 rounded-full flex items-center justify-center">
+                                            className="min-w-[20px] h-5 px-1.5 text-xs font-semibold text-green-700 bg-green-100 50  rounded-full flex items-center justify-center">
                                   {incomingCount}
                                 </span>
                                     )}
@@ -158,7 +158,7 @@ export default function NavbarNotifications() {
                                         setOpen(false);
                                         navigate('/friends');
                                     }}
-                                    className="text-sm font-medium text-green-600 hover:text-green-700 dark:text-green-400 cursor-pointer"
+                                    className="text-sm font-medium text-green-600 hover:text-green-700  cursor-pointer"
                                 >
                                     Ver todas
                                 </button>
@@ -176,7 +176,7 @@ export default function NavbarNotifications() {
                                     </p>
                                 </div>
                             ) : (
-                                <div className="divide-y divide-gray-100 dark:divide-gray-700">
+                                <div className="divide-y divide-gray-100 ">
                                     {preview.map((req) => {
                                         const {id, sender} = req;
 
@@ -206,7 +206,7 @@ export default function NavbarNotifications() {
                                                     setOpen(false);
                                                     navigate('/friends');
                                                 }}
-                                                className="p-4 flex gap-3 items-center hover:bg-gray-50 dark:hover:bg-gray-700/50 cursor-pointer"
+                                                className="p-4 flex gap-3 items-center hover:bg-gray-50  cursor-pointer"
                                             >
                                                 {/* AVATAR */}
                                                 <div className="relative">

@@ -131,7 +131,7 @@ export default function NavbarSearch() {
                     onChange={(e) => setQ(e.target.value)}
                     onFocus={() => setFocused(true)}
                     placeholder="Buscar personas..."
-                    className="w-full pl-10 pr-9 py-2 border rounded-lg bg-white dark:bg-gray-800 text-sm focus:ring-2 focus:ring-green-500 transition"
+                    className="w-full pl-10 pr-9 py-2 border rounded-lg bg-white  text-sm focus:ring-2 focus:ring-green-500 transition"
                 />
             </div>
 
@@ -147,7 +147,7 @@ export default function NavbarSearch() {
             >
                 {/* RESULTS */}
                 {results.length > 0 ? (
-                    <div className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl border overflow-hidden">
+                    <div className="bg-white  rounded-xl shadow-2xl border overflow-hidden">
                         <ul className="max-h-96 overflow-y-auto divide-y">
                             {results.map((u) => {
                                 const name = u.profile?.name || "";
@@ -162,7 +162,6 @@ export default function NavbarSearch() {
 
                                 return (
                                     <li key={u.id} className="flex items-center gap-3 p-3 hover:bg-gray-50 transition">
-                                        {/* AVATAR */}
                                         {avatarUrl ? (
                                             <img src={avatarUrl} className="w-10 h-10 rounded-full object-cover" />
                                         ) : (
@@ -198,7 +197,7 @@ export default function NavbarSearch() {
                     </div>
                 ) : (
                     !loading && debouncedQ && (
-                        <div className="bg-white dark:bg-gray-800 rounded-xl shadow p-6 text-center text-sm text-gray-500">
+                        <div className="bg-white  rounded-xl shadow p-6 text-center text-sm text-gray-500">
                             No se encontraron resultados
                         </div>
                     )
