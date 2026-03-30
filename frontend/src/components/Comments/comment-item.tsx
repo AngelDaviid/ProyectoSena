@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import type { Comment as CommentType } from '../../types/post.ts';
-import { useAuth } from '../../hooks/useAuth.ts';
-import { useToast } from '../Toast-context.tsx';
+import { useAuth } from '../../hooks/use-auth.ts';
+import { useToast } from '../toast-context.tsx';
 import { updateComment as apiUpdateComment, deleteComment as apiDeleteComment } from '../../services/posts.ts';
 
 type Props = {
@@ -159,9 +159,9 @@ const CommentItem: React. FC<Props> = ({ postId, comment, onUpdated, onDeleted }
                                 <button
                                     onClick={handleSave}
                                     disabled={loading || !content.trim()}
-                                    className="px-3 py-1. 5 rounded-lg bg-blue-600 text-white text-xs sm:text-sm font-medium hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                                    className="px-3 py-1.5 rounded-lg bg-blue-600 text-white text-xs sm:text-sm font-medium hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                                 >
-                                    {loading ? 'Guardando.. .' : 'Guardar'}
+                                    {loading ? 'Guardando...' : 'Guardar'}
                                 </button>
                                 <button
                                     onClick={() => {

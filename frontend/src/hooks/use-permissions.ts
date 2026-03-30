@@ -1,4 +1,4 @@
-import { useAuth } from './useAuth';
+import { useAuth } from './use-auth.ts';
 
 export function usePermissions() {
     const { user } = useAuth();

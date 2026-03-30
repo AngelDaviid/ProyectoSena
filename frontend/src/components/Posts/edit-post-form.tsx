@@ -1,6 +1,6 @@
 import React, {useEffect, useRef, useState} from "react";
 import {Save, X, Image as ImageIcon, Trash, Search} from "lucide-react";
-import {useToast} from '../Toast-context.tsx';
+import {useToast} from '../toast-context.tsx';
 import type {Post, Category} from "../../types/post.ts";
 import api from "../../services/api.ts";
 
@@ -351,8 +351,8 @@ const EditPostForm: React. FC<Props> = ({post, onCancel, onSaved}) => {
                     <button
                         type="submit"
                         disabled={loading}
-                        className={`flex items-center justify-center gap-2 px-4 sm:px-5 py-2 rounded-full text-white font-medium transition text-sm sm:text-base ${
-                            loading ?  "bg-gray-400 cursor-not-allowed" : "bg-blue-600 hover:bg-blue-700"
+                        className={`px-4 sm:px-5 py-2 rounded-full font-semibold text-white transition text-sm sm:text-base ${
+                            loading ? 'bg-gray-400 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-700'
                         }`}
                     >
                         <Save className="w-4 h-4"/>

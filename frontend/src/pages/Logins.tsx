@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { login } from '../services/auth';
-import { useAuth } from '../hooks/useAuth.ts';
+import { useAuth } from '../hooks/use-auth.ts';
 
 export default function Login() {
     const navigate = useNavigate();

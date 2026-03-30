@@ -234,8 +234,8 @@ const EventList: React.FC<Props> = ({ events, loading = false, error = null, onE
 
                             {/* Tiempo restante (solo para eventos próximos) */}
                             {status === 'upcoming' && (
-                                <div className="flex items-center gap-1 text-xs text-blue-600 font-medium mb-3 sm:mb-4 bg-blue-50 px-2 sm:px-3 py-1. 5 sm:py-2 rounded-lg">
-                                    <svg className="w-3. 5 h-3.5 sm:w-4 sm:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <div className="flex items-center gap-1 text-xs text-blue-600 font-medium mb-3 sm:mb-4 bg-blue-50 px-2 sm:px-3 py-1.5 sm:py-2 rounded-lg">
+                                    <svg className="w-3.5 h-3.5 sm:w-4 sm:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                         <path
                                             strokeLinecap="round"
                                             strokeLinejoin="round"
@@ -289,9 +289,9 @@ const EventList: React.FC<Props> = ({ events, loading = false, error = null, onE
                                     </div>
                                     <div className="flex-1 min-w-0">
                                         <p className="text-xs sm:text-sm font-medium text-gray-700 truncate">
-                                            {event.user.profile?.name && event.user.profile?. lastName
-                                                ? `${event. user.profile.name} ${event.user.profile.lastName}`
-                                                : event.user. email}
+                                            {event.user.profile?.name && event.user.profile?.lastName
+                                                ? `${event.user.profile.name} ${event.user.profile.lastName}`
+                                                : event.user.email}
                                         </p>
                                         <p className="text-xs text-gray-500">Organizador</p>
                                     </div>

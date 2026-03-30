@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { getEvent } from '../services/events';
-import EventForm from '../components/Events/Event-form';
+import EventForm from '../components/Events/event-form.tsx';
 import type { Event } from '../types/event';
 import { Loader2 } from 'lucide-react';
 

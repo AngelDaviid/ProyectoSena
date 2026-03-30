@@ -15,21 +15,21 @@ const CommentList: React.FC<Props> = ({ comments = [] }) => {
                     No hay comentarios todavía
                 </div>
             ) : (
-                comments. map((c) => {
+                comments.map((c) => {
                     const authorName =
                         c.user?.profile?.name ||
-                        c.user?. profile?.lastName ||
+                        c.user?.profile?.lastName ||
                         c.user?.email ||
                         'Usuario';
 
                     const authorAvatar = c.user?.profile?.avatar
-                        ? c.user. profile.avatar. startsWith('/')
-                            ?  `${API_BASE}${c.user.profile.avatar}`
+                        ? c.user.profile.avatar.startsWith('/')
+                            ? `${API_BASE}${c.user.profile.avatar}`
                             : c.user.profile.avatar
                         : null;
 
                     return (
-                        <div key={c.id} className="bg-white border border-gray-100 rounded-xl p-2. 5 sm:p-3">
+                        <div key={c.id} className="bg-white border border-gray-100 rounded-xl p-2.5 sm:p-3">
                             <div className="flex items-start gap-2 sm:gap-3">
                                 <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-full overflow-hidden bg-gray-200 flex items-center justify-center text-gray-600 font-semibold flex-shrink-0 text-xs sm:text-sm">
                                     {authorAvatar ? (
@@ -45,7 +45,7 @@ const CommentList: React.FC<Props> = ({ comments = [] }) => {
                                         {c.content}
                                     </div>
                                     <div className="text-xs text-gray-400 mt-1">
-                                        {new Date(c.createdAt || ''). toLocaleString()}
+                                        {new Date(c.createdAt || '').toLocaleString()}
                                     </div>
                                 </div>
                             </div>

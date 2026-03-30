@@ -1,11 +1,11 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { useAuth } from '../hooks/useAuth';
+import { useAuth } from '../hooks/use-auth.ts';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { getProfile } from '../services/auth';
 import { updateUser, uploadAvatar } from '../services/users';
 import type { User } from '../types/type';
 import { Save, X, Image as ImageIcon } from 'lucide-react';
-import PostItem from '../components/Posts/PostItem';
+import PostItem from '../components/Posts/post-item.tsx';
 import type { Post } from '../types/post';
 
 const API_BASE = import.meta.env.VITE_SENA_API_URL || 'http://localhost:3001';

@@ -1,17 +1,17 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Plus, Search, Filter, Calendar as CalendarIcon, Eye, Edit, Trash2, ArrowLeft } from 'lucide-react';
-import { useEvents } from '../hooks/useEvents.ts';
-import { useAuth } from '../hooks/useAuth';
-import EventList from "../components/Events/Event-list.tsx";
+import { useEvents } from '../hooks/use-events.ts';
+import { useAuth } from '../hooks/use-auth.ts';
+import EventList from "../components/Events/event-list.tsx";
 import { EventType, EventTypeLabels } from '../types/event';
 import type {FilterEventsParams, Event} from '../types/event';
 import { getCategories } from '../services/categories';
 import type { Category } from '../types/post';
 import { getMyEvents, deleteEvent, publishEvent } from '../services/events';
 import { formatEventDateShort, getEventImageUrl } from '../types/event';
-import {useToast} from "../components/Toast-context.tsx";
-import ConfirmModal from "../components/Modal/Confirm-modal.tsx";
+import {useToast} from "../components/toast-context.tsx";
+import ConfirmModal from "../components/Modal/confirm-modal.tsx";
 
 export default function EventsPage() {
     const navigate = useNavigate();

@@ -3,8 +3,8 @@ import { useParams, useNavigate } from 'react-router-dom';
 import type { Event } from '../../types/event';
 import { getEvent, deleteEvent, registerToEvent, unregisterFromEvent, publishEvent } from '../../services/events';
 import { getEventImageUrl } from '../../types/event';
-import { useAuth } from '../../hooks/useAuth';
-import { useToast } from '../Toast-context';
+import { useAuth } from '../../hooks/use-auth.ts';
+import { useToast } from '../toast-context.tsx';
 import {
     Calendar,
     MapPin,
@@ -388,7 +388,7 @@ export default function EventDetail() {
                         <div className="bg-white rounded-lg shadow p-4 sm:p-6">
                             <h3 className="text-lg sm:text-xl font-semibold mb-3">Categorías</h3>
                             <div className="flex flex-wrap gap-2">
-                                {event.categories. map(category => (
+                                {event.categories.map(category => (
                                     <span
                                         key={category.id}
                                         className="px-2 sm:px-3 py-1 bg-green-100 text-green-800 rounded-full text-xs sm:text-sm font-medium"

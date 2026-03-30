@@ -43,7 +43,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         return () => {
             mounted = false;
         };
-        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [token]);
 
     const setToken = (t: string | null) => {
@@ -56,7 +55,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         try {
             navigate('/login');
         } catch {
-            // do nothing
+            // Navigation error - continue with logout
         }
     };
 

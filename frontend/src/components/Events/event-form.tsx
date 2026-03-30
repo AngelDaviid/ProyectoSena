@@ -222,7 +222,7 @@ export default function EventForm({ event, onSuccess }: EventFormProps) {
             ...prev,
             categoryIds: prev.categoryIds.includes(categoryId)
                 ? prev.categoryIds.filter(id => id !== categoryId)
-                : [... prev.categoryIds, categoryId]
+                : [...prev.categoryIds, categoryId]
         }));
     };
 
@@ -476,7 +476,7 @@ export default function EventForm({ event, onSuccess }: EventFormProps) {
                             disabled={loading}
                             className="px-4 sm:px-6 py-3 bg-gray-600 text-white rounded-lg hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed font-semibold text-sm sm:text-base transition-colors"
                         >
-                             Guardar como Borrador
+                            Guardar como Borrador
                         </button>
                     )}
 

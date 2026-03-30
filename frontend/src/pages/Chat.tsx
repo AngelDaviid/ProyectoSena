@@ -1,14 +1,14 @@
 import React, {useEffect, useState, useCallback, useRef} from 'react';
 import {useNavigate, useLocation} from 'react-router-dom';
 import {ArrowLeft, MessageCircle, ChevronLeft} from 'lucide-react';
-import {useAuth} from '../hooks/useAuth';
-import {useSocketContext} from '../hooks/useSocketContext';
+import {useAuth} from '../hooks/use-auth.ts';
+import {useSocketContext} from '../hooks/use-socket-context.ts';
 import {useChatNotifications} from '../context/chat-notifications-context';
-import {useToast} from '../components/Toast-context';
+import {useToast} from '../components/toast-context.tsx';
 import {getConversations, getMessages} from '../services/sockets/chat.socket';
 import type {Conversation, Message} from '../types/chat';
-import ChatSidebar from '../components/Chat/ChatSidebar';
-import ChatWindow from '../components/Chat/ChatWindow';
+import ChatSidebar from '../components/Chat/chat-sidebar.tsx';
+import ChatWindow from '../components/Chat/chat-window.tsx';
 
 type MsgWithMeta = Omit<Message, 'id'> & {
     id?: number;

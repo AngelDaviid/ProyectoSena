@@ -104,8 +104,8 @@ export default function EventToast({ event, onClose, duration = 8000 }: EventToa
                         </p>
 
                         <div className="space-y-1 sm:space-y-2">
-                            <div className="flex items-center gap-1. 5 sm:gap-2 text-xs text-gray-700">
-                                <Clock className="w-3 h-3 sm:w-3. 5 sm:h-3. 5 text-green-600 flex-shrink-0" />
+                            <div className="flex items-center gap-1.5 sm:gap-2 text-xs text-gray-700">
+                                <Clock className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-green-600 flex-shrink-0" />
                                 <span className="font-medium">{formatEventDateShort(event.startDate)}</span>
                             </div>
                             <div className="flex items-center gap-1.5 sm:gap-2 text-xs text-gray-700">

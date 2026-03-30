@@ -1,6 +1,6 @@
 import { useEffect, useCallback } from 'react';
 import { chatSocket, type NewMessagePayload, type UserTypingPayload } from '../services/sockets/chat.socket';
-import { useAuth } from './useAuth';
+import { useAuth } from './use-auth.ts';
 import { useSocketContext } from '../context/socket-provider';
 
 interface UseChatOptions {

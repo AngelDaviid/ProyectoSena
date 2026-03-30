@@ -24,7 +24,7 @@ import {
     blockUser,
 } from '../services/friends';
 import {createConversation} from '../services/sockets/chat.socket';
-import {useAuth} from '../hooks/useAuth';
+import {useAuth} from '../hooks/use-auth.ts';
 import {
     connectSocket,
     registerUser,
@@ -33,8 +33,8 @@ import {
     onFriendRequestAccepted,
     offFriendRequestAccepted,
 } from '../services/socket';
-import ConfirmModal from "../components/Modal/Confirm-modal.tsx";
-import {useToast} from "../components/Toast-context.tsx";
+import ConfirmModal from "../components/Modal/confirm-modal.tsx";
+import {useToast} from "../components/toast-context.tsx";
 
 const API_BASE = import.meta.env.VITE_SENA_API_URL || 'http://localhost:3001';
 

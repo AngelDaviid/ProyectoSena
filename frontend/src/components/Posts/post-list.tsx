@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
-import NewPostForm from './PostForm.tsx';
-import PostItem from './PostItem.tsx';
-import { usePosts } from '../../hooks/usePosts.ts';
+import NewPostForm from './post-form.tsx';
+import PostItem from './post-item.tsx';
+import { usePosts } from '../../hooks/use-posts.ts';
 import type { Post } from '../../types/post.ts';
 
 const PostList: React.FC = () => {
@@ -47,7 +47,7 @@ const PostList: React.FC = () => {
                     {error}
                 </div>
             )}
-            {! loading && localPosts.length === 0 && (
+            {!loading && localPosts.length === 0 && (
                 <div className="text-center text-gray-500 py-8 text-sm sm:text-base">
                     No hay publicaciones todavía 📝
                 </div>
@@ -56,7 +56,7 @@ const PostList: React.FC = () => {
             <div className="space-y-4 sm:space-y-6">
                 {localPosts.map((p) => (
                     <PostItem
-                        key={p. id}
+                        key={p.id}
                         post={p}
                         onUpdated={handleUpdated}
                         onDeleted={handleDeleted}

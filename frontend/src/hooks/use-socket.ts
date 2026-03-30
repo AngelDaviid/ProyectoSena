@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { socketService } from '../services/sockets/socket';
-import { useAuth } from './useAuth';
+import { useAuth } from './use-auth.ts';
 
 /**
  * Hook para manejar la conexión del socket automáticamente

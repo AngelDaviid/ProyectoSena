@@ -1,9 +1,9 @@
 import React, {useState, useRef, useEffect} from "react";
 import {useNavigate} from "react-router-dom";
-import {useAuth} from "../hooks/useAuth";
-import PostList from "../components/Posts/PostList.tsx";
-import NavbarSearch from "../components/Navbar/NavbarSearch.tsx";
-import NavbarNotifications from '../components/Navbar/NavbarNotifications.tsx';
+import {useAuth} from "../hooks/use-auth.ts";
+import PostList from "../components/Posts/post-list.tsx";
+import NavbarSearch from "../components/Navbar/navbar-search.tsx";
+import NavbarNotifications from '../components/Navbar/navbar-notifications.tsx';
 import {Calendar, ArrowRight, Sparkles, Users, MessageCircle, Menu, X} from 'lucide-react';
 
 const API_BASE = import.meta.env.VITE_SENA_API_URL || "http://localhost:3001";

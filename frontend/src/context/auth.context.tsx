@@ -1,12 +1,14 @@
+import { createContext } from 'react';
+import type { User } from '../types/type';
+
 export type AuthContextType = {
-    user: any | null;
+    user: User | null;
     token: string | null;
-    setUser: (u: any | null) => void;
+    setUser: (u: User | null) => void;
     setToken: (t: string | null) => void;
     logout: () => void;
     loading: boolean;
 };
 
-import { createContext } from 'react';
 
 export const AuthContext = createContext<AuthContextType | undefined>(undefined);

@@ -7,10 +7,10 @@ type BellIconProps = {
 };
 
 export const BellIcon: React.FC<BellIconProps> = ({
-  size = 24,
-  variant = 'outline',
-  className = '',
-  }) => {
+                                                      size = 24,
+                                                      variant = 'outline',
+                                                      className = '',
+                                                  }) => {
     if (variant === 'solid') {
         return (
             <svg

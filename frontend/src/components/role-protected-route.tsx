@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react';
 import { Navigate } from 'react-router-dom';
-import { useAuth } from '../hooks/useAuth';
+import { useAuth } from '../hooks/use-auth.ts';
 import type { Role } from '../types/user.type';
 
 type Props = {
@@ -27,7 +27,7 @@ const RoleProtectedRoute = ({ children, allowedRoles, redirectTo = '/' }: Props)
         return <Navigate to="/login" replace />;
     }
 
-    if (! user?. role || !allowedRoles. includes(user.role)) {
+    if (!user?.role || !allowedRoles.includes(user.role)) {
         return (
             <div className="flex flex-col items-center justify-center min-h-screen bg-gradient-to-br from-red-50 to-orange-50 p-4">
                 <div className="bg-white p-8 rounded-2xl shadow-2xl max-w-md text-center border-4 border-red-200">
@@ -43,7 +43,7 @@ const RoleProtectedRoute = ({ children, allowedRoles, redirectTo = '/' }: Props)
                             Se requiere rol: <strong className="text-yellow-900">{allowedRoles.join(' o ')}</strong>
                         </p>
                         <p className="text-sm text-yellow-700 mt-1">
-                            Tu rol actual: <strong>{user?. role || 'Ninguno'}</strong>
+                            Tu rol actual: <strong>{user?.role || 'Ninguno'}</strong>
                         </p>
                     </div>
                     <button

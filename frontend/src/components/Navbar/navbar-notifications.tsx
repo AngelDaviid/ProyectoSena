@@ -7,7 +7,7 @@ import {
     onFriendRequestAccepted,
     onFriendRequestSent
 } from "../../services/socket.ts";
-import {BellIcon} from "../Icon/Bell-icon.tsx";
+import {BellIcon} from "../Icon/bell-icon.tsx";
 
 
 const API_BASE =
@@ -89,10 +89,6 @@ export default function NavbarNotifications() {
         };
     }, [handleNewRequest, handleAcceptedRequest]);
 
-    /* =========================
-       CLICK OUTSIDE
-    ========================= */
-
     useEffect(() => {
         const handleClickOutside = (event: MouseEvent) => {
             if (ref.current && !ref.current.contains(event.target as Node)) {
@@ -129,27 +125,19 @@ export default function NavbarNotifications() {
                         onClick={() => setOpen(false)}
                     />
 
-                    <div
-                        className="fixed left-4 mt-4 right-4 top-20 sm:left-auto sm:right-4 sm:top-16 sm:w-96 bg-white  rounded-xl shadow-2xl border border-gray-200  z-50 overflow-hidden">
-                        {/* HEADER */}
-                        <div
-                            className="px-4 py-3 bg-green-50  border-b border-gray-200 ">
+                    <div className="fixed left-4 mt-4 right-4 top-20 sm:left-auto sm:right-4 sm:top-16 sm:w-96 bg-white rounded-xl shadow-2xl border border-gray-200 z-50 overflow-hidden">
+                        <div className="px-4 py-3 bg-green-50 border-b border-gray-200">
                             <div className="flex items-center justify-between">
                                 <div className="flex items-center gap-2.5">
-                                    <BellIcon
-                                        size={20}
-                                        variant="solid"
-                                        className="text-green-600 "
-                                    />
-                                    <h3 className="text-base font-semibold text-gray-900 ">
+                                    <BellIcon size={20} variant="solid" className="text-green-600" />
+                                    <h3 className="text-base font-semibold text-gray-900">
                                         Notificaciones
                                     </h3>
 
                                     {incomingCount > 0 && (
-                                        <span
-                                            className="min-w-[20px] h-5 px-1.5 text-xs font-semibold text-green-700 bg-green-100 50  rounded-full flex items-center justify-center">
-                                  {incomingCount}
-                                </span>
+                                        <span className="min-w-[20px] h-5 px-1.5 text-xs font-semibold text-green-700 bg-green-100 rounded-full flex items-center justify-center">
+                                            {incomingCount}
+                                        </span>
                                     )}
                                 </div>
 
@@ -158,44 +146,34 @@ export default function NavbarNotifications() {
                                         setOpen(false);
                                         navigate('/friends');
                                     }}
-                                    className="text-sm font-medium text-green-600 hover:text-green-700  cursor-pointer"
+                                    className="text-sm font-medium text-green-600 hover:text-green-700 cursor-pointer"
                                 >
                                     Ver todas
                                 </button>
                             </div>
                         </div>
 
-                        {/* BODY */}
                         <div className="max-h-[60vh] sm:max-h-96 overflow-y-auto">
                             {preview.length === 0 ? (
                                 <div className="flex flex-col items-center py-12">
-                                    <BellIcon size={32} className="text-gray-400 mb-2 cursor-pointer"/>
+                                    <BellIcon size={32} className="text-gray-400 mb-2 cursor-pointer" />
                                     <p className="font-medium">¡Todo al día!</p>
                                     <p className="text-sm text-gray-500">
                                         No tienes solicitudes nuevas
                                     </p>
                                 </div>
                             ) : (
-                                <div className="divide-y divide-gray-100 ">
+                                <div className="divide-y divide-gray-100">
                                     {preview.map((req) => {
-                                        const {id, sender} = req;
-
+                                        const { id, sender } = req;
                                         const name = sender?.profile?.name ?? '';
                                         const lastName = sender?.profile?.lastName ?? '';
                                         const email = sender?.email ?? '';
                                         const fullName = `${name} ${lastName}`.trim();
                                         const displayName = fullName || email;
-
                                         const avatar = sender?.profile?.avatar;
-                                        const hasAvatar =
-                                            avatar && avatar !== '' && avatar !== '/default.png';
-
-                                        const avatarUrl = hasAvatar
-                                            ? avatar.startsWith('/')
-                                                ? `${API_BASE}${avatar}`
-                                                : avatar
-                                            : null;
-
+                                        const hasAvatar = avatar && avatar !== '' && avatar !== '/default.png';
+                                        const avatarUrl = hasAvatar ? (avatar.startsWith('/') ? `${API_BASE}${avatar}` : avatar) : null;
                                         const initials = getInitials(name, lastName, email);
                                         const avatarColor = getColorFromName(displayName);
 
@@ -206,27 +184,19 @@ export default function NavbarNotifications() {
                                                     setOpen(false);
                                                     navigate('/friends');
                                                 }}
-                                                className="p-4 flex gap-3 items-center hover:bg-gray-50  cursor-pointer"
+                                                className="p-4 flex gap-3 items-center hover:bg-gray-50 cursor-pointer"
                                             >
-                                                {/* AVATAR */}
                                                 <div className="relative">
                                                     {avatarUrl ? (
-                                                        <img
-                                                            src={avatarUrl}
-                                                            alt={displayName}
-                                                            className="w-12 h-12 rounded-full object-cover border"
-                                                        />
+                                                        <img src={avatarUrl} alt={displayName} className="w-12 h-12 rounded-full object-cover border" />
                                                     ) : (
-                                                        <div
-                                                            className={`w-12 h-12 rounded-full ${avatarColor} flex items-center justify-center`}
-                                                        >
-                              <span className="text-white font-semibold">
-                                {initials}
-                              </span>
+                                                        <div className={`w-12 h-12 rounded-full ${avatarColor} flex items-center justify-center`}>
+                                                            <span className="text-white font-semibold">
+                                                                {initials}
+                                                            </span>
                                                         </div>
                                                     )}
-                                                    <span
-                                                        className="absolute bottom-0 right-0 w-3.5 h-3.5 bg-green-500 border-2 border-white rounded-full"/>
+                                                    <span className="absolute bottom-0 right-0 w-3.5 h-3.5 bg-green-500 border-2 border-white rounded-full" />
                                                 </div>
 
                                                 <div className="flex-1 min-w-0">

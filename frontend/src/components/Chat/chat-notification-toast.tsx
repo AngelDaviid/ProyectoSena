@@ -7,7 +7,7 @@ import type { Conversation } from '../../types/chat';
 
 const API_BASE = import.meta.env.VITE_SENA_API_URL || 'http://localhost:3001';
 
-const ChatNotificationToast: React. FC = () => {
+const ChatNotificationToast: React.FC = () => {
     const navigate = useNavigate();
     const { notifications, clearNotification } = useChatNotifications();
     const [visibleNotifications, setVisibleNotifications] = useState<any[]>([]);
@@ -20,7 +20,7 @@ const ChatNotificationToast: React. FC = () => {
                 const convs = await getConversations();
                 setConversations(convs || []);
             } catch (error) {
-                console.error('[ChatNotificationToast] Error loading conversations:', error);
+                console.error('Error loading conversations:', error);
             }
         };
 
@@ -28,7 +28,7 @@ const ChatNotificationToast: React. FC = () => {
     }, []);
 
     useEffect(() => {
-        setVisibleNotifications(notifications. slice(-3));
+        setVisibleNotifications(notifications.slice(-3));
     }, [notifications]);
 
     useEffect(() => {
@@ -49,7 +49,7 @@ const ChatNotificationToast: React. FC = () => {
 
         const visibleConversationIds = new Set(visibleNotifications.map(n => n.conversationId));
         timersRef.current.forEach((timer, conversationId) => {
-            if (!visibleConversationIds. has(conversationId)) {
+            if (!visibleConversationIds.has(conversationId)) {
                 window.clearTimeout(timer);
                 timersRef.current.delete(conversationId);
             }
@@ -74,13 +74,13 @@ const ChatNotificationToast: React. FC = () => {
             return { name: 'Usuario', avatar: '/default.png' };
         }
 
-        const fullName = `${sender.profile?.name || ''} ${sender.profile?.lastName || ''}`. trim();
+        const fullName = `${sender.profile?.name || ''} ${sender.profile?.lastName || ''}`.trim();
         const name = fullName || sender.email || 'Usuario';
 
         let avatar = '/default.png';
         if (sender.profile?.avatar) {
             avatar = sender.profile.avatar.startsWith('/')
-                ?  `${API_BASE}${sender.profile.avatar}`
+                ? `${API_BASE}${sender.profile.avatar}`
                 : sender.profile.avatar;
         }
 
@@ -88,7 +88,6 @@ const ChatNotificationToast: React. FC = () => {
     };
 
     const handleClick = (notification: any) => {
-
         const timer = timersRef.current.get(notification.conversationId);
         if (timer) {
             window.clearTimeout(timer);
@@ -120,7 +119,7 @@ const ChatNotificationToast: React. FC = () => {
 
     return (
         <div className="fixed bottom-4 right-4 z-50 flex flex-col gap-2">
-            {visibleNotifications. map((notif, index) => {
+            {visibleNotifications.map((notif, index) => {
                 const senderInfo = getSenderInfo(notif);
 
                 return (

@@ -1,11 +1,11 @@
 import React, { useState, useRef, useEffect } from 'react';
 import type { Post, PostComment } from '../../types/post.ts';
-import { useAuth } from '../../hooks/useAuth.ts';
-import { useToast } from '../Toast-context.tsx';
-import EditPostForm from './EditPostForm.tsx';
+import { useAuth } from '../../hooks/use-auth.ts';
+import { useToast } from '../toast-context.tsx';
+import EditPostForm from './edit-post-form.tsx';
 import { toggleLike as apiToggleLike, createComment as apiCreateComment, getComments as apiGetComments, deletePost } from '../../services/posts.ts';
-import CommentForm from '../Comments/CommentForm.tsx';
-import CommentItem from '../Comments/CommentItem.tsx';
+import CommentForm from '../Comments/comment-form.tsx';
+import CommentItem from '../Comments/comment-item.tsx';
 import { Heart, MessageSquare } from 'lucide-react';
 
 type Props = {
@@ -160,7 +160,7 @@ const PostItem: React.FC<Props> = ({ post, onUpdated, onDeleted }) => {
 
         try {
             const res = await apiToggleLike(post.id);
-            if (typeof res. liked === 'boolean') setLiked(res.liked);
+            if (typeof res.liked === 'boolean') setLiked(res.liked);
             if (typeof res.likesCount === 'number') setLikesCount(res.likesCount);
         } catch (err) {
             console.error('Error toggling like', err);
@@ -255,8 +255,8 @@ const PostItem: React.FC<Props> = ({ post, onUpdated, onDeleted }) => {
                                                     setMenuOpen(false);
                                                 }}
                                                 disabled={deleting}
-                                                className={`block w-full text-left px-4 py-2.5 text-sm transition ${
-                                                    deleting ?  'text-red-300 cursor-not-allowed' : 'text-red-600 hover:bg-red-50'
+                                                className={`text-sm hover:underline transition-colors ${
+                                                    deleting ? 'text-red-300 cursor-not-allowed' : 'text-red-600 hover:bg-red-50'
                                                 }`}
                                             >
                                                 Eliminar

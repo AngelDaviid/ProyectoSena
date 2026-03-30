@@ -12,12 +12,12 @@ interface Props {
 
 const API_BASE = import.meta.env.VITE_SENA_API_URL || 'http://localhost:3001';
 
-function participantName(conv: Conversation, currentUserId: number): string {
-    const others = conv.participants?. filter((p) => p.id !== currentUserId) || [];
+function getParticipantName(conv: Conversation, currentUserId: number): string {
+    const others = conv.participants?.filter((p) => p.id !== currentUserId) || [];
     if (others.length === 0) return 'Chat';
     return others
         .map((p) => {
-            const fullName = `${p.profile?. name || ''} ${p.profile?.lastName || ''}`. trim();
+            const fullName = `${p.profile?.name || ''} ${p.profile?.lastName || ''}`.trim();
             return fullName || p.email || 'Usuario';
         })
         .join(', ');
@@ -25,38 +25,38 @@ function participantName(conv: Conversation, currentUserId: number): string {
 
 function getParticipantAvatar(conv: Conversation, currentUserId: number): string | null {
     const others = conv.participants?.filter((p) => p.id !== currentUserId) || [];
-    if (others. length === 0 || !others[0]?.profile?.avatar) {
+    if (others.length === 0 || !others[0]?.profile?.avatar) {
         return null;
     }
 
-    const avatar = others[0]. profile.avatar;
-    return avatar. startsWith('/')
+    const avatar = others[0].profile.avatar;
+    return avatar.startsWith('/')
         ? `${API_BASE}${avatar}`
         : avatar;
 }
 
-function lastMessageText(conv: Conversation): string {
-    const lastMsg = conv. messages?.[conv.messages.length - 1];
+function getLastMessageText(conv: Conversation): string {
+    const lastMsg = conv.messages?.[conv.messages.length - 1];
     if (!lastMsg) return 'Sin mensajes';
 
-    if (lastMsg.imageUrl && ! lastMsg.text) return '📷 Imagen';
+    if (lastMsg.imageUrl && !lastMsg.text) return '📷 Imagen';
     if (lastMsg.text) {
-        return lastMsg.text. length > 50
+        return lastMsg.text.length > 50
             ? lastMsg.text.substring(0, 50) + '...'
-            : lastMsg. text;
+            : lastMsg.text;
     }
     return 'Sin mensajes';
 }
 
-function lastMessageTime(conv: Conversation): string {
-    const lastMsg = conv. messages?.[conv.messages.length - 1];
-    if (! lastMsg?. createdAt) return '';
+function getLastMessageTime(conv: Conversation): string {
+    const lastMsg = conv.messages?.[conv.messages.length - 1];
+    if (!lastMsg?.createdAt) return '';
 
     const date = new Date(lastMsg.createdAt);
     const now = new Date();
     const diffMs = now.getTime() - date.getTime();
     const diffMins = Math.floor(diffMs / 60000);
-    const diffHours = Math. floor(diffMs / 3600000);
+    const diffHours = Math.floor(diffMs / 3600000);
     const diffDays = Math.floor(diffMs / 86400000);
 
     if (diffMins < 1) return 'Ahora';
@@ -68,42 +68,35 @@ function lastMessageTime(conv: Conversation): string {
 }
 
 const ChatSidebar: React.FC<Props> = ({
-                                          conversations,
-                                          currentUserId,
-                                          activeConversationId,
-                                          onSelect,
-                                          unreadCounts = {},
-                                      }) => {
+    conversations,
+    currentUserId,
+    activeConversationId,
+    onSelect,
+    unreadCounts = {},
+}) => {
     const [searchQuery, setSearchQuery] = React.useState('');
 
     const uniqueConversations = useMemo(() => {
-        console.log('[ChatSidebar] Raw conversations count:', conversations.length);
-
         const conversationMap = new Map<number, Conversation>();
 
         conversations.forEach((conv) => {
             if (!conversationMap.has(conv.id)) {
                 conversationMap.set(conv.id, conv);
-            } else {
-                console.warn('[ChatSidebar] Duplicate conversation detected:', conv.id);
             }
         });
 
-        const unique = Array.from(conversationMap.values());
-        console.log('[ChatSidebar] Unique conversations count:', unique.length);
-
-        return unique;
+        return Array.from(conversationMap.values());
     }, [conversations]);
 
     const sortedConversations = useMemo(() => {
         const filtered = uniqueConversations.filter((conv) => {
             if (!searchQuery) return true;
-            const name = participantName(conv, currentUserId).toLowerCase();
+            const name = getParticipantName(conv, currentUserId).toLowerCase();
             return name.includes(searchQuery.toLowerCase());
         });
 
         return filtered.sort((a, b) => {
-            const aTime = a.messages?.[a.messages. length - 1]?.createdAt || '';
+            const aTime = a.messages?.[a.messages.length - 1]?.createdAt || '';
             const bTime = b.messages?.[b.messages.length - 1]?.createdAt || '';
 
             if (!aTime && !bTime) return 0;
@@ -129,28 +122,28 @@ const ChatSidebar: React.FC<Props> = ({
                         placeholder="Buscar conversaciones..."
                         className="w-full bg-white/20 backdrop-blur-sm border border-white/30 rounded-lg pl-10 pr-4 py-2 text-sm text-white placeholder-white/70 focus:outline-none focus:ring-2 focus:ring-white/50 focus:bg-white/30 transition"
                         value={searchQuery}
-                        onChange={(e) => setSearchQuery(e.target. value)}
+                        onChange={(e) => setSearchQuery(e.target.value)}
                     />
                 </div>
             </div>
 
             <div className="flex-1 overflow-y-auto">
-                {sortedConversations.length === 0 ?  (
+                {sortedConversations.length === 0 ? (
                     <div className="flex flex-col items-center justify-center h-full text-center p-6">
                         <MessageCircle className="w-16 h-16 text-green-200 mb-3" />
                         <p className="text-sm text-gray-600 font-medium">
-                            {searchQuery ?  'No se encontraron conversaciones' : 'No hay conversaciones'}
+                            {searchQuery ? 'No se encontraron conversaciones' : 'No hay conversaciones'}
                         </p>
                         <p className="text-xs text-gray-400 mt-1">
-                            {searchQuery ?  'Intenta con otro término' : 'Inicia una nueva conversación desde Amigos'}
+                            {searchQuery ? 'Intenta con otro término' : 'Inicia una nueva conversación desde Amigos'}
                         </p>
                     </div>
                 ) : (
                     sortedConversations.map((conv) => {
-                        const name = participantName(conv, currentUserId);
+                        const name = getParticipantName(conv, currentUserId);
                         const avatar = getParticipantAvatar(conv, currentUserId);
-                        const lastMsg = lastMessageText(conv);
-                        const time = lastMessageTime(conv);
+                        const lastMsg = getLastMessageText(conv);
+                        const time = getLastMessageTime(conv);
                         const unread = unreadCounts[conv.id] || 0;
                         const isActive = conv.id === activeConversationId;
 
@@ -167,7 +160,7 @@ const ChatSidebar: React.FC<Props> = ({
                                 `}
                             >
                                 <div className="relative flex-shrink-0">
-                                    {avatar ?  (
+                                    {avatar ? (
                                         <img
                                             src={avatar}
                                             alt={name}
@@ -192,7 +185,7 @@ const ChatSidebar: React.FC<Props> = ({
 
                                                 const parent = target.parentNode;
                                                 if (parent) {
-                                                    parent. insertBefore(fallback, target as Node);
+                                                    parent.insertBefore(fallback, target as Node);
                                                 }
                                             }}
                                         />
@@ -208,16 +201,14 @@ const ChatSidebar: React.FC<Props> = ({
                                         </div>
                                     )}
 
-                                    {/* Indicador de en línea (opcional) */}
                                     <span className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 border-2 border-white rounded-full"></span>
                                 </div>
 
-                                {/* Información del chat */}
                                 <div className="flex-1 min-w-0">
                                     <div className="flex items-center justify-between mb-1">
                                         <h3 className={`
                                             font-semibold truncate
-                                            ${isActive ?  'text-green-700' : 'text-gray-800'}
+                                            ${isActive ? 'text-green-700' : 'text-gray-800'}
                                             ${unread > 0 ? 'font-bold' : ''}
                                         `}>
                                             {name}
@@ -241,7 +232,7 @@ const ChatSidebar: React.FC<Props> = ({
                                         </p>
 
                                         {unread > 0 && (
-                                            <span className="ml-2 flex-shrink-0 bg-green-600 text-white text-xs font-bold rounded-full min-w-[20px] h-5 flex items-center justify-center px-1. 5">
+                                            <span className="ml-2 flex-shrink-0 bg-green-600 text-white text-xs font-bold rounded-full min-w-[20px] h-5 flex items-center justify-center px-1.5">
                                                 {unread > 99 ? '99+' : unread}
                                             </span>
                                         )}
